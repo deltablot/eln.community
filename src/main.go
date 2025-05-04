@@ -70,6 +70,29 @@ type User struct {
 	Orcid string
 }
 
+type App struct {
+	BuildId string
+	Version string
+}
+
+type RootPageData struct {
+	App
+	Categories  []Category
+	MaxFileSize int64
+	User        *User
+}
+
+type RecordPageData struct {
+	App
+	Record Record
+}
+
+type RecordsPageData struct {
+	App
+	Categories []Category
+	Records    []Record
+}
+
 //go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
 var staticFiles embed.FS
 
@@ -81,6 +104,8 @@ var (
 var db *sql.DB
 
 var sessionManager *scs.SessionManager
+
+var app App
 
 // this will be overwritten during docker build
 var version string = "dev"
@@ -538,64 +563,36 @@ func getBrowse(w http.ResponseWriter, r *http.Request) {
 		"src/templates/layout.html",
 		"src/templates/browse.html",
 	))
+
+	// CATEGORIES
+	categories, err := getCategories(r.Context())
+	if err != nil {
+		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
+		return
+	}
+
+	// RECORDS
 	records, err := scanRecords(r.Context())
 	if err != nil {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
 	}
 
-	categories, err := getCategories(r.Context())
-	if err != nil {
-		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
-		return
+	recs := make([]Record, 0, len(records))
+	for _, r := range records {
+		// clone r (shallow copy), then set only MetadataPretty
+		r.MetadataPretty = prettyJSON(r.Metadata)
+		recs = append(recs, r)
 	}
-	var recs []Record
-	for _, rec := range records {
-		// pretty–print the metadata JSON
-		var obj interface{}
-		if err := json.Unmarshal(rec.Metadata, &obj); err != nil {
-			// fallback to raw bytes
-			recs = append(recs, Record{
-				CreatedAt:      rec.CreatedAt,
-				Id:             rec.Id,
-				Metadata:       rec.Metadata,
-				MetadataPretty: string(rec.Metadata),
-				ModifiedAt:     rec.ModifiedAt,
-				Name:           rec.Name,
-				Sha256:         rec.Sha256,
-				UploaderName:   rec.UploaderName,
-				UploaderOrcid:  rec.UploaderOrcid,
-			})
-		} else {
-			b, _ := json.MarshalIndent(obj, "", "  ")
-			recs = append(recs, Record{
-				CreatedAt:      rec.CreatedAt,
-				Id:             rec.Id,
-				Metadata:       rec.Metadata,
-				MetadataPretty: string(b),
-				ModifiedAt:     rec.ModifiedAt,
-				Name:           rec.Name,
-				Sha256:         rec.Sha256,
-				UploaderName:   rec.UploaderName,
-				UploaderOrcid:  rec.UploaderOrcid,
-			})
-		}
+
+	data := RecordsPageData{
+		App:        app,
+		Categories: categories,
+		Records:    recs,
 	}
-	rootData := struct {
-		BuildId     string
-		Categories  []Category
-		Records     []Record
-		MaxFileSize int64
-		Version     string
-	}{
-		BuildId:     buildId,
-		Categories:  categories,
-		Records:     recs,
-		MaxFileSize: maxFileSize,
-		Version:     version,
-	}
+
 	w.Header().Set("Content-Type", "text/html")
-	pageTmpl.ExecuteTemplate(w, "layout", rootData)
+	pageTmpl.ExecuteTemplate(w, "layout", data)
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
@@ -603,40 +600,11 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 		"src/templates/layout.html",
 		"src/templates/index.html",
 	))
-	records, err := scanRecords(r.Context())
-	if err != nil {
-		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
-		return
-	}
 
 	categories, err := getCategories(r.Context())
 	if err != nil {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
-	}
-	var recs []Record
-	for _, rec := range records {
-		// pretty–print the metadata JSON
-		var obj interface{}
-		if err := json.Unmarshal(rec.Metadata, &obj); err != nil {
-			// fallback to raw bytes
-			recs = append(recs, Record{
-				Id:             rec.Id,
-				Sha256:         rec.Sha256,
-				CreatedAt:      rec.CreatedAt,
-				ModifiedAt:     rec.ModifiedAt,
-				MetadataPretty: string(rec.Metadata),
-			})
-		} else {
-			b, _ := json.MarshalIndent(obj, "", "  ")
-			recs = append(recs, Record{
-				Id:             rec.Id,
-				Sha256:         rec.Sha256,
-				CreatedAt:      rec.CreatedAt,
-				ModifiedAt:     rec.ModifiedAt,
-				MetadataPretty: string(b),
-			})
-		}
 	}
 
 	ctx := r.Context()
@@ -650,24 +618,15 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rootData := struct {
-		BuildId     string
-		Categories  []Category
-		Records     []Record
-		MaxFileSize int64
-		Version     string
-		User        *User
-	}{
-		BuildId:     buildId,
+	data := RootPageData{
+		App:         app,
 		Categories:  categories,
-		Records:     recs,
 		MaxFileSize: maxFileSize,
-		Version:     version,
 		User:        user,
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	pageTmpl.ExecuteTemplate(w, "layout", rootData)
+	pageTmpl.ExecuteTemplate(w, "layout", data)
 }
 
 func getRecord(w http.ResponseWriter, r *http.Request) {
@@ -675,70 +634,36 @@ func getRecord(w http.ResponseWriter, r *http.Request) {
 		"src/templates/layout.html",
 		"src/templates/record.html",
 	))
-	const prefix = "/records/"
-	// 1) Make sure the path has our prefix
-	if !strings.HasPrefix(r.URL.Path, prefix) {
-		http.NotFound(w, r)
-		return
-	}
-
-	// 2) Trim off the prefix, e.g. "0196…c0b1.eln" or just "0196…c0b1"
+	const prefix = "/record/"
+	// Grab the id part in the URL
 	raw := strings.TrimPrefix(r.URL.Path, prefix)
 
-	// 3) Split into id and extension
+	// Split into id and extension
 	ext := filepath.Ext(raw) // ".eln" or ""
 	id := strings.TrimSuffix(raw, ext)
 
-	// 4) Validate only the UUID part
+	// validate id (uuidv7)
 	if !uuidv7Regex.MatchString(id) {
 		http.Error(w, "Invalid id format", http.StatusBadRequest)
 		return
 	}
-	rec, err := scanRecord(r.Context(), id)
+
+	// get record
+	record, err := scanRecord(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
+		http.Error(w, "Error fetching record", http.StatusInternalServerError)
 		return
 	}
-	// pretty–print the metadata JSON
-	var obj interface{}
-	var record Record
-	if err := json.Unmarshal(rec.Metadata, &obj); err != nil {
-		// fallback to raw bytes
-		record = Record{
-			Id:             rec.Id,
-			Sha256:         rec.Sha256,
-			Name:           rec.Name,
-			CreatedAt:      rec.CreatedAt,
-			ModifiedAt:     rec.ModifiedAt,
-			UploaderName:   rec.UploaderName,
-			UploaderOrcid:  rec.UploaderOrcid,
-			MetadataPretty: string(rec.Metadata),
-		}
-	} else {
-		b, _ := json.MarshalIndent(obj, "", "  ")
-		record = Record{
-			Id:             rec.Id,
-			Sha256:         rec.Sha256,
-			Name:           rec.Name,
-			CreatedAt:      rec.CreatedAt,
-			ModifiedAt:     rec.ModifiedAt,
-			UploaderName:   rec.UploaderName,
-			UploaderOrcid:  rec.UploaderOrcid,
-			MetadataPretty: string(b),
-		}
-	}
-	rootData := struct {
-		BuildId string
-		Record  Record
-		Version string
-	}{
-		BuildId: buildId,
-		Record:  record,
-		Version: version,
+
+	// prettify JSON
+	record.MetadataPretty = prettyJSON(record.Metadata)
+
+	data := RecordPageData{
+		App:    app,
+		Record: record,
 	}
 
-	//pageTmpl.ExecuteTemplate(w, "layout", rootData)
-	if err := pageTmpl.ExecuteTemplate(w, "layout", rootData); err != nil {
+	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 		errorLogger.Printf("template exec error: %v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
 	}
@@ -764,23 +689,6 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-func getIndexHandler(w http.ResponseWriter, r *http.Request) {
-	rows, err := scanRecords(r.Context())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
-		} else {
-			errorLogger.Printf("%v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-		}
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(rows); err != nil {
-		errorLogger.Printf("failed to write response: %v", err)
-	}
-}
-
 var (
 	oneHandlers = map[string]func(w http.ResponseWriter, r *http.Request, id string){
 		"application/json":        handleJSON,
@@ -790,10 +698,10 @@ var (
 	}
 )
 
-// GET /records
-func getFileHandler(w http.ResponseWriter, r *http.Request) {
+// GET /api/v1/record
+func getRecordApi(w http.ResponseWriter, r *http.Request) {
 
-	const prefix = "/api/v1/records/"
+	const prefix = "/api/v1/record/"
 	// 1) Make sure the path has our prefix
 	if !strings.HasPrefix(r.URL.Path, prefix) {
 		http.NotFound(w, r)
@@ -952,6 +860,10 @@ func main() {
 	maxFileSize = initMaxFileSize()
 
 	initBuildId()
+	app = App{
+		BuildId: buildId,
+		Version: version,
+	}
 
 	// Expect DATABASE_URL like:
 	// postgres://user:pass@host:port/dbname?sslmode=disable
@@ -1010,16 +922,16 @@ func main() {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
-	// 2) API (no CSP middleware)
-	mux.HandleFunc("/api/v1/records", postHandler)
-	mux.HandleFunc("/api/v1/records/", getFileHandler)
+	// API
+	mux.HandleFunc("POST /api/v1/records", postHandler)
+	mux.HandleFunc("GET /api/v1/record/", getRecordApi)
 
-	// 3) About page (with CSP middleware)
+	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
 	mux.Handle("/browse", securityHeaders(http.HandlerFunc(getBrowse)))
-	mux.Handle("/records/", securityHeaders(http.HandlerFunc(getRecord)))
+	mux.Handle("/record/", securityHeaders(http.HandlerFunc(getRecord)))
 
-	// 4) Home / catch-all HTML (with CSP middleware)
+	// root catchall
 	mux.Handle("/", securityHeaders(http.HandlerFunc(getRoot)))
 
 	// in prod we embed the files, but in dev we serve them directly to avoid having to recompile binary after a change
