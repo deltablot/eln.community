@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"embed"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -31,12 +32,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexedwards/scs/postgresstore"
+	"github.com/alexedwards/scs/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 	_ "github.com/lib/pq"
+	"golang.org/x/oauth2"
 
 	"github.com/google/uuid"
 )
@@ -52,6 +57,140 @@ var (
 )
 
 var db *sql.DB
+
+var (
+	provider     *oidc.Provider
+	oauth2Config *oauth2.Config
+	oidcVerifier *oidc.IDTokenVerifier
+)
+
+var sessionManager *scs.SessionManager
+
+func initOIDC() {
+	ctx := context.Background()
+
+	// 1) Discover ORCID’s endpoints
+	var err error
+	provider, err = oidc.NewProvider(ctx, "https://orcid.org")
+	if err != nil {
+		log.Fatalf("failed to discover ORCID: %v", err)
+	}
+
+	clientID := os.Getenv("ORCID_CLIENT_ID")
+	clientSecret := os.Getenv("ORCID_CLIENT_SECRET")
+	redirectURL := "https://eln.community:8081/auth/callback"
+
+	// 2) Set up the ID token verifier
+	oidcVerifier = provider.Verifier(&oidc.Config{ClientID: clientID})
+
+	// 3) OAuth2 config for the auth code flow
+	oauth2Config = &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Endpoint:     provider.Endpoint(),
+		RedirectURL:  redirectURL,
+		Scopes:       []string{oidc.ScopeOpenID},
+	}
+}
+
+func generateState() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// 1) Redirect user to ORCID
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	state := generateState()
+	// Store state in a cookie (or session) to verify later:
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oidc_state",
+		Value:    state,
+		Path:     "/",
+		HttpOnly: true,
+		Expires:  time.Now().Add(5 * time.Minute),
+	})
+	url := oauth2Config.AuthCodeURL(state)
+	http.Redirect(w, r, url, http.StatusFound)
+}
+
+// 2) Handle ORCID callback
+func callbackHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Verify state
+	cookie, err := r.Cookie("oidc_state")
+	if err != nil || r.URL.Query().Get("state") != cookie.Value {
+		http.Error(w, "Invalid state", http.StatusBadRequest)
+		return
+	}
+
+	// Exchange code for token
+	token, err := oauth2Config.Exchange(ctx, r.URL.Query().Get("code"))
+	if err != nil {
+		http.Error(w, "Token exchange failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Extract & verify the ID Token
+	rawID := token.Extra("id_token").(string)
+	idToken, err := oidcVerifier.Verify(ctx, rawID)
+	if err != nil {
+		http.Error(w, "ID token verification failed", http.StatusInternalServerError)
+		return
+	}
+
+	// now fetch UserInfo (where ORCID actually returns name/email)
+	userInfo, err := provider.UserInfo(ctx, oauth2Config.TokenSource(ctx, token))
+	if err != nil {
+		http.Error(w, "Failed to get userinfo", http.StatusInternalServerError)
+		return
+	}
+
+	// decode the standard claims
+	var profile struct {
+		Sub        string `json:"sub"`
+		GivenName  string `json:"given_name"`
+		FamilyName string `json:"family_name"`
+	}
+	if err := userInfo.Claims(&profile); err != nil {
+		http.Error(w, "Failed to parse userinfo", http.StatusInternalServerError)
+		return
+	}
+
+	// Pull claims into a user struct
+	var claims struct {
+		Sub        string `json:"sub"`
+		GivenName  string `json:"given_name"`
+		FamilyName string `json:"family_name"`
+	}
+	if err := idToken.Claims(&claims); err != nil {
+		http.Error(w, "Failed to decode claims", http.StatusInternalServerError)
+		return
+	}
+	infoLogger.Printf("OIDC claims: %+v", claims)
+
+	sessionManager.Put(ctx, "orcid", claims.Sub)
+	sessionManager.Put(ctx, "given_name", claims.GivenName)
+	sessionManager.Put(ctx, "family_name", claims.FamilyName)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	// TODO: look up/create your local user here…
+
+	// Set a simple cookie for demo (use a session store in real code)
+	/*
+		http.SetCookie(w, &http.Cookie{
+			Name:     "user",
+			Value:    claims.Sub,
+			Path:     "/",
+			HttpOnly: true,
+			Expires:  time.Now().Add(24 * time.Hour),
+		})
+
+		// Redirect back to your record page or home
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	*/
+}
 
 type Record struct {
 	Id         string          `json:"id"`
@@ -464,7 +603,6 @@ func getRows(ctx context.Context) ([]Record, error) {
 			return nil, err
 		}
 		recs = append(recs, r)
-		fmt.Println(r.Name)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -508,6 +646,11 @@ type Category struct {
 	Name       string
 	CreatedAt  time.Time
 	ModifiedAt time.Time
+}
+
+type User struct {
+	Name  string
+	Orcid string
 }
 
 func getAbout(w http.ResponseWriter, r *http.Request) {
@@ -617,18 +760,33 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+
+	ctx := r.Context()
+	var user *User
+	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
+	givenName, _ := sessionManager.Get(ctx, "given_name").(string)
+	familyName, _ := sessionManager.Get(ctx, "family_name").(string)
+	if okO {
+		user = &User{
+			Name:  strings.TrimSpace(givenName + " " + familyName),
+			Orcid: orcid,
+		}
+	}
+
 	rootData := struct {
 		BuildId     string
 		Categories  []Category
 		Records     []RecordView
 		MaxFileSize int64
 		Version     string
+		User        *User
 	}{
 		BuildId:     buildId,
 		Categories:  categories,
 		Records:     views,
 		MaxFileSize: maxFileSize,
 		Version:     version,
+		User:        user,
 	}
 
 	w.Header().Set("Content-Type", "text/html")
@@ -915,6 +1073,8 @@ func main() {
 
 	initBuildId()
 
+	initOIDC()
+
 	// Expect DATABASE_URL like:
 	// postgres://user:pass@host:port/dbname?sslmode=disable
 	dsn := os.Getenv("DATABASE_URL")
@@ -938,6 +1098,14 @@ func main() {
 		log.Fatalf("failed to initialize schema: %v", err)
 	}
 
+	// 2) Configure SCS
+	sessionManager = scs.New()
+	sessionManager.Store = postgresstore.New(db)
+	sessionManager.Lifetime = 24 * time.Hour
+	sessionManager.Cookie.HttpOnly = true
+	sessionManager.Cookie.Secure = true // set to true if you're on HTTPS
+	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
+
 	siteUrlEnv := os.Getenv("SITE_URL")
 	if len(siteUrlEnv) > 10 {
 		siteUrl = siteUrlEnv
@@ -952,6 +1120,15 @@ func main() {
 	mux.HandleFunc("/favicon.ico", serveAsset)
 	mux.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// OIDC routes
+	mux.HandleFunc("/auth/login", loginHandler)
+	mux.HandleFunc("/auth/callback", callbackHandler)
+	mux.HandleFunc("/auth/logout", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		sessionManager.Remove(ctx, "orcid")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
 	// 2) API (no CSP middleware)
@@ -991,7 +1168,10 @@ func main() {
 		infoLogger.Printf("service running at: %s", siteUrl)
 	}
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	// Wrap all handlers so they get a request-scoped session context
+	handler := sessionManager.LoadAndSave(mux)
+
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		errorLogger.Fatalf("failed to start server: %v", err)
 	}
 }

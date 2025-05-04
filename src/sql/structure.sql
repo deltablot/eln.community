@@ -35,3 +35,11 @@ CREATE TRIGGER trigger_update_modified_at
 BEFORE UPDATE ON categories
 FOR EACH ROW
 EXECUTE FUNCTION update_modified_at();
+
+-- SESSIONS
+CREATE TABLE sessions (
+	token TEXT PRIMARY KEY,
+	data BYTEA NOT NULL,
+	expiry TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX sessions_expiry_idx ON sessions (expiry);
