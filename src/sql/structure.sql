@@ -7,6 +7,10 @@ RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+-- orcid format
+CREATE DOMAIN orcid_type AS CHAR(19)
+  CHECK (VALUE ~ '^\d{4}-\d{4}-\d{4}-\d{4}$');
+
 -- RECORDS
 CREATE TABLE IF NOT EXISTS records (
   id         UUID                     PRIMARY KEY,
@@ -15,7 +19,9 @@ CREATE TABLE IF NOT EXISTS records (
   sha256     TEXT                     UNIQUE NOT NULL,
   metadata   JSONB                    NOT NULL DEFAULT '{}'::JSONB,
   created_at TIMESTAMPTZ              NOT NULL DEFAULT now(),
-  modified_at TIMESTAMPTZ     NOT NULL DEFAULT now()
+  modified_at TIMESTAMPTZ     NOT NULL DEFAULT now(),
+  uploader_name VARCHAR(255)               NOT NULL,
+  uploader_orcid   orcid_type  NOT NULL
 );
 CREATE TRIGGER trigger_update_modified_at
 BEFORE UPDATE ON records

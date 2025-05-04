@@ -1,7 +1,7 @@
 /**
- * Partage: share files securely
+ * eln.community
  * © 2025 - Nicolas CARPi, Deltablot
- * License: MIT
+ * License: AGPLv3
  */
 package main
 
@@ -65,6 +65,31 @@ var (
 )
 
 var sessionManager *scs.SessionManager
+
+type Record struct {
+	CreatedAt time.Time       `json:"created_at"`
+	Id        string          `json:"id"`
+	Metadata  json.RawMessage `json:"metadata"`
+	// This will be ignored by json.Marshal
+	MetadataPretty string    `json:"-"`
+	ModifiedAt     time.Time `json:"modified_at"`
+	Name           string    `json:"name"`
+	Sha256         string    `json:"sha256"`
+	UploaderName   string    `json:"uploader_name"`
+	UploaderOrcid  string    `json:"uploader_orcid"`
+}
+
+type Category struct {
+	Id         int64
+	Name       string
+	CreatedAt  time.Time
+	ModifiedAt time.Time
+}
+
+type User struct {
+	Name  string
+	Orcid string
+}
 
 func initOIDC() {
 	ctx := context.Background()
@@ -171,8 +196,7 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	infoLogger.Printf("OIDC claims: %+v", claims)
 
 	sessionManager.Put(ctx, "orcid", claims.Sub)
-	sessionManager.Put(ctx, "given_name", claims.GivenName)
-	sessionManager.Put(ctx, "family_name", claims.FamilyName)
+	sessionManager.Put(ctx, "name", strings.TrimSpace(profile.GivenName+" "+profile.FamilyName))
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	// TODO: look up/create your local user here…
@@ -190,15 +214,6 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		// Redirect back to your record page or home
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	*/
-}
-
-type Record struct {
-	Id         string          `json:"id"`
-	Sha256     string          `json:"sha256"`
-	Name       string          `json:"name"`
-	CreatedAt  time.Time       `json:"created_at"`
-	ModifiedAt time.Time       `json:"modified_at"`
-	Metadata   json.RawMessage `json:"metadata"`
 }
 
 // this will be overwritten during docker build
@@ -404,6 +419,16 @@ func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
 
 // POST Handler
 func postHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var user *User
+	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
+	user_name, _ := sessionManager.Get(ctx, "name").(string)
+	if okO {
+		user = &User{
+			Name:  user_name,
+			Orcid: orcid,
+		}
+	}
 	// Retrieve the key from the request header.
 	/*
 		headerKey := r.Header.Get("Authorization")
@@ -487,8 +512,8 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 	// DB insert
 	_, err = db.Exec(
-		`INSERT INTO records (id, s3_key, sha256, name, metadata) VALUES ($1, $2, $3, $4, $5)`,
-		record.Id, key, hashHex, name, meta,
+		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		record.Id, key, hashHex, name, meta, user.Name, user.Orcid,
 	)
 	// Will create an error if sha256 is not unique
 	if err != nil {
@@ -577,9 +602,9 @@ func getCategories(ctx context.Context) ([]Category, error) {
 	}
 
 	return recs, nil
-
 }
-func getRows(ctx context.Context) ([]Record, error) {
+
+func scanRecords(ctx context.Context) ([]Record, error) {
 	rows, err := db.QueryContext(ctx, `
 	  SELECT id, sha256, name, metadata, created_at, modified_at FROM records
     `)
@@ -612,10 +637,11 @@ func getRows(ctx context.Context) ([]Record, error) {
 
 }
 
-func getRow(ctx context.Context, id string) (Record, error) {
+// fetch a Record from db by id
+func scanRecord(ctx context.Context, id string) (Record, error) {
 	var rec Record
 	err := db.QueryRowContext(ctx, `
-  SELECT id, sha256, name, metadata, created_at, modified_at
+	    SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid
         FROM records
         WHERE id = $1
         `, id).Scan(
@@ -625,32 +651,13 @@ func getRow(ctx context.Context, id string) (Record, error) {
 		&rec.Metadata,
 		&rec.CreatedAt,
 		&rec.ModifiedAt,
+		&rec.UploaderName,
+		&rec.UploaderOrcid,
 	)
 	if err != nil {
 		return Record{}, err
 	}
 	return rec, nil
-}
-
-type RecordView struct {
-	Id             string
-	Sha256         string
-	Name           string
-	CreatedAt      time.Time
-	ModifiedAt     time.Time
-	MetadataPretty string // preformatted JSON
-}
-
-type Category struct {
-	Id         int64
-	Name       string
-	CreatedAt  time.Time
-	ModifiedAt time.Time
-}
-
-type User struct {
-	Name  string
-	Orcid string
 }
 
 func getAbout(w http.ResponseWriter, r *http.Request) {
@@ -666,7 +673,7 @@ func getBrowse(w http.ResponseWriter, r *http.Request) {
 		"src/templates/layout.html",
 		"src/templates/browse.html",
 	))
-	records, err := getRows(r.Context())
+	records, err := scanRecords(r.Context())
 	if err != nil {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
@@ -677,42 +684,48 @@ func getBrowse(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
 	}
-	var views []RecordView
+	var recs []Record
 	for _, rec := range records {
 		// pretty–print the metadata JSON
 		var obj interface{}
 		if err := json.Unmarshal(rec.Metadata, &obj); err != nil {
 			// fallback to raw bytes
-			views = append(views, RecordView{
-				Id:             rec.Id,
-				Sha256:         rec.Sha256,
-				Name:           rec.Name,
+			recs = append(recs, Record{
 				CreatedAt:      rec.CreatedAt,
-				ModifiedAt:     rec.ModifiedAt,
+				Id:             rec.Id,
+				Metadata:       rec.Metadata,
 				MetadataPretty: string(rec.Metadata),
+				ModifiedAt:     rec.ModifiedAt,
+				Name:           rec.Name,
+				Sha256:         rec.Sha256,
+				UploaderName:   rec.UploaderName,
+				UploaderOrcid:  rec.UploaderOrcid,
 			})
 		} else {
 			b, _ := json.MarshalIndent(obj, "", "  ")
-			views = append(views, RecordView{
-				Id:             rec.Id,
-				Sha256:         rec.Sha256,
-				Name:           rec.Name,
+			recs = append(recs, Record{
 				CreatedAt:      rec.CreatedAt,
-				ModifiedAt:     rec.ModifiedAt,
+				Id:             rec.Id,
+				Metadata:       rec.Metadata,
 				MetadataPretty: string(b),
+				ModifiedAt:     rec.ModifiedAt,
+				Name:           rec.Name,
+				Sha256:         rec.Sha256,
+				UploaderName:   rec.UploaderName,
+				UploaderOrcid:  rec.UploaderOrcid,
 			})
 		}
 	}
 	rootData := struct {
 		BuildId     string
 		Categories  []Category
-		Records     []RecordView
+		Records     []Record
 		MaxFileSize int64
 		Version     string
 	}{
 		BuildId:     buildId,
 		Categories:  categories,
-		Records:     views,
+		Records:     recs,
 		MaxFileSize: maxFileSize,
 		Version:     version,
 	}
@@ -725,7 +738,7 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 		"src/templates/layout.html",
 		"src/templates/index.html",
 	))
-	records, err := getRows(r.Context())
+	records, err := scanRecords(r.Context())
 	if err != nil {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
@@ -736,13 +749,13 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
 	}
-	var views []RecordView
+	var recs []Record
 	for _, rec := range records {
 		// pretty–print the metadata JSON
 		var obj interface{}
 		if err := json.Unmarshal(rec.Metadata, &obj); err != nil {
 			// fallback to raw bytes
-			views = append(views, RecordView{
+			recs = append(recs, Record{
 				Id:             rec.Id,
 				Sha256:         rec.Sha256,
 				CreatedAt:      rec.CreatedAt,
@@ -751,7 +764,7 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 			})
 		} else {
 			b, _ := json.MarshalIndent(obj, "", "  ")
-			views = append(views, RecordView{
+			recs = append(recs, Record{
 				Id:             rec.Id,
 				Sha256:         rec.Sha256,
 				CreatedAt:      rec.CreatedAt,
@@ -764,11 +777,10 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var user *User
 	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	givenName, _ := sessionManager.Get(ctx, "given_name").(string)
-	familyName, _ := sessionManager.Get(ctx, "family_name").(string)
+	name, _ := sessionManager.Get(ctx, "name").(string)
 	if okO {
 		user = &User{
-			Name:  strings.TrimSpace(givenName + " " + familyName),
+			Name:  name,
 			Orcid: orcid,
 		}
 	}
@@ -776,14 +788,14 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	rootData := struct {
 		BuildId     string
 		Categories  []Category
-		Records     []RecordView
+		Records     []Record
 		MaxFileSize int64
 		Version     string
 		User        *User
 	}{
 		BuildId:     buildId,
 		Categories:  categories,
-		Records:     views,
+		Records:     recs,
 		MaxFileSize: maxFileSize,
 		Version:     version,
 		User:        user,
@@ -817,38 +829,42 @@ func getRecord(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid id format", http.StatusBadRequest)
 		return
 	}
-	rec, err := getRow(r.Context(), id)
+	rec, err := scanRecord(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
 	}
 	// pretty–print the metadata JSON
 	var obj interface{}
-	var record RecordView
+	var record Record
 	if err := json.Unmarshal(rec.Metadata, &obj); err != nil {
 		// fallback to raw bytes
-		record = RecordView{
+		record = Record{
 			Id:             rec.Id,
 			Sha256:         rec.Sha256,
 			Name:           rec.Name,
 			CreatedAt:      rec.CreatedAt,
 			ModifiedAt:     rec.ModifiedAt,
+			UploaderName:   rec.UploaderName,
+			UploaderOrcid:  rec.UploaderOrcid,
 			MetadataPretty: string(rec.Metadata),
 		}
 	} else {
 		b, _ := json.MarshalIndent(obj, "", "  ")
-		record = RecordView{
+		record = Record{
 			Id:             rec.Id,
 			Sha256:         rec.Sha256,
 			Name:           rec.Name,
 			CreatedAt:      rec.CreatedAt,
 			ModifiedAt:     rec.ModifiedAt,
+			UploaderName:   rec.UploaderName,
+			UploaderOrcid:  rec.UploaderOrcid,
 			MetadataPretty: string(b),
 		}
 	}
 	rootData := struct {
 		BuildId string
-		Record  RecordView
+		Record  Record
 		Version string
 	}{
 		BuildId: buildId,
@@ -884,7 +900,7 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 func getIndexHandler(w http.ResponseWriter, r *http.Request) {
-	rows, err := getRows(r.Context())
+	rows, err := scanRecords(r.Context())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.NotFound(w, r)
@@ -955,7 +971,7 @@ func getFileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleJSON(w http.ResponseWriter, r *http.Request, id string) {
-	jsonData, err := getRow(r.Context(), id)
+	record, err := scanRecord(r.Context(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.NotFound(w, r)
@@ -965,14 +981,13 @@ func handleJSON(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	response := jsonData
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	if err := json.NewEncoder(w).Encode(record); err != nil {
 		errorLogger.Printf("failed to write response: %v", err)
 	}
 }
 
 func handleHTML(w http.ResponseWriter, r *http.Request, id string) {
-	record, err := getRow(r.Context(), id)
+	record, err := scanRecord(r.Context(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.NotFound(w, r)
@@ -1126,8 +1141,7 @@ func main() {
 	mux.HandleFunc("/auth/login", loginHandler)
 	mux.HandleFunc("/auth/callback", callbackHandler)
 	mux.HandleFunc("/auth/logout", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		sessionManager.Remove(ctx, "orcid")
+		sessionManager.Destroy(r.Context())
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
