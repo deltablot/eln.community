@@ -1,9 +1,9 @@
 {{ define "content" }}
 <h1>{{ .Record.Name }}</h1>
-<h2>ID: {{ .Record.Id }}</h2>
-<h2>Created at: {{ .Record.CreatedAt }}</h2>
-<h2>Uploaded by: {{ .Record.UploaderName }} (ORCID: {{ .Record.UploaderOrcid }})</h2>
-<h2>Metadata: </h2>
+<h3>ID: {{ .Record.Id }}</h3>
+<h3>Created at: {{ .Record.CreatedAt }}</h3>
+<h3>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h3>
+<h3>Metadata: </h3>
 <details>
   <summary>Display ro-crate-metadata.json</summary>
 <pre>{{ .Record.MetadataPretty }}</pre>

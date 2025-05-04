@@ -5,7 +5,8 @@
       <details style="margin-bottom:1em;">
         <summary><strong>{{ .Name }}</strong></summary>
         <ul>
-          <li><a class='btn btn-primary' href='/api/v1/records/{{ .Id }}.eln'>Download</a></li>
+          <li><a class='btn btn-primary' href='/records/{{ .Id }}'>View</a></li>
+          <li><a class='btn btn-secondary' href='/api/v1/records/{{ .Id }}.eln'>Download</a></li>
           <li><strong>SHA256:</strong> {{ .Sha256 }}</li>
           <li><strong>Created at:</strong> {{ .CreatedAt.Format "2006-01-02 15:04:05 MST" }}</li>
           <li><strong>Modified at:</strong> {{ .ModifiedAt.Format "2006-01-02 15:04:05 MST" }}</li>

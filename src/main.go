@@ -13,7 +13,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"embed"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -39,32 +38,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	oidc "github.com/coreos/go-oidc/v3/oidc"
 	_ "github.com/lib/pq"
-	"golang.org/x/oauth2"
 
 	"github.com/google/uuid"
 )
 
 //go:generate bash build.sh
-
-//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
-var staticFiles embed.FS
-
-var (
-	infoLogger  = log.New(os.Stdout, "[info] ", log.LstdFlags)
-	errorLogger = log.New(os.Stderr, "[error] ", log.LstdFlags|log.Lshortfile)
-)
-
-var db *sql.DB
-
-var (
-	provider     *oidc.Provider
-	oauth2Config *oauth2.Config
-	oidcVerifier *oidc.IDTokenVerifier
-)
-
-var sessionManager *scs.SessionManager
 
 type Record struct {
 	CreatedAt time.Time       `json:"created_at"`
@@ -91,135 +70,20 @@ type User struct {
 	Orcid string
 }
 
-func initOIDC() {
-	ctx := context.Background()
+//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
+var staticFiles embed.FS
 
-	// 1) Discover ORCID’s endpoints
-	var err error
-	provider, err = oidc.NewProvider(ctx, "https://orcid.org")
-	if err != nil {
-		log.Fatalf("failed to discover ORCID: %v", err)
-	}
+var (
+	infoLogger  = log.New(os.Stdout, "[info] ", log.LstdFlags)
+	errorLogger = log.New(os.Stderr, "[error] ", log.LstdFlags|log.Lshortfile)
+)
 
-	clientID := os.Getenv("ORCID_CLIENT_ID")
-	clientSecret := os.Getenv("ORCID_CLIENT_SECRET")
-	redirectURL := "https://eln.community:8081/auth/callback"
+var db *sql.DB
 
-	// 2) Set up the ID token verifier
-	oidcVerifier = provider.Verifier(&oidc.Config{ClientID: clientID})
-
-	// 3) OAuth2 config for the auth code flow
-	oauth2Config = &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Endpoint:     provider.Endpoint(),
-		RedirectURL:  redirectURL,
-		Scopes:       []string{oidc.ScopeOpenID},
-	}
-}
-
-func generateState() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
-// 1) Redirect user to ORCID
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	state := generateState()
-	// Store state in a cookie (or session) to verify later:
-	http.SetCookie(w, &http.Cookie{
-		Name:     "oidc_state",
-		Value:    state,
-		Path:     "/",
-		HttpOnly: true,
-		Expires:  time.Now().Add(5 * time.Minute),
-	})
-	url := oauth2Config.AuthCodeURL(state)
-	http.Redirect(w, r, url, http.StatusFound)
-}
-
-// 2) Handle ORCID callback
-func callbackHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Verify state
-	cookie, err := r.Cookie("oidc_state")
-	if err != nil || r.URL.Query().Get("state") != cookie.Value {
-		http.Error(w, "Invalid state", http.StatusBadRequest)
-		return
-	}
-
-	// Exchange code for token
-	token, err := oauth2Config.Exchange(ctx, r.URL.Query().Get("code"))
-	if err != nil {
-		http.Error(w, "Token exchange failed", http.StatusInternalServerError)
-		return
-	}
-
-	// Extract & verify the ID Token
-	rawID := token.Extra("id_token").(string)
-	idToken, err := oidcVerifier.Verify(ctx, rawID)
-	if err != nil {
-		http.Error(w, "ID token verification failed", http.StatusInternalServerError)
-		return
-	}
-
-	// now fetch UserInfo (where ORCID actually returns name/email)
-	userInfo, err := provider.UserInfo(ctx, oauth2Config.TokenSource(ctx, token))
-	if err != nil {
-		http.Error(w, "Failed to get userinfo", http.StatusInternalServerError)
-		return
-	}
-
-	// decode the standard claims
-	var profile struct {
-		Sub        string `json:"sub"`
-		GivenName  string `json:"given_name"`
-		FamilyName string `json:"family_name"`
-	}
-	if err := userInfo.Claims(&profile); err != nil {
-		http.Error(w, "Failed to parse userinfo", http.StatusInternalServerError)
-		return
-	}
-
-	// Pull claims into a user struct
-	var claims struct {
-		Sub        string `json:"sub"`
-		GivenName  string `json:"given_name"`
-		FamilyName string `json:"family_name"`
-	}
-	if err := idToken.Claims(&claims); err != nil {
-		http.Error(w, "Failed to decode claims", http.StatusInternalServerError)
-		return
-	}
-	infoLogger.Printf("OIDC claims: %+v", claims)
-
-	sessionManager.Put(ctx, "orcid", claims.Sub)
-	sessionManager.Put(ctx, "name", strings.TrimSpace(profile.GivenName+" "+profile.FamilyName))
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-
-	// TODO: look up/create your local user here…
-
-	// Set a simple cookie for demo (use a session store in real code)
-	/*
-		http.SetCookie(w, &http.Cookie{
-			Name:     "user",
-			Value:    claims.Sub,
-			Path:     "/",
-			HttpOnly: true,
-			Expires:  time.Now().Add(24 * time.Hour),
-		})
-
-		// Redirect back to your record page or home
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-	*/
-}
+var sessionManager *scs.SessionManager
 
 // this will be overwritten during docker build
 var version string = "dev"
-
-var storageDirectory string
 
 var maxFileSizeStr = "1024"
 
@@ -504,16 +368,18 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	record := Record{
-		Id:       id,
-		Sha256:   hashHex,
-		Name:     name,
-		Metadata: meta,
+		Id:            id,
+		Sha256:        hashHex,
+		Name:          name,
+		Metadata:      meta,
+		UploaderName:  user.Name,
+		UploaderOrcid: user.Orcid,
 	}
 
 	// DB insert
 	_, err = db.Exec(
 		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		record.Id, key, hashHex, name, meta, user.Name, user.Orcid,
+		record.Id, key, record.Sha256, record.Name, record.Metadata, record.UploaderName, record.UploaderOrcid,
 	)
 	// Will create an error if sha256 is not unique
 	if err != nil {
@@ -559,7 +425,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		// After a POST-from-form, redirect to GET /record/{id}
 		// Use 303 See Other so browsers use GET on the new URL
 		http.Redirect(w, r,
-			fmt.Sprintf("/records/%s", id),
+			fmt.Sprintf("/records/%s", record.Id),
 			http.StatusSeeOther,
 		)
 		return
@@ -569,8 +435,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	infoLogger.Printf("received new file: %s", record.Id)
 
 	// Send a confirmation response back as JSON.
-	response := record
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	if err := json.NewEncoder(w).Encode(record); err != nil {
 		errorLogger.Printf("failed to write response: %v", err)
 	}
 }
@@ -1088,8 +953,6 @@ func main() {
 
 	initBuildId()
 
-	initOIDC()
-
 	// Expect DATABASE_URL like:
 	// postgres://user:pass@host:port/dbname?sslmode=disable
 	dsn := os.Getenv("DATABASE_URL")
@@ -1125,6 +988,8 @@ func main() {
 	if len(siteUrlEnv) > 10 {
 		siteUrl = siteUrlEnv
 	}
+
+	initOIDC(siteUrl)
 
 	addr := ":" + *port
 	infoLogger.Printf("server running on port: %s", *port)
