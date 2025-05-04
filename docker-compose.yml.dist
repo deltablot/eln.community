@@ -1,0 +1,17 @@
+# deploy partage service
+# use: "docker compose up -d" to start service
+services:
+    partage:
+        image: ghcr.io/deltablot/partage:latest
+        container_name: partage
+        security_opt:
+            - no-new-privileges:true
+        restart: always
+        # make sure this folder is writable by user nobody (65534)
+        # try this: mkdir files && chown 65534:65534 files
+        volumes:
+            - ./files:/var/partage
+        environment:
+            - SITE_URL=https://partage.example.com
+        expose:
+            - 8080

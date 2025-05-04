@@ -1,0 +1,11 @@
+{{ define "content" }}
+<h1>{{ .Record.Name }}</h1>
+<h2>ID: {{ .Record.Id }}</h2>
+<h2>Created at: {{ .Record.CreatedAt }}</h2>
+<h2>Metadata: </h2>
+<details>
+  <summary>Display ro-crate-metadata.json</summary>
+<pre>{{ .Record.MetadataPretty }}</pre>
+</details>
+<!--pre>{{ printf "%#v" . }}</pre-->
+{{ end }}

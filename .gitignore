@@ -1,0 +1,7 @@
+files/
+partage
+.yarn/*
+.pnp.*
+src/dist/
+*.svg
+docker-compose.yml

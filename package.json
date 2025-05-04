@@ -1,0 +1,7 @@
+{
+  "name": "partage",
+  "packageManager": "yarn@4.6.0",
+  "dependencies": {
+    "esbuild": "^0.25.2"
+  }
+}

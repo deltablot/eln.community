@@ -1,0 +1,98 @@
+{{ define "layout" }}
+<!DOCTYPE html>
+<html lang="en">
+<!-- eln.community - © 2025 Nicolas CARPi, Deltablot -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ELN Community">
+  <title>ELN Community</title>
+   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
+  <link rel='stylesheet' media='all' href='/main.css?v={{ .BuildId }}' />
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/">ELN.community</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse justify-content-center" id="navbarNavAltMarkup">
+      <div class="navbar-nav">
+        <a class="nav-link active" aria-current="page" href="/">Home</a>
+        <a class="nav-link" href="/browse">Browse</a>
+        <a class="nav-link" href="/about">About</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+  <dialog id='error-dialog'>
+    <h3>Error</h3>
+    <p id='error'></p>
+    <div class='text-center'>
+      <button autofocus>Close</button>
+    </div>
+  </dialog>
+
+   <main class="flex-fill container">
+       {{ block "content" . }}Default body{{ end }}
+   </main>
+
+
+    <dialog id='tos'>
+      <h3>Terms of use</h3>
+      <p><em>Last updated: April 18, 2025</em></p>
+      <ol>
+        <li>
+          <strong>Acceptance</strong><br>
+          By using eln.community (“the Service”), you agree to these Terms. If you don’t agree, please don’t use the Service.
+        </li>
+        <li>
+          <strong>Permitted Use</strong><br>
+          You may upload, share and download files within the size and quantity limits set by the Service. You are responsible for keeping any access keys or links secure.
+        </li>
+        <li>
+          <strong>Prohibited Content</strong><br>
+          No unlawful, infringing, defamatory, harmful or malicious files. No distribution of malware, phishing materials, or any content that violates privacy or intellectual‑property rights.
+        </li>
+        <li>
+          <strong>Retention & Removal</strong><br>
+          Files expire automatically based on the deadline you set. We reserve the right to remove files that breach these Terms or exceed storage limits.
+        </li>
+        <li>
+          <strong>Privacy</strong><br>
+          We collect minimal metadata (file IDs, timestamps). No personal data is shared without your consent. See our Privacy Policy for details.
+        </li>
+        <li>
+          <strong>Liability Disclaimer</strong><br>
+          The Service is provided “as‑is.” We aren’t liable for data loss, unauthorized access, or damages arising from use or misuse.
+        </li>
+        <li>
+          <strong>Changes to Terms</strong><br>
+          We may update these Terms at any time. Continued use after changes means you accept the new Terms.
+        </li>
+        <li>
+          <strong>Contact</strong><br>
+          For questions or notices, <a href='https://www.deltablot.com/contact' target='_blank' rel='noreferrer'>contact us</a>.
+        </li>
+      </ol>
+      <div class='text-center'>
+        <button autofocus>Close</button>
+      </div>
+    </dialog>
+   </main>
+
+
+    <footer  class="mt-auto">
+
+      <a href='#' id='tos-link'>Terms of use</a> | <a href='https://www.deltablot.com/privacy/' target='_blank' rel='noreferrer'>Privacy policy</a> | <a href='https://github.com/deltablot/eln.community?tab=readme-ov-file' target='_blank' rel='noreferrer'>Source code</a> | Made in France with ♥ by <a href='https://www.deltablot.com' target='_blank' rel='noreferrer'>Deltablot</a> | v{{ .Version }}</footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
+
+  <script type='module' src='/index.js?v={{ .BuildId }}'></script>
+</body>
+</html>
+{{ end }}
