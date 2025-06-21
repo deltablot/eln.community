@@ -2,7 +2,6 @@
 .git
 .gitattributes
 .gitignore
-partage
 .pnp.cjs
 CONTRIBUTING.md
 FUNDING.yml

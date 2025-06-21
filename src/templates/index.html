@@ -1,32 +1,27 @@
 {{ define "content" }}
-      <h1>Welcome to the ELN Community</h1>
-      <p>A place to share ELN archives: experiments, protocols, templates, resources...</p>
-      {{ if .User }}
-  <span class="navbar-text">Welcome, {{ .User.Name }}</span>
-  <p>Your orcid: {{ .User.Orcid }}</p>
-  <a href="/auth/logout" class="btn btn-outline-secondary ms-2">Logout</a>
-{{ else }}
-  <a href="/auth/login" class="btn btn-primary">Login with ORCID</a>
-{{ end }}
-      <h2>Select a category</h2>
-    {{- if .Categories }}
-      {{- range .Categories }}
+  <h1>Welcome to the ELN Community</h1>
+  <p>A place to share ELN archives: experiments, protocols, templates, resources...</p>
+  {{ if .User }}
+    <span class="navbar-text">Welcome, {{ .User.Name }}</span>
+    <p>Your orcid: {{ .User.Orcid }}</p>
+    <a href="/auth/logout" class="btn btn-outline-secondary ms-2">Logout</a>
+  {{ else }}
+    <a href="/auth/login" class="btn btn-primary">Login with ORCID</a>
+  {{ end }}
+  <h2>Select a category</h2>
+  {{- if .Categories }}
+    {{- range .Categories }}
       <a href='/browse?cat={{ .Id }}' class='btn btn-primary'>{{ .Name }}</a>
-      {{- end }}
     {{- end }}
-      <h2>Add entry</h2>
-      <form method='post' action='/api/v1/records' enctype='multipart/form-data'>
-        <label>Name your entry
-          <input type='text' name='name' class='form-control' />
-        </label>
-        <label>Upload .eln file
-          <input type='file' name='file' class='form-control' />
-        </label>
-        <button type='submit'>Send</button>
-      </form>
-
-
-      <hr>
-      <!--pre>{{ printf "%+v" . }}</pre-->
-
+  {{- end }}
+  <h2>Add entry</h2>
+  <form method='post' action='/api/v1/records' enctype='multipart/form-data'>
+    <label>Name your entry
+      <input type='text' name='name' class='form-control' />
+    </label>
+    <label>Upload .eln file
+      <input type='file' name='file' class='form-control' />
+    </label>
+    <button type='submit'>Send</button>
+  </form>
 {{ end }}

@@ -71,15 +71,15 @@ type User struct {
 }
 
 type App struct {
-	BuildId string
-	Version string
+	BuildId     string
+	MaxFileSize int64
+	Version     string
 }
 
 type RootPageData struct {
 	App
-	Categories  []Category
-	MaxFileSize int64
-	User        *User
+	Categories []Category
+	User       *User
 }
 
 type RecordPageData struct {
@@ -93,7 +93,7 @@ type RecordsPageData struct {
 	Records    []Record
 }
 
-//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
+//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt sql/structure.sql
 var staticFiles embed.FS
 
 var (
@@ -109,10 +109,6 @@ var app App
 
 // this will be overwritten during docker build
 var version string = "dev"
-
-var maxFileSizeStr = "1024"
-
-var maxFileSize int64
 
 var defaultMaxTotalFiles int64 = 24
 
@@ -145,9 +141,14 @@ func ensureSchema(ctx context.Context) error {
 	}
 
 	// 2) Read the SQL file
-	sqlBytes, err := os.ReadFile("src/sql/structure.sql")
+	sqlFile, err := staticFiles.Open("sql/structure.sql")
 	if err != nil {
 		return fmt.Errorf("reading structure.sql: %w", err)
+	}
+	defer sqlFile.Close()
+	sqlBytes, err := io.ReadAll(sqlFile)
+	if err != nil {
+		return fmt.Errorf("failed to read from file handle: %v", err)
 	}
 
 	// 3) Execute all statements in the file
@@ -171,8 +172,8 @@ const (
 	fileExt  = ".eln"
 )
 
-func initMaxFileSize() int64 {
-	maxFileSizeStr = "1024"
+func getMaxFileSize() int64 {
+	maxFileSizeStr := "1024"
 	if os.Getenv("MAX_FILE_SIZE_MB") != "" {
 		maxFileSizeStr = os.Getenv("MAX_FILE_SIZE_MB")
 	}
@@ -183,13 +184,13 @@ func initMaxFileSize() int64 {
 	return maxFileSize
 }
 
-func initBuildId() {
+func getBuildId() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
 		log.Fatalf("Failed to generate random id: %v", err)
 	}
-	buildId = hex.EncodeToString(b)
+	return hex.EncodeToString(b)
 }
 
 // S3 stuff
@@ -343,9 +344,9 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	maxBytes := maxFileSize * 1024 * 1024
+	maxBytes := app.MaxFileSize * 1024 * 1024
 	if header.Size > maxBytes {
-		http.Error(w, fmt.Sprintf("File too large. Maximum allowed is %d MB", maxFileSize), http.StatusRequestEntityTooLarge)
+		http.Error(w, fmt.Sprintf("File too large. Maximum allowed is %d MB", app.MaxFileSize), http.StatusRequestEntityTooLarge)
 		return
 	}
 
@@ -552,16 +553,16 @@ func scanRecord(ctx context.Context, id string) (Record, error) {
 
 func getAbout(w http.ResponseWriter, r *http.Request) {
 	var pageTmpl = template.Must(template.ParseFiles(
-		"src/templates/layout.html",
-		"src/templates/about.html",
+		"templates/layout.html",
+		"templates/about.html",
 	))
 	pageTmpl.ExecuteTemplate(w, "layout", nil)
 }
 
 func getBrowse(w http.ResponseWriter, r *http.Request) {
 	var pageTmpl = template.Must(template.ParseFiles(
-		"src/templates/layout.html",
-		"src/templates/browse.html",
+		"templates/layout.html",
+		"templates/browse.html",
 	))
 
 	// CATEGORIES
@@ -596,9 +597,9 @@ func getBrowse(w http.ResponseWriter, r *http.Request) {
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFiles(
-		"src/templates/layout.html",
-		"src/templates/index.html",
+	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+		"templates/layout.html",
+		"templates/index.html",
 	))
 
 	categories, err := getCategories(r.Context())
@@ -619,10 +620,9 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := RootPageData{
-		App:         app,
-		Categories:  categories,
-		MaxFileSize: maxFileSize,
-		User:        user,
+		App:        app,
+		Categories: categories,
+		User:       user,
 	}
 
 	w.Header().Set("Content-Type", "text/html")
@@ -630,9 +630,9 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func getRecord(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFiles(
-		"src/templates/layout.html",
-		"src/templates/record.html",
+	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+		"templates/layout.html",
+		"templates/record.html",
 	))
 	const prefix = "/record/"
 	// Grab the id part in the URL
@@ -857,12 +857,10 @@ func main() {
 	port := flag.String("port", "8080", "Port to listen on")
 	flag.Parse()
 
-	maxFileSize = initMaxFileSize()
-
-	initBuildId()
 	app = App{
-		BuildId: buildId,
-		Version: version,
+		BuildId:     getBuildId(),
+		MaxFileSize: getMaxFileSize(),
+		Version:     version,
 	}
 
 	// Expect DATABASE_URL like:
@@ -888,7 +886,7 @@ func main() {
 		log.Fatalf("failed to initialize schema: %v", err)
 	}
 
-	// 2) Configure SCS
+	// Session
 	sessionManager = scs.New()
 	sessionManager.Store = postgresstore.New(db)
 	sessionManager.Lifetime = 24 * time.Hour
@@ -908,7 +906,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// 1) Static & healthcheck
+	// Static & healthcheck
 	mux.HandleFunc("/favicon.ico", serveAsset)
 	mux.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
