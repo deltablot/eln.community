@@ -27,6 +27,7 @@ Configuration variables:
 | `MAX_FILE_SIZE_MB`    | maximum size of uploaded files in Mb                | 1024                | 2048                                                    |
 | `ACCESS_KEY`          | access key of S3 bucket                             | None                | 46ViX7UgQtqd88g                                         |
 | `SECRET_KEY`          | secret key of S3 bucket                             | None                | 3a97c858-4e...4735e                                     |
+| `BUCKET_NAME`         | s3 bucket name                                      | None                | eln-bucket                                              |
 | `REGION`              | region of S3 bucket                                 | None                | fr-par                                                  |
 | `DATABASE_URL`        | database connection url                             | None                | postgres://eln:eln@localhost:5432/eln?sslmode=disable   |
 | `DEV`                 | enabled dev mode                                    | None                | 1                                                       |

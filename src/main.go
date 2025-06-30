@@ -432,6 +432,9 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	uploader := manager.NewUploader(s3Client)
 
 	bucketName := os.Getenv("BUCKET_NAME")
+	if bucketName == "" {
+		log.Fatal("set BUCKET_NAME")
+	}
 	_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
 		Bucket:      aws.String(bucketName),
 		Key:         aws.String(key),
