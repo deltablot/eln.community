@@ -38,3 +38,9 @@ Configuration variables:
 By default, the program listens on port `8080`. You **need** to have a reverse proxy in front of it, terminating TLS, as it only listens in HTTP, but the app requires access through HTTPS.
 
 See [docker-compose.yml](./docker-compose.yml.dist) example file.
+
+## Dev
+
+Debug build:
+
+`docker build --build-arg GO_IMG_TAG=debug -t ghcr.io/deltablot/eln-community .`

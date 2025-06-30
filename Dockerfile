@@ -44,7 +44,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X 'main.Vers
 
 # use distroless instead of scratch to have ssl certificates and nobody
 FROM gcr.io/distroless/static:${GO_IMG_TAG}
-# copy the pre‑owned directory
 COPY --from=gobuilder /eln.community /usr/local/bin/eln.community
 USER nobody:nobody
 EXPOSE 8080

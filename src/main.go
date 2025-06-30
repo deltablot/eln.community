@@ -552,7 +552,7 @@ func scanRecord(ctx context.Context, id string) (Record, error) {
 }
 
 func getAbout(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFiles(
+	var pageTmpl = template.Must(template.ParseFS(staticFiles,
 		"templates/layout.html",
 		"templates/about.html",
 	))
@@ -560,7 +560,7 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 }
 
 func getBrowse(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFiles(
+	var pageTmpl = template.Must(template.ParseFS(staticFiles,
 		"templates/layout.html",
 		"templates/browse.html",
 	))
