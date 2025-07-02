@@ -15,8 +15,6 @@ yarn run esbuild \
   --bundle \
   --outdir=$DIST_DIR \
   $SRC_DIR/index.js \
-  $SRC_DIR/partage.js \
-  $SRC_DIR/utils.js \
   $SRC_DIR/main.css \
   --loader:.css=css
 

@@ -935,30 +935,12 @@ func main() {
 	// root catchall
 	mux.Handle("/", securityHeaders(http.HandlerFunc(getRoot)))
 
-	// in prod we embed the files, but in dev we serve them directly to avoid having to recompile binary after a change
-	if os.Getenv("DEV") == "1" {
-		mux.HandleFunc("/index.js", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "src/index.js")
-		})
-		mux.HandleFunc("/partage.js", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "src/partage.js")
-		})
-		mux.HandleFunc("/utils.js", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "src/utils.js")
-		})
-		mux.HandleFunc("/main.css", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "src/main.css")
-		})
-		infoLogger.Printf("dev service running at: http://localhost:%s", *port)
-	} else { // PROD
-		http.HandleFunc("GET /index.js", serveAsset)
-		http.HandleFunc("GET /robots.txt", serveAsset)
-		http.HandleFunc("GET /partage.js", serveAsset)
-		http.HandleFunc("GET /utils.js", serveAsset)
-		http.HandleFunc("GET /index.css", serveAsset)
-		http.HandleFunc("GET /main.css", serveAsset)
-		infoLogger.Printf("service running at: %s", siteUrl)
-	}
+	// TODO use DEV env var to serve files directly to avoid recompilation
+	mux.HandleFunc("GET /index.js", serveAsset)
+	mux.HandleFunc("GET /robots.txt", serveAsset)
+	//http.HandleFunc("GET /index.css", serveAsset)
+	mux.HandleFunc("GET /main.css", serveAsset)
+	infoLogger.Printf("service running at: %s", siteUrl)
 
 	// Wrap all handlers so they get a request-scoped session context
 	handler := sessionManager.LoadAndSave(mux)

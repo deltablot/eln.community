@@ -45,3 +45,7 @@ See [docker-compose.yml](./docker-compose.yml.dist) example file.
 Debug build:
 
 `docker build --build-arg GO_IMG_TAG=debug -t ghcr.io/deltablot/eln-community .`
+
+### Insert categories
+
+`insert into categories (name) values ('Example')
