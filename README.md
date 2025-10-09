@@ -55,8 +55,7 @@ docker compose -f docker-compose-dev.yml up -d
 ### Available Make Commands
 
 - `make local` - Build and start local development environment with live reload
-- `make build` - Build the production Docker image  
-- `make build-dev` - Build the development Docker image with live reload
+- `make build` - Build the Docker image
 - `make up` - Start development services with live reload
 - `make down` - Stop all services
 - `make logs` - View logs from all services

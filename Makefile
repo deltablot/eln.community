@@ -1,11 +1,10 @@
-.PHONY: local build build-dev up down logs clean help
+.PHONY: local build up down logs clean help
 
 # Default target
 help:
 	@echo "Available targets:"
 	@echo "  local     - Build and start local development environment with live reload"
 	@echo "  build     - Build the production Docker image"
-	@echo "  build-dev - Build the development Docker image with live reload"
 	@echo "  up        - Start development services with live reload"
 	@echo "  down      - Stop all services"
 	@echo "  logs      - Show logs from all services"
