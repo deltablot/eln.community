@@ -15,7 +15,11 @@ A community platform for sharing Electronic Lab Notebook (ELN) archives, experim
 - **Deployment**: Docker and Docker Compose ready
 - **Reverse Proxy**: Nginx configuration included
 
+**Prerequisites**: [Docker](https://docs.docker.com/get-docker/) 20.10+ and [Docker Compose](https://docs.docker.com/compose/install/) 2.0+
+
 ## 🚀 Quick Start
+
+### Option 1: Using Makefile (Recommended)
 
 ```bash
 # 1. Clone the repository
@@ -25,13 +29,35 @@ cd eln-community
 # 2. Edit docker-compose-local.yml with your configuration
 # Set SITE_URL, ORCID credentials, and S3 settings
 
-# 3. Start the application (includes PostgreSQL database)
-docker compose up -f docker-compose-local.yml -d
-
-# 4. Wait for services to be healthy, then access at http://localhost:8080
+# 3. Build and start everything
+make local
 ```
 
-**Prerequisites**: [Docker](https://docs.docker.com/get-docker/) 20.10+ and [Docker Compose](https://docs.docker.com/compose/install/) 2.0+
+### Option 2: Manual Steps
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/deltablot/eln-community.git
+cd eln-community
+
+# 2. Build the Docker image
+docker build -t ghcr.io/deltablot/eln-community .
+
+# 3. Edit docker-compose-local.yml with your configuration
+# Set SITE_URL, ORCID credentials, and S3 settings
+
+# 4. Start the application (includes PostgreSQL database and MinIO)
+docker compose -f docker-compose-local.yml up -d
+
+# 5. Wait for services to be healthy, then access at http://localhost:8080
+```
+
+### Available Make Commands
+
+- `make local` - Build and start local development environment
+- `make logs` - View logs from all services
+- `make down` - Stop all services
+- `make clean` - Clean up containers, volumes, and images
 
 > **Note**: For ORCID authentication, register your application at [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to `{SITE_URL}/auth/orcid/callback`.
 

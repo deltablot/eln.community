@@ -27,19 +27,47 @@ Choose the setup method that best fits your needs:
 
 Get eln.community running in under 5 minutes using Docker:
 
+#### Option 1: Using Makefile (Recommended)
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/deltablot/eln-community.git
 cd eln-community
 
-# 2. Edit docker-compose.yml with your configuration
+# 2. Edit docker-compose-local.yml with your configuration
 # Set SITE_URL, ORCID credentials, and S3 settings
 
-# 3. Start the application (includes PostgreSQL database)
-docker compose up -d
-
-# 4. Wait for services to be healthy, then access at http://localhost:8080
+# 3. Build and start everything
+make local
 ```
+
+#### Option 2: Manual Steps
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/deltablot/eln-community.git
+cd eln-community
+
+# 2. Build the Docker image
+docker build -t ghcr.io/deltablot/eln-community .
+
+# 3. Edit docker-compose-local.yml with your configuration
+# Set SITE_URL, ORCID credentials, and S3 settings
+
+# 4. Start the application (includes PostgreSQL database and MinIO)
+docker compose -f docker-compose-local.yml up -d
+
+# 5. Wait for services to be healthy, then access at http://localhost:8080
+```
+
+#### Available Make Commands
+
+- `make local` - Build and start local development environment
+- `make build` - Build the Docker image only
+- `make up` - Start services only
+- `make down` - Stop all services
+- `make logs` - View logs from all services
+- `make clean` - Clean up containers, volumes, and images
 
 ### Development Setup
 
