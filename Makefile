@@ -1,44 +1,53 @@
-.PHONY: local build up down logs clean help
+.PHONY: local build build-dev up down logs clean help
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  local  - Build and start local development environment"
-	@echo "  build  - Build the Docker image"
-	@echo "  up     - Start services with docker-compose"
-	@echo "  down   - Stop and remove services"
-	@echo "  logs   - Show logs from all services"
-	@echo "  clean  - Clean up containers, volumes, and images"
+	@echo "  local     - Build and start local development environment with live reload"
+	@echo "  build     - Build the production Docker image"
+	@echo "  build-dev - Build the development Docker image with live reload"
+	@echo "  up        - Start development services with live reload"
+	@echo "  down      - Stop all services"
+	@echo "  logs      - Show logs from all services"
+	@echo "  clean     - Clean up containers, volumes, and images"
 
-# Build and start local development environment
-local: build up
-	@echo "🚀 Local environment is starting..."
+# Build and start local development environment with live reload
+local: build-dev up-dev
+	@echo "🔥 Local development environment with live reload is starting..."
 	@echo "📊 MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
 	@echo "🌐 Application: http://localhost:8080"
+	@echo "🔄 Live reload enabled - changes will trigger automatic rebuilds"
 	@echo "📝 Run 'make logs' to see service logs"
 
-# Build the Docker image
+# Build the production Docker image
 build:
-	@echo "🔨 Building Docker image..."
+	@echo "🔨 Building production Docker image..."
 	docker build -t ghcr.io/deltablot/eln-community .
 
-# Start services
+# Build the development Docker image
+build-dev:
+	@echo "🔨 Building development Docker image with Air..."
+	docker build -f Dockerfile.dev -t ghcr.io/deltablot/eln-community:dev .
+
+# Start services (now uses development by default)
 up:
-	@echo "🚀 Starting services..."
-	docker compose -f docker-compose-local.yml up -d
+	@echo "🚀 Starting development services with live reload..."
+	docker compose -f docker-compose-dev.yml up -d
 
 # Stop services
 down:
 	@echo "🛑 Stopping services..."
-	docker compose -f docker-compose-local.yml down
+	docker compose -f docker-compose-dev.yml down
 
 # Show logs
 logs:
-	docker compose -f docker-compose-local.yml logs -f
+	docker compose -f docker-compose-dev.yml logs -f
 
 # Clean up everything
 clean:
-	@echo "🧹 Cleaning up..."
-	docker compose -f docker-compose-local.yml down -v
+	@echo "🧹 Cleaning up development environment..."
+	docker compose -f docker-compose-dev.yml down -v
+	docker rmi ghcr.io/deltablot/eln-community:dev 2>/dev/null || true
 	docker rmi ghcr.io/deltablot/eln-community 2>/dev/null || true
+	rm -rf tmp/ 2>/dev/null || true
 	@echo "✅ Cleanup complete"

@@ -62,16 +62,40 @@ docker compose -f docker-compose-local.yml up -d
 
 #### Available Make Commands
 
-- `make local` - Build and start local development environment
-- `make build` - Build the Docker image only
-- `make up` - Start services only
+- `make local` - Build and start local development environment with live reload
+- `make build` - Build the production Docker image
+- `make build-dev` - Build the development Docker image with live reload
+- `make up` - Start development services with live reload
 - `make down` - Stop all services
 - `make logs` - View logs from all services
 - `make clean` - Clean up containers, volumes, and images
 
-### Development Setup
+### Development Setup (Recommended)
 
-For active development with hot reload and debugging capabilities:
+The default setup now includes live reload using [Air](https://github.com/air-verse/air):
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/deltablot/eln-community.git
+cd eln-community
+
+# 2. Edit docker-compose-dev.yml with your configuration
+# Set SITE_URL, ORCID credentials, and S3 settings
+
+# 3. Start development environment with live reload
+make local
+```
+
+This setup includes:
+- Automatic Go application rebuilds on file changes
+- PostgreSQL database with persistent data
+- MinIO for S3-compatible storage
+- Frontend asset building
+- All services orchestrated with Docker Compose
+
+### Manual Development Setup
+
+For development without Docker or with custom configurations:
 
 ```bash
 # 1. Clone and enter directory
@@ -140,6 +164,4 @@ go build -o eln-community src/*.go
 After installation, you may want to:
 
 - [Configure the application](configuration.md) with your specific settings
-- Set up [development workflow](development.md) for contributing
-- Review [troubleshooting guide](troubleshooting.md) for common issues
 - Read the [project structure](project-structure.md) to understand the codebase

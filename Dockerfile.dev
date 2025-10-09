@@ -1,0 +1,42 @@
+# Development Dockerfile with Air for live reload
+# syntax=docker/dockerfile:1
+
+FROM golang:1.24-alpine AS dev
+
+# Install Air for live reload
+RUN go install github.com/air-verse/air@latest
+
+# Install Node.js and Yarn for frontend builds
+RUN apk add --no-cache nodejs npm bash brotli
+RUN corepack enable && corepack prepare yarn@stable --activate
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy package files for frontend
+COPY package.json yarn.lock ./
+COPY src/package.json src/yarn.lock ./src/
+WORKDIR /app/src
+RUN yarn install
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Build frontend assets initially
+WORKDIR /app/src
+RUN bash build.sh
+
+WORKDIR /app
+
+# Create tmp directory for Air
+RUN mkdir -p tmp
+
+EXPOSE 8080
+
+# Use Air for live reload
+CMD ["air", "-c", ".air.toml"]

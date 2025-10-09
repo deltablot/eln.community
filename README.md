@@ -54,10 +54,15 @@ docker compose -f docker-compose-local.yml up -d
 
 ### Available Make Commands
 
-- `make local` - Build and start local development environment
-- `make logs` - View logs from all services
+- `make local` - Build and start local development environment with live reload
+- `make build` - Build the production Docker image  
+- `make build-dev` - Build the development Docker image with live reload
+- `make up` - Start development services with live reload
 - `make down` - Stop all services
+- `make logs` - View logs from all services
 - `make clean` - Clean up containers, volumes, and images
+
+The default `make local` command now includes live reload using [Air](https://github.com/air-verse/air) - any changes to Go files will automatically trigger a rebuild and restart.
 
 > **Note**: For ORCID authentication, register your application at [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to `{SITE_URL}/auth/orcid/callback`.
 

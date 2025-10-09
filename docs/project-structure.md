@@ -113,7 +113,7 @@ eln.community/
 
 ### Configuration and Deployment
 
-- **Docker Setup**: Modify `Dockerfile` or `docker-compose.yml.dist`
+- **Docker Setup**: Modify `Dockerfile` or `docker-compose-local.yml`
 - **Nginx Config**: Edit `/nginx/nginx.conf` for production proxy settings
 - **Dependencies**: Update `go.mod` for Go packages or `package.json` for Node.js tools
 
@@ -128,57 +128,3 @@ eln.community/
 - **Build Process**: Modify `/src/build.sh` for frontend build customization
 - **CI/CD**: Edit `.github/workflows/` for automated testing and deployment
 
-## Code Organization Principles
-
-### Backend (Go)
-
-- Keep HTTP handlers in `main.go`
-- Put authentication logic in `oidc.go`
-- Add utility functions to `utils.go`
-- Create new files for major feature areas
-
-### Frontend (JavaScript/CSS)
-
-- Use vanilla JavaScript for simplicity
-- Keep CSS organized with clear class naming
-- Minimize external dependencies
-- Use esbuild for bundling and optimization
-
-### Templates (HTML)
-
-- Extend `layout.html` for consistent page structure
-- Use Go template syntax for dynamic content
-- Keep templates focused on presentation logic
-- Separate concerns between templates and business logic
-
-## File Naming Conventions
-
-### Go Files
-- Use lowercase with underscores for multi-word files: `user_handler.go`
-- Keep related functionality in the same file
-- Use descriptive names that indicate purpose
-
-### Frontend Files
-- Use kebab-case for CSS classes: `.upload-form`
-- Use camelCase for JavaScript variables: `uploadButton`
-- Keep asset files in appropriate directories
-
-### Templates
-- Use lowercase with hyphens: `user-profile.html`
-- Match template names to their primary purpose
-- Keep template files focused on single pages or components
-
-### Database Files
-- Use descriptive names with version numbers: `001_initial_schema.sql`
-- Include migration direction in filename: `002_add_categories_up.sql`
-- Keep schema changes in separate files for tracking
-
-## Development Workflow Integration
-
-The project structure supports efficient development workflows:
-
-1. **Hot Reload**: `DEV=1` serves assets directly from `/src/`
-2. **Build Process**: `build.sh` creates optimized assets in `/src/dist/`
-3. **Database Migrations**: SQL files in `/src/sql/` for schema changes
-4. **Documentation**: Focused docs in `/docs/` for different aspects
-5. **Configuration**: Environment-based config with examples in docs
