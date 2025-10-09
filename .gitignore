@@ -5,3 +5,5 @@ files/
 src/dist/
 *.svg
 docker-compose.yml
+node_modules
+.idea
