@@ -8,3 +8,10 @@ FUNDING.yml
 LICENSE
 README.md
 .yarn
+
+# Development files
+.air.toml
+docker-compose-dev.yml
+Dockerfile.dev
+tmp/
+build-errors.log

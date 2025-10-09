@@ -91,7 +91,7 @@ eln.community/
 ### Configuration Files
 
 - **`docker-compose.yml.dist`**: Template for Docker Compose deployment
-- - **`docker-compose-local.yml`**: Local Docker Compose deployment
+- **`docker-compose-dev.yml`**: Development Docker Compose with live reload
 - **`Dockerfile`**: Multi-stage Docker build for production images
 - **`go.mod`**: Go module definition with backend dependencies
 - **`package.json`**: Node.js dependencies for frontend build tools
@@ -113,7 +113,7 @@ eln.community/
 
 ### Configuration and Deployment
 
-- **Docker Setup**: Modify `Dockerfile` or `docker-compose-local.yml`
+- **Docker Setup**: Modify `Dockerfile`, `Dockerfile.dev`, or `docker-compose-dev.yml`
 - **Nginx Config**: Edit `/nginx/nginx.conf` for production proxy settings
 - **Dependencies**: Update `go.mod` for Go packages or `package.json` for Node.js tools
 
