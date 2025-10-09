@@ -48,9 +48,7 @@ services:
       start_period: 30s
 
   eln-community-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
+    image: ghcr.io/deltablot/eln-community:latest
     container_name: eln-community-dev
     restart: always
     ports:
@@ -67,10 +65,6 @@ services:
       - ACCESS_KEY=minioadmin
       - SECRET_KEY=minioadmin
       - S3_ENDPOINT=http://minio:9000
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/tmp
     networks:
       - eln
     depends_on:
