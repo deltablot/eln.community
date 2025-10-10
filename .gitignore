@@ -7,3 +7,9 @@ src/dist/
 docker-compose.yml
 node_modules
 .idea
+.vscode
+data
+
+# Air live reload
+tmp/
+build-errors.log

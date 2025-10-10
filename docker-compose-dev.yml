@@ -14,7 +14,7 @@ services:
       - POSTGRES_USER=eln
       - POSTGRES_PASSWORD=eln
     volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
       - ./src/sql/structure.sql:/docker-entrypoint-initdb.d/01-structure.sql:ro
     networks:
       - eln
@@ -36,7 +36,7 @@ services:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
     volumes:
-      - minio_dev_data:/data
+      - ./data/minio:/data
     networks:
       - eln
     command: server /data --console-address ":9001"
@@ -73,6 +73,3 @@ services:
       minio:
         condition: service_healthy
 
-volumes:
-  postgres_dev_data:
-  minio_dev_data:
