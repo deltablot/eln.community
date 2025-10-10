@@ -1,51 +1,74 @@
 # eln.community
 
-Source code of https://eln.community.
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)](https://golang.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
 
-## Build
+A community platform for sharing Electronic Lab Notebook (ELN) archives, experiments, protocols, templates, and research resources. Built to foster collaboration and knowledge sharing in the scientific community.
 
-~~~
+### 🛠 Technology Stack
+
+- **Backend**: Go 1.24+ with HTTP server and session management
+- **Database**: PostgreSQL for data persistence
+- **Storage**: S3-compatible object storage for file uploads
+- **Authentication**: ORCID OpenID Connect (OIDC) integration
+- **Frontend**: Vanilla JavaScript with esbuild bundling
+- **Deployment**: Docker and Docker Compose ready
+- **Reverse Proxy**: Nginx configuration included
+
+**Prerequisites**: [Docker](https://docs.docker.com/get-docker/) 20.10+ and [Docker Compose](https://docs.docker.com/compose/install/) 2.0+
+
+## 🚀 Quick Start
+
+### Option 1: Using Makefile (Recommended)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/deltablot/eln-community.git
+cd eln-community
+
+# 2. Edit docker-compose-dev.yml with your configuration
+# Set SITE_URL, ORCID credentials, and S3 settings
+
+# 3. Build and start everything
+make local
+```
+
+### Option 2: Manual Steps
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/deltablot/eln-community.git
+cd eln-community
+
+# 2. Build the Docker image
 docker build -t ghcr.io/deltablot/eln-community .
-~~~
 
-## Deploy
+# 3. Edit docker-compose-dev.yml with your configuration
+# Set SITE_URL, ORCID credentials, and S3 settings
 
-~~~
-# after copying the docker-compose.yml.dist to docker-compose.yml
-docker compose up -d
-~~~
+# 4. Start the application (includes PostgreSQL database and MinIO)
+docker compose -f docker-compose-dev.yml up -d
 
-### Configuration variables
+# 5. Wait for services to be healthy, then access at http://localhost:8080
+```
 
-The application is configured through environment variables.
+### Available Make Commands
 
-Configuration variables:
+- `make local` - Build and start local development environment with live reload
+- `make build` - Build the Docker image
+- `make up` - Start development services with live reload
+- `make down` - Stop all services
+- `make logs` - View logs from all services
+- `make clean` - Clean up containers, volumes, and images
 
-| Name                  | Description                                         | Default             | Example                                                 |
-|-----------------------|-----------------------------------------------------|---------------------|---------------------------------------------------------|
-| `SITE_URL` (required) | the full URL of the site, as it appears to visitors | http://localhost    | https://partage.deltablot.com                           |
-| `MAX_FILE_SIZE_MB`    | maximum size of uploaded files in Mb                | 1024                | 2048                                                    |
-| `ACCESS_KEY`          | access key of S3 bucket                             | None                | 46ViX7UgQtqd88g                                         |
-| `SECRET_KEY`          | secret key of S3 bucket                             | None                | 3a97c858-4e...4735e                                     |
-| `BUCKET_NAME`         | s3 bucket name                                      | None                | eln-bucket                                              |
-| `REGION`              | region of S3 bucket                                 | None                | fr-par                                                  |
-| `DATABASE_URL`        | database connection url                             | None                | postgres://eln:eln@localhost:5432/eln?sslmode=disable   |
-| `DEV`                 | enabled dev mode                                    | None                | 1                                                       |
-| `ORCID_CLIENT_ID`     | orcid.org OIDC client id                            | None                | 3a97c858-4e...4735e                                     |
-| `ORCID_CLIENT_SECRET` | orcid.org OIDC client secret                        | None                | 3a97c858-4e...4735e                                     |
+The default `make local` command now includes live reload using [Air](https://github.com/air-verse/air) - any changes to Go files will automatically trigger a rebuild and restart.
 
-### Running the service
+> **Note**: For ORCID authentication, register your application at [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to `{SITE_URL}/auth/orcid/callback`.
 
-By default, the program listens on port `8080`. You **need** to have a reverse proxy in front of it, terminating TLS, as it only listens in HTTP, but the app requires access through HTTPS.
+## 📚 Documentation
 
-See [docker-compose.yml](./docker-compose.yml.dist) example file.
+Comprehensive guides are available in the `/docs` folder:
 
-## Dev
+- **[📋 Installation Guide](docs/installation.md)** - Complete setup instructions for all environments
+- **[⚙️ Configuration Guide](docs/configuration.md)** - Environment variables and configuration options
 
-Debug build:
-
-`docker build --build-arg GO_IMG_TAG=debug -t ghcr.io/deltablot/eln-community .`
-
-### Insert categories
-
-`insert into categories (name) values ('Example')
