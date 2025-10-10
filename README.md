@@ -71,6 +71,4 @@ Comprehensive guides are available in the `/docs` folder:
 
 - **[📋 Installation Guide](docs/installation.md)** - Complete setup instructions for all environments
 - **[⚙️ Configuration Guide](docs/configuration.md)** - Environment variables and configuration options
-- **[💻 Development Guide](docs/development.md)** - Development workflow and best practices
-- **[📁 Project Structure](docs/project-structure.md)** - Codebase organization and navigation
 

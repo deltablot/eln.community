@@ -12,25 +12,25 @@ help:
 
 # Build and start local development environment with live reload
 local: build up
-	@echo "🔥 Local development environment with live reload is starting..."
-	@echo "📊 MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
-	@echo "🌐 Application: http://localhost:8080"
-	@echo "🔄 Live reload enabled - changes will trigger automatic rebuilds"
-	@echo "📝 Run 'make logs' to see service logs"
+	@echo "Local development environment with live reload is starting..."
+	@echo "MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
+	@echo "Application: http://localhost:8080"
+	@echo "Live reload enabled - changes will trigger automatic rebuilds"
+	@echo "Run 'make logs' to see service logs"
 
 # Build the production Docker image
 build:
-	@echo "🔨 Building production Docker image..."
+	@echo "Building production Docker image..."
 	docker build -t ghcr.io/deltablot/eln-community .
 
 # Start services (now uses development by default)
 up:
-	@echo "🚀 Starting development services with live reload..."
+	@echo "Starting development services with live reload..."
 	docker compose -f docker-compose-dev.yml up -d
 
 # Stop services
 down:
-	@echo "🛑 Stopping services..."
+	@echo "Stopping services..."
 	docker compose -f docker-compose-dev.yml down
 
 # Show logs
@@ -39,8 +39,8 @@ logs:
 
 # Clean up everything
 clean:
-	@echo "🧹 Cleaning up development environment..."
+	@echo "Cleaning up development environment..."
 	docker compose -f docker-compose-dev.yml down -v
 	docker rmi ghcr.io/deltablot/eln-community:dev 2>/dev/null || true
 	docker rmi ghcr.io/deltablot/eln-community 2>/dev/null || true
-	@echo "✅ Cleanup complete"
+	@echo "Cleanup complete"

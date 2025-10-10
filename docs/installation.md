@@ -163,4 +163,3 @@ go build -o eln-community src/*.go
 After installation, you may want to:
 
 - [Configure the application](configuration.md) with your specific settings
-- Read the [project structure](project-structure.md) to understand the codebase
