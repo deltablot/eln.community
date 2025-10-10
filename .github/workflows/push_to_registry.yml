@@ -2,13 +2,7 @@ name: Build Docker Image
 
 on:
   push:
-    branches:
-      - master
-      - toan-2025-10-10-fix-issue-1-ci
   pull_request:
-    branches:
-      - master
-      - toan-2025-10-10-fix-issue-1-ci
 
 jobs:
   build:
