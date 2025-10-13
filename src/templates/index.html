@@ -14,6 +14,7 @@
       <a href='/browse?cat={{ .Id }}' class='btn btn-primary'>{{ .Name }}</a>
     {{- end }}
   {{- end }}
+  {{ if .User }}
   <h2>Add entry</h2>
   <form method='post' action='/api/v1/records' enctype='multipart/form-data'>
     <label>Name your entry
@@ -24,4 +25,5 @@
     </label>
     <button type='submit'>Send</button>
   </form>
+  {{ end }}
 {{ end }}
