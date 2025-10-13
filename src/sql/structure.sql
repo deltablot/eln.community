@@ -9,7 +9,7 @@ $$ LANGUAGE plpgsql;
 
 -- orcid format
 CREATE DOMAIN orcid_type AS CHAR(19)
-  CHECK (VALUE ~ '^\d{4}-\d{4}-\d{4}-\d{4}$');
+  CHECK (VALUE ~ '^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$');
 
 -- RECORDS
 CREATE TABLE IF NOT EXISTS records (
