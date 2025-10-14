@@ -469,33 +469,9 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func getCategories(ctx context.Context) ([]Category, error) {
-	rows, err := db.QueryContext(ctx, `
-	  SELECT id, name, created_at, modified_at FROM categories
-    `)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// Iterate and build slice
-	var recs []Category
-	for rows.Next() {
-		var r Category
-		if err := rows.Scan(
-			&r.Id,
-			&r.Name,
-			&r.CreatedAt,
-			&r.ModifiedAt,
-		); err != nil {
-			return nil, err
-		}
-		recs = append(recs, r)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return recs, nil
+	// Use the global category repository for backward compatibility
+	categoryRepo := NewPostgresCategoryRepository(db)
+	return categoryRepo.GetAll(ctx)
 }
 
 func scanRecords(ctx context.Context) ([]Record, error) {
@@ -926,6 +902,15 @@ func main() {
 	// API
 	mux.HandleFunc("POST /api/v1/records", postHandler)
 	mux.HandleFunc("GET /api/v1/record/", getRecordApi)
+
+	// Initialize repositories and handlers
+	categoryRepo := NewPostgresCategoryRepository(db)
+	adminRepo := NewPostgresAdminRepository(db)
+	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
+
+	// Category API routes
+	mux.HandleFunc("/api/v1/categories", categoryHandler.Router)
+	mux.HandleFunc("/api/v1/categories/", categoryHandler.Router)
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
