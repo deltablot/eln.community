@@ -8,13 +8,11 @@ import (
 	"strings"
 )
 
-// CategoryHandler handles HTTP requests for category operations
 type CategoryHandler struct {
 	categoryRepo CategoryRepository
 	adminRepo    AdminRepository
 }
 
-// NewCategoryHandler creates a new category handler with dependencies
 func NewCategoryHandler(categoryRepo CategoryRepository, adminRepo AdminRepository) *CategoryHandler {
 	return &CategoryHandler{
 		categoryRepo: categoryRepo,
@@ -22,7 +20,6 @@ func NewCategoryHandler(categoryRepo CategoryRepository, adminRepo AdminReposito
 	}
 }
 
-// requireAdmin middleware to check admin permissions
 func (h *CategoryHandler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
