@@ -49,3 +49,17 @@ CREATE TABLE sessions (
 	expiry TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX sessions_expiry_idx ON sessions (expiry);
+
+-- ADMIN_ORCIDS
+CREATE TABLE IF NOT EXISTS admin_orcids
+(
+    orcid       orcid_type PRIMARY KEY,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TRIGGER trigger_update_modified_at_admin_orcids
+    BEFORE UPDATE
+    ON admin_orcids
+    FOR EACH ROW
+    EXECUTE FUNCTION update_modified_at();
+
