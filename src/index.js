@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
 
   const errorDialog = document.getElementById('error-dialog');
   const closeButton = errorDialog.querySelector("button");
@@ -22,8 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submitBtn');
     const spinner = submitBtn?.querySelector('.spinner-border');
     const btnText = submitBtn?.querySelector('.btn-text');
-    
-    uploadForm.addEventListener('submit', async function(e) {
+
+    uploadForm.addEventListener('submit', async function (e) {
       e.preventDefault();
 
       if (submitBtn) {
@@ -31,23 +31,29 @@ document.addEventListener('DOMContentLoaded', function() {
         spinner?.classList.remove('d-none');
         if (btnText) btnText.textContent = 'Uploading...';
       }
-      
+
       const formData = new FormData(this);
-      
+
       try {
         const response = await fetch('/api/v1/records', {
           method: 'POST',
           body: formData
         });
-        
+
         if (response.ok) {
           // Show success toast
           const successToast = document.getElementById('successToast');
           if (successToast) {
             const toast = new bootstrap.Toast(successToast, {
-              delay: 4000,
+              delay: 2000,
               autohide: true
             });
+
+            // Redirect to browse page after toast hides
+            successToast.addEventListener('hidden.bs.toast', function () {
+              window.location.href = '/browse';
+            }, { once: true });
+
             toast.show();
           }
 
@@ -60,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if (errorToast && errorToastBody) {
             errorToastBody.textContent = errorText || 'Upload failed. Please try again.';
             const toast = new bootstrap.Toast(errorToast, {
-              delay: 4000,
+              delay: 2000,
               autohide: true
             });
             toast.show();
