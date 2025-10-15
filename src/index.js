@@ -16,4 +16,57 @@ document.addEventListener('DOMContentLoaded', function() {
     tosDialog.close();
   });
 
+  // Handle form submission for success toast
+  const uploadForm = document.querySelector('form[action="/api/v1/records"]');
+  if (uploadForm) {
+    const submitBtn = document.getElementById('submitBtn');
+    const spinner = submitBtn?.querySelector('.spinner-border');
+    const btnText = submitBtn?.querySelector('.btn-text');
+    
+    uploadForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        spinner?.classList.remove('d-none');
+        if (btnText) btnText.textContent = 'Uploading...';
+      }
+      
+      const formData = new FormData(this);
+      
+      try {
+        const response = await fetch('/api/v1/records', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (response.ok) {
+          // Show success toast
+          const successToast = document.getElementById('successToast');
+          if (successToast) {
+            const toast = new bootstrap.Toast(successToast, {
+              delay: 4000,
+              autohide: true
+            });
+            toast.show();
+          }
+
+          this.reset();
+        } else {
+          const errorText = await response.text();
+          console.error('Upload failed:', errorText);
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+      } finally {
+        // Reset button state
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          spinner?.classList.add('d-none');
+          if (btnText) btnText.textContent = 'Send';
+        }
+      }
+    });
+  }
+
 });
