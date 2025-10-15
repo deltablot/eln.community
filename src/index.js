@@ -53,10 +53,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
           this.reset();
         } else {
+          // Show error toast
           const errorText = await response.text();
+          const errorToast = document.getElementById('errorToast');
+          const errorToastBody = document.getElementById('errorToastBody');
+          if (errorToast && errorToastBody) {
+            errorToastBody.textContent = errorText || 'Upload failed. Please try again.';
+            const toast = new bootstrap.Toast(errorToast, {
+              delay: 4000,
+              autohide: true
+            });
+            toast.show();
+          }
           console.error('Upload failed:', errorText);
         }
       } catch (error) {
+        // Show error toast for network/other errors
+        const errorToast = document.getElementById('errorToast');
+        const errorToastBody = document.getElementById('errorToastBody');
+        if (errorToast && errorToastBody) {
+          errorToastBody.textContent = 'Network error. Please check your connection and try again.';
+          const toast = new bootstrap.Toast(errorToast, {
+            delay: 5000,
+            autohide: true
+          });
+          toast.show();
+        }
         console.error('Upload error:', error);
       } finally {
         // Reset button state
