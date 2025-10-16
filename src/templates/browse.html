@@ -3,13 +3,26 @@
         {{- if .Records}}
     {{- range .Records}}
       <details style="margin-bottom:1em;">
-        <summary><strong>{{ .Name }}</strong></summary>
+        <summary><strong>{{ .Name }}</strong>
+          {{- if .Categories }}
+            {{- range .Categories }}
+              <span class="badge bg-secondary ms-1">{{ .Name }}</span>
+            {{- end }}
+          {{- end }}
+        </summary>
         <ul>
           <li><a class='btn btn-primary' href='/record/{{ .Id }}'>View</a></li>
-          <li><a class='btn btn-secondary' href='/api/v1/records/{{ .Id }}.eln'>Download</a></li>
+          <li><a class='btn btn-secondary' href='/api/v1/record/{{ .Id }}.eln'>Download</a></li>
           <li><strong>SHA256:</strong> {{ .Sha256 }}</li>
           <li><strong>Created at:</strong> {{ .CreatedAt.Format "2006-01-02 15:04:05 MST" }}</li>
           <li><strong>Modified at:</strong> {{ .ModifiedAt.Format "2006-01-02 15:04:05 MST" }}</li>
+          {{- if .Categories }}
+          <li><strong>Categories:</strong>
+            {{- range .Categories }}
+              <span class="badge bg-primary me-1">{{ .Name }}</span>
+            {{- end }}
+          </li>
+          {{- end }}
           <li><strong>Metadata:</strong><pre>{{ .MetadataPretty }}</pre></li>
         </ul>
       </details>

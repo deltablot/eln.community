@@ -3,6 +3,13 @@
 <h3>ID: {{ .Record.Id }}</h3>
 <h3>Created at: {{ .Record.CreatedAt }}</h3>
 <h3>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h3>
+{{- if .Record.Categories }}
+<h3>Categories: 
+  {{- range .Record.Categories }}
+    <span class="badge bg-primary me-1">{{ .Name }}</span>
+  {{- end }}
+</h3>
+{{- end }}
 <h3>Metadata: </h3>
 <details>
   <summary>Display ro-crate-metadata.json</summary>

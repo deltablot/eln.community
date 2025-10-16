@@ -19,6 +19,9 @@ type CategoryRepository interface {
 	Create(ctx context.Context, name string) (*Category, error)
 	Update(ctx context.Context, id int64, name string) (*Category, error)
 	Delete(ctx context.Context, id int64) error
+	// Record-category association methods
+	AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error
+	GetRecordCategories(ctx context.Context, recordID string) ([]Category, error)
 }
 
 // AdminRepository defines the interface for admin operations
@@ -167,4 +170,38 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 		return false, err
 	}
 	return exists, nil
+}
+
+// AssociateCategoryWithRecord creates an association between a record and a category
+func (r *PostgresCategoryRepository) AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error {
+	_, err := tx.ExecContext(ctx,
+		`INSERT INTO record_categories (record_id, category_id) VALUES ($1, $2)`,
+		recordID, categoryID,
+	)
+	return err
+}
+
+// GetRecordCategories retrieves all categories associated with a specific record
+func (r *PostgresCategoryRepository) GetRecordCategories(ctx context.Context, recordID string) ([]Category, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT c.id, c.name, c.created_at, c.modified_at
+		FROM categories c
+		JOIN record_categories rc ON c.id = rc.category_id
+		WHERE rc.record_id = $1
+		ORDER BY c.name
+	`, recordID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []Category
+	for rows.Next() {
+		var cat Category
+		if err := rows.Scan(&cat.Id, &cat.Name, &cat.CreatedAt, &cat.ModifiedAt); err != nil {
+			return nil, err
+		}
+		categories = append(categories, cat)
+	}
+	return categories, rows.Err()
 }

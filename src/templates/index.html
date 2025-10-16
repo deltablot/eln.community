@@ -28,20 +28,23 @@
   {{ else }}
     <a href="/auth/login" class="btn btn-primary">Login with ORCID</a>
   {{ end }}
-  <h2>Select a category</h2>
-  {{- if .Categories }}
-    {{- range .Categories }}
-      <a href='/browse?cat={{ .Id }}' class='btn btn-primary'>{{ .Name }}</a>
-    {{- end }}
-  {{- end }}
   {{ if .User }}
-  <h2>Add entry</h2>
   <form method='post' action='/api/v1/records' enctype='multipart/form-data'>
-    <label>Name your entry
-      <input type='text' name='name' class='form-control' />
+    {{ if .Categories }}
+    <label class="form-label fw-bold">Select a category
+      <select name="category" class="form-control mt-2" required>
+        <option value="">Choose a category...</option>
+        {{ range .Categories }}
+        <option value="{{ .Id }}">{{ .Name }}</option>
+        {{ end }}
+      </select>
     </label>
-    <label>Upload .eln file
-      <input type='file' name='file' class='form-control' />
+    {{ end }}
+    <label class="form-label fw-bold">Name your entry
+      <input type='text' name='name' class='form-control mt-2' required />
+    </label>
+    <label class="form-label fw-bold">Upload .eln file
+      <input type='file' name='file' class='form-control' accept=".eln" required />
     </label>
     <button type='submit' id='submitBtn' class='btn btn-primary'>
       <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
