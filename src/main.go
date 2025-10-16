@@ -50,12 +50,13 @@ type Record struct {
 	Id        string          `json:"id"`
 	Metadata  json.RawMessage `json:"metadata"`
 	// This will be ignored by json.Marshal
-	MetadataPretty string    `json:"-"`
-	ModifiedAt     time.Time `json:"modified_at"`
-	Name           string    `json:"name"`
-	Sha256         string    `json:"sha256"`
-	UploaderName   string    `json:"uploader_name"`
-	UploaderOrcid  string    `json:"uploader_orcid"`
+	MetadataPretty string     `json:"-"`
+	ModifiedAt     time.Time  `json:"modified_at"`
+	Name           string     `json:"name"`
+	Sha256         string     `json:"sha256"`
+	UploaderName   string     `json:"uploader_name"`
+	UploaderOrcid  string     `json:"uploader_orcid"`
+	Categories     []Category `json:"categories,omitempty"`
 }
 
 type Category struct {
@@ -307,8 +308,8 @@ func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
 	return nil, fmt.Errorf("%q not found in zip", target)
 }
 
-// POST Handler
-func postHandler(w http.ResponseWriter, r *http.Request) {
+// Create Record Handler
+func createRecordHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var user *User
 	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
@@ -393,6 +394,20 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse category ID (optional)
+	categoryIDStr := r.FormValue("category")
+	var categoryID int64
+	var hasCategory bool
+	if categoryIDStr != "" {
+		var err error
+		categoryID, err = strconv.ParseInt(categoryIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid category ID: %s", categoryIDStr), http.StatusBadRequest)
+			return
+		}
+		hasCategory = true
+	}
+
 	record := Record{
 		Id:            id,
 		Sha256:        hashHex,
@@ -402,14 +417,38 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		UploaderOrcid: user.Orcid,
 	}
 
-	// DB insert
-	_, err = db.Exec(
+	// Start transaction for record and category associations
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error starting transaction: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// DB insert record
+	_, err = tx.ExecContext(ctx,
 		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		record.Id, key, record.Sha256, record.Name, record.Metadata, record.UploaderName, record.UploaderOrcid,
 	)
 	// Will create an error if sha256 is not unique
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error inserting row in database: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error inserting record in database: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Insert category association if a category was selected
+	if hasCategory {
+		categoryRepo := NewPostgresCategoryRepository(db)
+		err = categoryRepo.AssociateCategoryWithRecord(ctx, tx, record.Id, categoryID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error associating category %d with record: %v", categoryID, err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		http.Error(w, fmt.Sprintf("Error committing transaction: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -474,6 +513,11 @@ func getCategories(ctx context.Context) ([]Category, error) {
 	return categoryRepo.GetAll(ctx)
 }
 
+func getRecordCategories(ctx context.Context, recordID string) ([]Category, error) {
+	categoryRepo := NewPostgresCategoryRepository(db)
+	return categoryRepo.GetRecordCategories(ctx, recordID)
+}
+
 func scanRecords(ctx context.Context) ([]Record, error) {
 	rows, err := db.QueryContext(ctx, `
 	  SELECT id, sha256, name, metadata, created_at, modified_at FROM records
@@ -497,6 +541,14 @@ func scanRecords(ctx context.Context) ([]Record, error) {
 		); err != nil {
 			return nil, err
 		}
+
+		// Get categories for this record
+		categories, err := getRecordCategories(ctx, r.Id)
+		if err != nil {
+			return nil, err
+		}
+		r.Categories = categories
+
 		recs = append(recs, r)
 	}
 	if err := rows.Err(); err != nil {
@@ -527,6 +579,14 @@ func scanRecord(ctx context.Context, id string) (Record, error) {
 	if err != nil {
 		return Record{}, err
 	}
+
+	// Get categories for this record
+	categories, err := getRecordCategories(ctx, rec.Id)
+	if err != nil {
+		return Record{}, err
+	}
+	rec.Categories = categories
+
 	return rec, nil
 }
 
@@ -900,7 +960,7 @@ func main() {
 	})
 
 	// API
-	mux.HandleFunc("POST /api/v1/records", postHandler)
+	mux.HandleFunc("POST /api/v1/records", createRecordHandler)
 	mux.HandleFunc("GET /api/v1/record/", getRecordApi)
 
 	// Initialize repositories and handlers

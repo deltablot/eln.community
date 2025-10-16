@@ -50,6 +50,17 @@ CREATE TABLE sessions (
 );
 CREATE INDEX sessions_expiry_idx ON sessions (expiry);
 
+-- RECORD_CATEGORIES (Many-to-Many relationship between records and categories)
+CREATE TABLE IF NOT EXISTS record_categories (
+  record_id   UUID         NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+  category_id INTEGER      NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  PRIMARY KEY (record_id, category_id)
+);
+CREATE INDEX idx_record_categories_record_id ON record_categories (record_id);
+CREATE INDEX idx_record_categories_category_id ON record_categories (category_id);
+-- END RECORD_CATEGORIES
+
 -- ADMIN_ORCIDS
 CREATE TABLE IF NOT EXISTS admin_orcids
 (
