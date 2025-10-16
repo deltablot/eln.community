@@ -186,7 +186,7 @@ func (r *PostgresCategoryRepository) GetRecordCategories(ctx context.Context, re
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT c.id, c.name, c.created_at, c.modified_at
 		FROM categories c
-		JOIN record_categories rc ON c.id = rc.category_id
+		JOIN records_categories rc ON c.id = rc.category_id
 		WHERE rc.record_id = $1
 		ORDER BY c.name
 	`, recordID)
