@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"mime/multipart"
@@ -434,4 +435,49 @@ func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("%q not found in zip", target)
+}
+
+// GetRecordPage handles HTML page rendering for individual records
+func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
+	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+		"templates/layout.html",
+		"templates/record.html",
+	))
+	const prefix = "/record/"
+	// Grab the id part in the URL
+	raw := strings.TrimPrefix(r.URL.Path, prefix)
+
+	// Split into id and extension
+	ext := filepath.Ext(raw) // ".eln" or ""
+	id := strings.TrimSuffix(raw, ext)
+
+	// validate id (uuidv7)
+	if !uuidv7Regex.MatchString(id) {
+		http.Error(w, "Invalid id format", http.StatusBadRequest)
+		return
+	}
+
+	// get record
+	record, err := h.recordRepo.GetByID(r.Context(), id)
+	if err != nil {
+		if err == ErrRecordNotFound {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Error fetching record", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// prettify JSON
+	record.MetadataPretty = prettyJSON(record.Metadata)
+
+	data := RecordPageData{
+		App:    app,
+		Record: *record,
+	}
+
+	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {
+		errorLogger.Printf("template exec error: %v", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+	}
 }
