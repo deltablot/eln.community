@@ -175,7 +175,7 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 // AssociateCategoryWithRecord creates an association between a record and a category
 func (r *PostgresCategoryRepository) AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error {
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO record_categories (record_id, category_id) VALUES ($1, $2)`,
+		`INSERT INTO records_categories (record_id, category_id) VALUES ($1, $2)`,
 		recordID, categoryID,
 	)
 	return err
