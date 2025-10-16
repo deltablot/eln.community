@@ -28,11 +28,9 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ghcr.io/deltablot/eln.community:latest
           build-args: |
             VERSION=${{ github.ref_name }}
           cache-from: type=gha
