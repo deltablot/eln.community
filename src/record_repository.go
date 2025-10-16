@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 )
 
 var (
@@ -13,6 +14,7 @@ var (
 // RecordRepository defines the interface for record data operations
 type RecordRepository interface {
 	GetAll(ctx context.Context) ([]Record, error)
+	GetAllByCategory(ctx context.Context, categoryID int64) ([]Record, error)
 	GetByID(ctx context.Context, id string) (*Record, error)
 	Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error
 	GetS3Key(ctx context.Context, id string) (string, error)
@@ -136,4 +138,67 @@ func (r *PostgresRecordRepository) GetS3Key(ctx context.Context, id string) (str
 	}
 
 	return s3Key, nil
+}
+
+// GetAllByCategory retrieves all records filtered by category with their categories
+func (r *PostgresRecordRepository) GetAllByCategory(ctx context.Context, categoryID int64) ([]Record, error) {
+	// First, let's check if the category exists
+	var categoryExists bool
+	err := r.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM categories WHERE id = $1)`, categoryID).Scan(&categoryExists)
+	if err != nil {
+		log.Printf("Error checking if category exists: %v", err)
+		return nil, err
+	}
+	if !categoryExists {
+		log.Printf("Category %d does not exist", categoryID)
+		return []Record{}, nil // Return empty slice instead of error
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at 
+		FROM records r
+		JOIN records_categories rc ON r.id = rc.record_id
+		WHERE rc.category_id = $1
+		ORDER BY r.created_at DESC
+	`, categoryID)
+	if err != nil {
+		log.Printf("Error in GetAllByCategory query for category %d: %v", categoryID, err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []Record
+	recordCount := 0
+	for rows.Next() {
+		recordCount++
+		var record Record
+		if err := rows.Scan(
+			&record.Id,
+			&record.Sha256,
+			&record.Name,
+			&record.Metadata,
+			&record.CreatedAt,
+			&record.ModifiedAt,
+		); err != nil {
+			log.Printf("Error scanning record %d: %v", recordCount, err)
+			return nil, err
+		}
+
+		// Get categories for this record
+		categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
+		if err != nil {
+			log.Printf("Error getting categories for record %s: %v", record.Id, err)
+			return nil, err
+		}
+		record.Categories = categories
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("Error in rows iteration: %v", err)
+		return nil, err
+	}
+
+	return records, nil
 }

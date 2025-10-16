@@ -481,3 +481,68 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Template error", http.StatusInternalServerError)
 	}
 }
+
+// GetBrowsePage handles the browse page that lists all records
+func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
+	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+		"templates/layout.html",
+		"templates/browse.html",
+	))
+
+	// CATEGORIES
+	categories, err := h.categoryRepo.GetAll(r.Context())
+	if err != nil {
+		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse category filter parameter
+	categoryIDStr := r.URL.Query().Get("category")
+	var selectedCategoryID int64
+	var records []Record
+
+	if categoryIDStr != "" {
+		// Filter by category
+		categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid category ID", http.StatusBadRequest)
+			return
+		}
+		selectedCategoryID = categoryID
+		records, err = h.recordRepo.GetAllByCategory(r.Context(), categoryID)
+		if err != nil {
+			log.Printf("Error in GetBrowsePage filtering by category %d: %v", categoryID, err)
+			http.Error(w, fmt.Sprintf("Error fetching records for category %d", categoryID), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Get all records
+		records, err = h.recordRepo.GetAll(r.Context())
+		if err != nil {
+			http.Error(w, "Error fetching records", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	recs := make([]Record, 0, len(records))
+	for _, r := range records {
+		// clone r (shallow copy), then set only MetadataPretty
+		r.MetadataPretty = prettyJSON(r.Metadata)
+		recs = append(recs, r)
+	}
+
+	data := struct {
+		App                App
+		Categories         []Category
+		Records            []Record
+		SelectedCategoryID int64
+	}{
+		App:                app,
+		Categories:         categories,
+		Records:            recs,
+		SelectedCategoryID: selectedCategoryID,
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	pageTmpl.ExecuteTemplate(w, "layout", data)
+}
