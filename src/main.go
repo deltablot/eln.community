@@ -32,7 +32,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 
 	"github.com/google/uuid"
@@ -240,45 +239,6 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 	pageTmpl.ExecuteTemplate(w, "layout", nil)
 }
 
-func getBrowse(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
-		"templates/layout.html",
-		"templates/browse.html",
-	))
-
-	// CATEGORIES
-	categories, err := getCategories(r.Context())
-	if err != nil {
-		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
-		return
-	}
-
-	// RECORDS
-	categoryRepo := NewPostgresCategoryRepository(db)
-	recordRepo := NewPostgresRecordRepository(db, categoryRepo)
-	records, err := recordRepo.GetAll(r.Context())
-	if err != nil {
-		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
-		return
-	}
-
-	recs := make([]Record, 0, len(records))
-	for _, r := range records {
-		// clone r (shallow copy), then set only MetadataPretty
-		r.MetadataPretty = prettyJSON(r.Metadata)
-		recs = append(recs, r)
-	}
-
-	data := RecordsPageData{
-		App:        app,
-		Categories: categories,
-		Records:    recs,
-	}
-
-	w.Header().Set("Content-Type", "text/html")
-	pageTmpl.ExecuteTemplate(w, "layout", data)
-}
-
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	var pageTmpl = template.Must(template.ParseFS(staticFiles,
 		"templates/layout.html",
@@ -361,10 +321,6 @@ func serveAsset(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	errLoadEvn := godotenv.Load()
-	if errLoadEvn != nil {
-		log.Fatal("Error loading .env file")
-	}
 	infoLogger.Printf("starting eln.community version: %s", version)
 	// Define and parse command-line flags.
 	port := flag.String("port", "8080", "Port to listen on")
@@ -451,7 +407,7 @@ func main() {
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
-	mux.Handle("/browse", securityHeaders(http.HandlerFunc(getBrowse)))
+	mux.Handle("/browse", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
 	mux.Handle("/record/", securityHeaders(http.HandlerFunc(recordHandler.GetRecordPage)))
 
 	// root catchall
