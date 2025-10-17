@@ -4,16 +4,312 @@
 <h3>Created at: {{ .Record.CreatedAt }}</h3>
 <h3>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h3>
 {{- if .Record.Categories }}
-<h3>Categories: 
+<h3>Categories:
   {{- range .Record.Categories }}
-    <span class="badge bg-primary me-1">{{ .Name }}</span>
+  <span class="badge bg-primary me-1">{{ .Name }}</span>
   {{- end }}
 </h3>
 {{- end }}
-<h3>Metadata: </h3>
-<details>
-  <summary>Display ro-crate-metadata.json</summary>
-<pre>{{ .Record.MetadataPretty }}</pre>
-</details>
-<!--pre>{{ printf "%#v" . }}</pre-->
+
+<h3>RO-Crate Metadata</h3>
+<div id="ro-crate-viewer">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <button class="btn btn-primary btn-sm" id="view-formatted" onclick="showFormattedView()">Formatted View</button>
+      <button class="btn btn-outline-secondary btn-sm" id="view-raw" onclick="showRawView()">Raw JSON</button>
+    </div>
+  </div>
+
+  <div id="formatted-view">
+    <div id="ro-crate-content">
+      <div class="text-center p-4">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Parsing RO-Crate metadata...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="raw-view" style="display: none;">
+    <pre class="bg-light p-3 rounded"><code>{{ .Record.MetadataPretty }}</code></pre>
+  </div>
+</div>
+
+<!-- Pass JSON data safely to JavaScript -->
+<script>
+  // Embed the JSON data directly as a JavaScript variable to avoid parsing issues
+  window.roCrateRawData = {{ .Record.Metadata }};
+</script>
+
+<style>
+  .ro-crate-entity {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+    background: #fff;
+  }
+
+  .ro-crate-entity-header {
+    background: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 0.375rem 0.375rem 0 0;
+  }
+
+  .ro-crate-entity-body {
+    padding: 1rem;
+  }
+
+  .ro-crate-property {
+    margin-bottom: 0.5rem;
+  }
+
+  .ro-crate-property-name {
+    font-weight: 600;
+    color: #495057;
+    margin-right: 0.5rem;
+  }
+
+  .ro-crate-array {
+    margin-left: 1rem;
+  }
+
+  .ro-crate-array-item {
+    padding: 0.25rem 0;
+    border-left: 3px solid #e9ecef;
+    padding-left: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .ro-crate-link {
+    color: #0d6efd;
+    text-decoration: none;
+  }
+
+  .ro-crate-link:hover {
+    text-decoration: underline;
+  }
+
+  .ro-crate-type-badge {
+    background: #e7f3ff;
+    color: #0066cc;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    margin-right: 0.25rem;
+  }
+
+  .ro-crate-id {
+    font-family: monospace;
+    background: #f8f9fa;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+  }
+</style>
+
+<script>
+  let roCrateData = null;
+
+  function showFormattedView() {
+    document.getElementById('formatted-view').style.display = 'block';
+    document.getElementById('raw-view').style.display = 'none';
+    document.getElementById('view-formatted').className = 'btn btn-primary btn-sm';
+    document.getElementById('view-raw').className = 'btn btn-outline-secondary btn-sm';
+  }
+
+  function showRawView() {
+    document.getElementById('formatted-view').style.display = 'none';
+    document.getElementById('raw-view').style.display = 'block';
+    document.getElementById('view-formatted').className = 'btn btn-outline-secondary btn-sm';
+    document.getElementById('view-raw').className = 'btn btn-primary btn-sm';
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function renderProperty(key, value) {
+    if (value === null || value === undefined) return '';
+
+    let html = `<div class="ro-crate-property">
+    <span class="ro-crate-property-name">${escapeHtml(key)}:</span>`;
+
+    if (Array.isArray(value)) {
+      html += '<div class="ro-crate-array">';
+      value.forEach(item => {
+        html += `<div class="ro-crate-array-item">${renderValue(item)}</div>`;
+      });
+      html += '</div>';
+    } else {
+      html += renderValue(value);
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderValue(value) {
+    if (value === null || value === undefined) return '<em>null</em>';
+
+    if (typeof value === 'string') {
+      // Check if it's a URL
+      if (value.startsWith('http://') || value.startsWith('https://')) {
+        return `<a href="${escapeHtml(value)}" class="ro-crate-link" target="_blank">${escapeHtml(value)}</a>`;
+      }
+      // Check if it's an ID reference
+      if (value.startsWith('./') || value.startsWith('#')) {
+        return `<span class="ro-crate-id">${escapeHtml(value)}</span>`;
+      }
+      return escapeHtml(value);
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      if (value['@id']) {
+        let html = `<span class="ro-crate-id">${escapeHtml(value['@id'])}</span>`;
+        if (value['@type']) {
+          const types = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
+          types.forEach(type => {
+            html += ` <span class="ro-crate-type-badge">${escapeHtml(type)}</span>`;
+          });
+        }
+        return html;
+      }
+      return escapeHtml(JSON.stringify(value, null, 2));
+    }
+
+    return escapeHtml(String(value));
+  }
+
+  function renderEntity(entity) {
+    let html = '<div class="ro-crate-entity">';
+
+    // Header with ID and type
+    html += '<div class="ro-crate-entity-header">';
+    html += `<strong>ID:</strong> <span class="ro-crate-id">${escapeHtml(entity['@id'] || 'Unknown')}</span>`;
+
+    if (entity['@type']) {
+      html += ' ';
+      const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
+      types.forEach(type => {
+        html += `<span class="ro-crate-type-badge">${escapeHtml(type)}</span>`;
+      });
+    }
+    html += '</div>';
+
+    // Body with properties
+    html += '<div class="ro-crate-entity-body">';
+
+    // Sort properties, putting common ones first
+    const commonProps = ['name', 'description', 'author', 'dateCreated', 'dateModified', 'license', 'url'];
+    const sortedKeys = Object.keys(entity).sort((a, b) => {
+      if (a === '@id' || a === '@type') return -1;
+      if (b === '@id' || b === '@type') return 1;
+
+      const aIndex = commonProps.indexOf(a);
+      const bIndex = commonProps.indexOf(b);
+
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+
+      return a.localeCompare(b);
+    });
+
+    sortedKeys.forEach(key => {
+      if (key !== '@id' && key !== '@type') {
+        html += renderProperty(key, entity[key]);
+      }
+    });
+
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderRoCrate(data) {
+    console.log('Rendering RO-Crate data:', data);
+
+    if (!data || typeof data !== 'object') {
+      return '<div class="alert alert-warning">Invalid RO-Crate format: data is not an object</div>';
+    }
+
+    if (!data['@graph'] || !Array.isArray(data['@graph'])) {
+      return '<div class="alert alert-warning">Invalid RO-Crate format: missing or invalid @graph property</div>';
+    }
+
+    let html = '';
+
+    // Find the root dataset (usually has @id of "./" or similar)
+    const rootDataset = data['@graph'].find(entity => {
+      if (!entity || typeof entity !== 'object') return false;
+      if (entity['@id'] === './') return true;
+
+      // Check if @type contains Dataset
+      if (entity['@type']) {
+        const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
+        return types.includes('Dataset');
+      }
+
+      return false;
+    });
+
+    if (rootDataset) {
+      html += '<h4>Dataset Information</h4>';
+      html += renderEntity(rootDataset);
+    }
+
+    // Group other entities by type
+    const otherEntities = data['@graph'].filter(entity => entity !== rootDataset);
+    const entityGroups = {};
+
+    otherEntities.forEach(entity => {
+      if (!entity || typeof entity !== 'object') return;
+
+      const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type'] || 'Unknown'];
+      const primaryType = types[0] || 'Unknown';
+
+      if (!entityGroups[primaryType]) {
+        entityGroups[primaryType] = [];
+      }
+      entityGroups[primaryType].push(entity);
+    });
+
+    // Render grouped entities
+    Object.keys(entityGroups).sort().forEach(type => {
+      if (entityGroups[type].length > 0) {
+        html += `<h4>${escapeHtml(type)} (${entityGroups[type].length})</h4>`;
+        entityGroups[type].forEach(entity => {
+          html += renderEntity(entity);
+        });
+      }
+    });
+
+    return html;
+  }
+
+  // Initialize when page loads
+  document.addEventListener('DOMContentLoaded', function () {
+    try {
+      // Use the directly embedded JSON data
+      if (typeof window.roCrateRawData === 'undefined') {
+        throw new Error('RO-Crate data not found');
+      }
+
+      roCrateData = window.roCrateRawData;
+      console.log('RO-Crate data loaded:', roCrateData);
+
+      const contentDiv = document.getElementById('ro-crate-content');
+      contentDiv.innerHTML = renderRoCrate(roCrateData);
+    } catch (error) {
+      console.error('Error processing RO-Crate data:', error);
+      document.getElementById('ro-crate-content').innerHTML =
+        '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(error.message) +
+        '<br><small>Check browser console for more details</small></div>';
+    }
+  });
+</script>
+
 {{ end }}
