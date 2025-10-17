@@ -37,9 +37,10 @@
 </div>
 
 <!-- Pass JSON data safely to JavaScript -->
+<script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
 <script>
-  // Embed the JSON data directly as a JavaScript variable to avoid parsing issues
-  window.roCrateRawData = {{ .Record.Metadata }};
+  // Parse JSON data safely
+  window.roCrateRawData = JSON.parse(document.getElementById('ro-crate-json-data').textContent);
 </script>
 
 <style>
@@ -107,6 +108,21 @@
     border-radius: 0.25rem;
     font-size: 0.875rem;
   }
+
+  .html-content-preview {
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+  }
+
+  .html-preview {
+    max-height: 150px;
+    overflow-y: auto;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 </style>
 
 <script>
@@ -132,7 +148,17 @@
     return div.innerHTML;
   }
 
-  function renderProperty(key, value) {
+  function isValidUrl(string) {
+    try {
+      const url = new URL(string);
+      // Only allow http and https protocols for security
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function renderProperty(key, value, entity) {
     if (value === null || value === undefined) return '';
 
     let html = `<div class="ro-crate-property">
@@ -141,29 +167,35 @@
     if (Array.isArray(value)) {
       html += '<div class="ro-crate-array">';
       value.forEach(item => {
-        html += `<div class="ro-crate-array-item">${renderValue(item)}</div>`;
+        html += `<div class="ro-crate-array-item">${renderValue(item, entity, key)}</div>`;
       });
       html += '</div>';
     } else {
-      html += renderValue(value);
+      html += renderValue(value, entity, key);
     }
 
     html += '</div>';
     return html;
   }
 
-  function renderValue(value) {
+  function renderValue(value, entity, key) {
     if (value === null || value === undefined) return '<em>null</em>';
 
     if (typeof value === 'string') {
-      // Check if it's a URL
-      if (value.startsWith('http://') || value.startsWith('https://')) {
-        return `<a href="${escapeHtml(value)}" class="ro-crate-link" target="_blank">${escapeHtml(value)}</a>`;
+      // Check if it's a URL (with better validation for XSS protection)
+      if (isValidUrl(value)) {
+        return `<a href="${escapeHtml(value)}" class="ro-crate-link" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`;
       }
       // Check if it's an ID reference
       if (value.startsWith('./') || value.startsWith('#')) {
         return `<span class="ro-crate-id">${escapeHtml(value)}</span>`;
       }
+
+      // Check if this is HTML content based on encodingFormat
+      if (entity && entity.encodingFormat === 'text/html' && (key === 'text' || key === 'description' || key === 'content')) {
+        return renderHtmlContent(value, entity['@id']);
+      }
+
       return escapeHtml(value);
     }
 
@@ -178,10 +210,51 @@
         }
         return html;
       }
-      return escapeHtml(JSON.stringify(value, null, 2));
+      return `<pre class="small">${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
     }
 
     return escapeHtml(String(value));
+  }
+
+  function renderHtmlContent(htmlContent, entityId) {
+    // Create a safe blob URL for HTML content
+    const safeEntityId = escapeHtml(entityId || 'unknown');
+    const truncatedContent = htmlContent.length > 200 ? htmlContent.substring(0, 200) + '...' : htmlContent;
+
+    return `
+      <div class="html-content-preview">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="badge bg-info">HTML Content</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="openHtmlInNewTab('${btoa(unescape(encodeURIComponent(htmlContent)))}', '${safeEntityId}')">
+            <i class="fas fa-external-link-alt"></i> Open in New Tab
+          </button>
+        </div>
+        <div class="html-preview bg-light p-2 rounded small">
+          ${escapeHtml(truncatedContent)}
+        </div>
+      </div>
+    `;
+  }
+
+  function openHtmlInNewTab(base64Content, entityId) {
+    try {
+      const htmlContent = decodeURIComponent(escape(atob(base64Content)));
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const newWindow = window.open(url, '_blank');
+
+      // Clean up the blob URL after a short delay
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+
+      if (!newWindow) {
+        alert('Please allow popups to view HTML content in a new tab.');
+      }
+    } catch (error) {
+      console.error('Error opening HTML content:', error);
+      alert('Error opening HTML content: ' + error.message);
+    }
   }
 
   function renderEntity(entity) {
@@ -221,7 +294,7 @@
 
     sortedKeys.forEach(key => {
       if (key !== '@id' && key !== '@type') {
-        html += renderProperty(key, entity[key]);
+        html += renderProperty(key, entity[key], entity);
       }
     });
 
