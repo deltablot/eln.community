@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
           const successToast = document.getElementById('successToast');
           if (successToast) {
             const toast = new bootstrap.Toast(successToast, {
-              delay: 2000,
+              delay: 3000,
               autohide: true
             });
 
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (errorToast && errorToastBody) {
             errorToastBody.textContent = errorText || 'Upload failed. Please try again.';
             const toast = new bootstrap.Toast(errorToast, {
-              delay: 2000,
+              delay: 5000,
               autohide: true
             });
             toast.show();
