@@ -196,11 +196,16 @@ func newS3Client() (*s3.Client, error) {
 	if accessKey == "" || secretKey == "" || region == "" {
 		log.Fatal("environment variables ACCESS_KEY, SECRET_KEY and REGION must be set")
 	}
+
+	s3Endpoint := os.Getenv("S3_ENDPOINT")
+	if s3Endpoint == "" {
+		s3Endpoint = "https://s3." + region + ".scw.cloud"
+	}
 	// Custom endpoint resolver pointing at Scaleway S3
 	endpointResolver := aws.EndpointResolverWithOptionsFunc(
 		func(service, region string, opts ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
-				URL:           "https://s3." + region + ".scw.cloud",
+				URL:           s3Endpoint,
 				SigningRegion: region,
 			}, nil
 		},
