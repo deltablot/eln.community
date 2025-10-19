@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # Dockerfile for eln.community
 # https://github.com/deltablot/eln.community
 

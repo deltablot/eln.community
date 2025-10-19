@@ -411,7 +411,6 @@ func seedDatabase(ctx context.Context, db *sql.DB) {
 		fmt.Printf("Created category: %s (ID: %d)\n", category.Name, category.Id)
 	}
 
-	// Seed admin (you should replace this with actual ORCID)
 	sampleAdminOrcid := "0000-0000-0000-0000"
 	fmt.Printf("Adding sample admin ORCID: %s\n", sampleAdminOrcid)
 	_, err := adminRepo.Add(ctx, sampleAdminOrcid)

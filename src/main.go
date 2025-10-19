@@ -12,6 +12,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
@@ -108,8 +109,6 @@ var app App
 // this will be overwritten during docker build
 var version string = "dev"
 
-var defaultMaxTotalFiles int64 = 24
-
 var siteUrl = "http://localhost"
 
 // uuidv7Regex ensures that the filename follows the format:
@@ -133,10 +132,9 @@ func ensureSchema(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("creating migrator: %w", err)
 	}
-	defer m.Close()
 
 	err = m.Up()
-	if err != nil && err != migrate.ErrNoChange {
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("running migrations: %w", err)
 	}
 
@@ -240,7 +238,7 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	))
 
 	categories, err := getCategories(r.Context())
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
 	}
