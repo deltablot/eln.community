@@ -128,7 +128,7 @@ func ensureSchema(ctx context.Context) error {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		"file:///sql",
 		"postgres", driver)
 	if err != nil {
 		return fmt.Errorf("creating migrator: %w", err)

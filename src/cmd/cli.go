@@ -435,7 +435,7 @@ func createMigrator(db *sql.DB) (*migrate.Migrate, error) {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		"file:///sql",
 		"postgres", driver)
 	if err != nil {
 		return nil, err

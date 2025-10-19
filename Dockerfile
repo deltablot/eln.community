@@ -32,7 +32,6 @@ COPY go.sum .
 RUN go mod download
 # copy code
 COPY src src
-COPY migrations migrations
 COPY --from=bundler /home/node/src/dist src/dist
 # disable CGO or it doesn't work in scratch
 # target linux/amd64
@@ -46,6 +45,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /cli ./sr
 FROM gcr.io/distroless/static:${GO_IMG_TAG}
 COPY --from=gobuilder /eln.community /usr/local/bin/eln.community
 COPY --from=gobuilder /cli /usr/local/bin/cli
+COPY --from=gobuilder /app/src/sql /sql
 USER nobody:nobody
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/eln.community"]
