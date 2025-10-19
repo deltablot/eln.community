@@ -18,177 +18,223 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	"github.com/spf13/cobra"
 )
 
 var (
-	infoLogger  = log.New(os.Stdout, "[info] ", log.LstdFlags)
 	errorLogger = log.New(os.Stderr, "[error] ", log.LstdFlags|log.Lshortfile)
+	db          *sql.DB
+	ctx         context.Context
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
-
-	// Get database connection
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		log.Fatal("set DATABASE_URL")
-	}
-
-	db, err := sql.Open("postgres", dsn)
-	if err != nil {
-		log.Fatalf("sql.Open: %v", err)
-	}
-	defer db.Close()
-
-	ctx := context.Background()
-	if err := db.PingContext(ctx); err != nil {
-		log.Fatalf("db.Ping: %v", err)
-	}
-
-	// Initialize repositories
-	categoryRepo := NewPostgresCategoryRepository(db)
-	adminRepo := NewPostgresAdminRepository(db)
-
-	command := os.Args[1]
-	switch command {
-	case "categories":
-		handleCategoriesCommand(ctx, categoryRepo, os.Args[2:])
-	case "admin":
-		handleAdminCommand(ctx, adminRepo, os.Args[2:])
-	case "db":
-		handleDBCommand(ctx, db, os.Args[2:])
-	default:
-		fmt.Printf("Unknown command: %s\n", command)
-		printUsage()
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func printUsage() {
-	fmt.Println("eln.community CLI - Administrative tool")
-	fmt.Println()
-	fmt.Println("Usage: cli <command> [options]")
-	fmt.Println()
-	fmt.Println("Commands:")
-	fmt.Println("  categories list                    - List all categories")
-	fmt.Println("  categories add <name>              - Add a new category")
-	fmt.Println("  categories update <id> <name>      - Update category name")
-	fmt.Println("  categories delete <id>             - Delete a category")
-	fmt.Println()
-	fmt.Println("  admin list                         - List all admin ORCIDs")
-	fmt.Println("  admin add <orcid>                  - Add admin ORCID")
-	fmt.Println("  admin remove <orcid>               - Remove admin ORCID")
-	fmt.Println()
-	fmt.Println("  db reset                           - Reset database (WARNING: deletes all data)")
-	fmt.Println("  db seed                            - Seed database with sample data")
-	fmt.Println("  db migrate up                      - Run all pending migrations")
-	fmt.Println("  db migrate down                    - Rollback one migration")
-	fmt.Println("  db migrate version                 - Show current migration version")
+var rootCmd = &cobra.Command{
+	Use:   "cli",
+	Short: "eln.community CLI - Administrative tool",
+	Long: `A command-line interface for managing the eln.community application.
+This tool provides administrative functions for categories, admin users, and database operations.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Initialize database connection for all commands
+		dsn := os.Getenv("DATABASE_URL")
+		if dsn == "" {
+			log.Fatal("DATABASE_URL environment variable must be set")
+		}
+
+		var err error
+		db, err = sql.Open("postgres", dsn)
+		if err != nil {
+			log.Fatalf("Failed to open database connection: %v", err)
+		}
+
+		ctx = context.Background()
+		if err := db.PingContext(ctx); err != nil {
+			log.Fatalf("Failed to connect to database: %v", err)
+		}
+	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		if db != nil {
+			db.Close()
+		}
+	},
 }
 
-func handleCategoriesCommand(ctx context.Context, repo CategoryRepository, args []string) {
-	if len(args) == 0 {
-		fmt.Println("Missing categories subcommand")
-		printUsage()
-		os.Exit(1)
-	}
+func init() {
+	rootCmd.AddCommand(categoriesCmd)
+	rootCmd.AddCommand(adminCmd)
+	rootCmd.AddCommand(dbCmd)
+}
 
-	subcommand := args[0]
-	switch subcommand {
-	case "list":
+// Categories command
+var categoriesCmd = &cobra.Command{
+	Use:   "categories",
+	Short: "Manage categories",
+	Long:  "Commands for managing categories in the eln.community application.",
+}
+
+var categoriesListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all categories",
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := NewPostgresCategoryRepository(db)
 		listCategories(ctx, repo)
-	case "add":
-		if len(args) < 2 {
-			fmt.Println("Missing category name")
-			os.Exit(1)
-		}
-		addCategory(ctx, repo, args[1])
-	case "update":
-		if len(args) < 3 {
-			fmt.Println("Missing category ID or name")
-			os.Exit(1)
-		}
-		id, err := strconv.ParseInt(args[1], 10, 64)
+	},
+}
+
+var categoriesAddCmd = &cobra.Command{
+	Use:   "add <name>",
+	Short: "Add a new category",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := NewPostgresCategoryRepository(db)
+		addCategory(ctx, repo, args[0])
+	},
+}
+
+var categoriesUpdateCmd = &cobra.Command{
+	Use:   "update <id> <name>",
+	Short: "Update category name",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := NewPostgresCategoryRepository(db)
+		id, err := strconv.ParseInt(args[0], 10, 64)
 		if err != nil {
-			fmt.Printf("Invalid category ID: %s\n", args[1])
+			fmt.Printf("Invalid category ID: %s\n", args[0])
 			os.Exit(1)
 		}
-		updateCategory(ctx, repo, id, args[2])
-	case "delete":
-		if len(args) < 2 {
-			fmt.Println("Missing category ID")
-			os.Exit(1)
-		}
-		id, err := strconv.ParseInt(args[1], 10, 64)
+		updateCategory(ctx, repo, id, args[1])
+	},
+}
+
+var categoriesDeleteCmd = &cobra.Command{
+	Use:   "delete <id>",
+	Short: "Delete a category",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := NewPostgresCategoryRepository(db)
+		id, err := strconv.ParseInt(args[0], 10, 64)
 		if err != nil {
-			fmt.Printf("Invalid category ID: %s\n", args[1])
+			fmt.Printf("Invalid category ID: %s\n", args[0])
 			os.Exit(1)
 		}
 		deleteCategory(ctx, repo, id)
-	default:
-		fmt.Printf("Unknown categories subcommand: %s\n", subcommand)
-		printUsage()
-		os.Exit(1)
-	}
+	},
 }
 
-func handleAdminCommand(ctx context.Context, repo AdminRepository, args []string) {
-	if len(args) == 0 {
-		fmt.Println("Missing admin subcommand")
-		printUsage()
-		os.Exit(1)
-	}
+// Admin command
+var adminCmd = &cobra.Command{
+	Use:   "admin",
+	Short: "Manage admin users",
+	Long:  "Commands for managing admin users in the eln.community application.",
+}
 
-	subcommand := args[0]
-	switch subcommand {
-	case "list":
+var adminListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all admin ORCIDs",
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := NewPostgresAdminRepository(db)
 		listAdmins(ctx, repo)
-	case "add":
-		if len(args) < 2 {
-			fmt.Println("Missing ORCID")
-			os.Exit(1)
-		}
-		addAdmin(ctx, repo, args[1])
-	case "remove":
-		if len(args) < 2 {
-			fmt.Println("Missing ORCID")
-			os.Exit(1)
-		}
-		removeAdmin(ctx, repo, args[1])
-	default:
-		fmt.Printf("Unknown admin subcommand: %s\n", subcommand)
-		printUsage()
-		os.Exit(1)
-	}
+	},
 }
 
-func handleDBCommand(ctx context.Context, db *sql.DB, args []string) {
-	if len(args) == 0 {
-		fmt.Println("Missing db subcommand")
-		printUsage()
-		os.Exit(1)
-	}
+var adminAddCmd = &cobra.Command{
+	Use:   "add <orcid>",
+	Short: "Add admin ORCID",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := NewPostgresAdminRepository(db)
+		addAdmin(ctx, repo, args[0])
+	},
+}
 
-	subcommand := args[0]
-	switch subcommand {
-	case "reset":
+var adminRemoveCmd = &cobra.Command{
+	Use:   "remove <orcid>",
+	Short: "Remove admin ORCID",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := NewPostgresAdminRepository(db)
+		removeAdmin(ctx, repo, args[0])
+	},
+}
+
+// Database command
+var dbCmd = &cobra.Command{
+	Use:   "db",
+	Short: "Database operations",
+	Long:  "Commands for database management including migrations, reset, and seeding.",
+}
+
+var dbResetCmd = &cobra.Command{
+	Use:   "reset",
+	Short: "Reset database (WARNING: deletes all data)",
+	Run: func(cmd *cobra.Command, args []string) {
 		resetDatabase(ctx, db)
-	case "seed":
+	},
+}
+
+var dbSeedCmd = &cobra.Command{
+	Use:   "seed",
+	Short: "Seed database with sample data",
+	Run: func(cmd *cobra.Command, args []string) {
 		seedDatabase(ctx, db)
-	case "migrate":
-		if len(args) < 2 {
-			fmt.Println("Missing migrate subcommand (up/down/version)")
-			os.Exit(1)
-		}
-		handleMigrateCommand(db, args[1:])
-	default:
-		fmt.Printf("Unknown db subcommand: %s\n", subcommand)
-		printUsage()
-		os.Exit(1)
-	}
+	},
+}
+
+var dbMigrateCmd = &cobra.Command{
+	Use:   "migrate",
+	Short: "Database migration operations",
+}
+
+var dbMigrateUpCmd = &cobra.Command{
+	Use:   "up",
+	Short: "Run all pending migrations",
+	Run: func(cmd *cobra.Command, args []string) {
+		handleMigrateUp(db)
+	},
+}
+
+var dbMigrateDownCmd = &cobra.Command{
+	Use:   "down",
+	Short: "Rollback one migration",
+	Run: func(cmd *cobra.Command, args []string) {
+		handleMigrateDown(db)
+	},
+}
+
+var dbMigrateVersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Show current migration version",
+	Run: func(cmd *cobra.Command, args []string) {
+		handleMigrateVersion(db)
+	},
+}
+
+func init() {
+	// Categories subcommands
+	categoriesCmd.AddCommand(categoriesListCmd)
+	categoriesCmd.AddCommand(categoriesAddCmd)
+	categoriesCmd.AddCommand(categoriesUpdateCmd)
+	categoriesCmd.AddCommand(categoriesDeleteCmd)
+
+	// Admin subcommands
+	adminCmd.AddCommand(adminListCmd)
+	adminCmd.AddCommand(adminAddCmd)
+	adminCmd.AddCommand(adminRemoveCmd)
+
+	// Database subcommands
+	dbCmd.AddCommand(dbResetCmd)
+	dbCmd.AddCommand(dbSeedCmd)
+	dbCmd.AddCommand(dbMigrateCmd)
+
+	// Migration subcommands
+	dbMigrateCmd.AddCommand(dbMigrateUpCmd)
+	dbMigrateCmd.AddCommand(dbMigrateDownCmd)
+	dbMigrateCmd.AddCommand(dbMigrateVersionCmd)
 }
 
 // Category operations
@@ -398,51 +444,55 @@ func createMigrator(db *sql.DB) (*migrate.Migrate, error) {
 	return m, nil
 }
 
-func handleMigrateCommand(db *sql.DB, args []string) {
-	if len(args) == 0 {
-		fmt.Println("Missing migrate subcommand")
-		os.Exit(1)
-	}
-
+func handleMigrateUp(db *sql.DB) {
 	m, err := createMigrator(db)
 	if err != nil {
 		errorLogger.Fatalf("Failed to create migrator: %v", err)
 	}
 	defer m.Close()
 
-	subcommand := args[0]
-	switch subcommand {
-	case "up":
-		err = m.Up()
-		if err != nil && err != migrate.ErrNoChange {
-			errorLogger.Fatalf("Failed to run migrations: %v", err)
-		}
-		if err == migrate.ErrNoChange {
-			fmt.Println("No migrations to run")
-		} else {
-			fmt.Println("Migrations completed successfully")
-		}
-	case "down":
-		err = m.Steps(-1)
-		if err != nil && err != migrate.ErrNoChange {
-			errorLogger.Fatalf("Failed to rollback migration: %v", err)
-		}
-		if err == migrate.ErrNoChange {
-			fmt.Println("No migrations to rollback")
-		} else {
-			fmt.Println("Migration rollback completed")
-		}
-	case "version":
-		version, dirty, err := m.Version()
-		if err != nil {
-			errorLogger.Fatalf("Failed to get migration version: %v", err)
-		}
-		fmt.Printf("Current migration version: %d\n", version)
-		if dirty {
-			fmt.Println("WARNING: Database is in dirty state")
-		}
-	default:
-		fmt.Printf("Unknown migrate subcommand: %s\n", subcommand)
-		os.Exit(1)
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		errorLogger.Fatalf("Failed to run migrations: %v", err)
+	}
+	if err == migrate.ErrNoChange {
+		fmt.Println("No migrations to run")
+	} else {
+		fmt.Println("Migrations completed successfully")
+	}
+}
+
+func handleMigrateDown(db *sql.DB) {
+	m, err := createMigrator(db)
+	if err != nil {
+		errorLogger.Fatalf("Failed to create migrator: %v", err)
+	}
+	defer m.Close()
+
+	err = m.Steps(-1)
+	if err != nil && err != migrate.ErrNoChange {
+		errorLogger.Fatalf("Failed to rollback migration: %v", err)
+	}
+	if err == migrate.ErrNoChange {
+		fmt.Println("No migrations to rollback")
+	} else {
+		fmt.Println("Migration rollback completed")
+	}
+}
+
+func handleMigrateVersion(db *sql.DB) {
+	m, err := createMigrator(db)
+	if err != nil {
+		errorLogger.Fatalf("Failed to get migration version: %v", err)
+	}
+	defer m.Close()
+
+	version, dirty, err := m.Version()
+	if err != nil {
+		errorLogger.Fatalf("Failed to get migration version: %v", err)
+	}
+	fmt.Printf("Current migration version: %d\n", version)
+	if dirty {
+		fmt.Println("WARNING: Database is in dirty state")
 	}
 }

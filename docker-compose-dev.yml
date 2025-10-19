@@ -15,7 +15,6 @@ services:
       - POSTGRES_PASSWORD=eln
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
-      - ./src/sql/structure.sql:/docker-entrypoint-initdb.d/01-structure.sql:ro
     networks:
       - eln
     ports:
