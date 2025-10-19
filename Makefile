@@ -44,14 +44,6 @@ down:
 logs:
 	docker compose -f docker-compose-dev.yml logs -f
 
-# Clean up everything
-clean:
-	@echo "Cleaning up development environment..."
-	docker compose -f docker-compose-dev.yml down -v
-	docker rmi ghcr.io/deltablot/eln-community:dev 2>/dev/null || true
-	docker rmi ghcr.io/deltablot/eln-community 2>/dev/null || true
-	@echo "Cleanup complete"
-
 # CLI Commands - these require the container to be running
 cli-help:
 	@echo "Running CLI help..."
