@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # Dockerfile for eln.community
 # https://github.com/deltablot/eln.community
 
@@ -34,17 +32,20 @@ COPY go.sum .
 RUN go mod download
 # copy code
 COPY src src
+COPY migrations migrations
 COPY --from=bundler /home/node/src/dist src/dist
 # disable CGO or it doesn't work in scratch
 # target linux/amd64
 # -w turn off DWARF debugging
 # -s turn off symbol table
 # change version at linking time
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X 'main.Version=${VERSION}'" -o /eln.community ./src/*.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X 'main.Version=${VERSION}'" -o /eln.community ./src/main.go ./src/category_handler.go ./src/category_repository.go ./src/record_handler.go ./src/record_repository.go ./src/oidc.go ./src/utils.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /cli ./src/cmd/cli.go ./src/cmd/repositories.go
 
 # use distroless instead of scratch to have ssl certificates and nobody
 FROM gcr.io/distroless/static:${GO_IMG_TAG}
 COPY --from=gobuilder /eln.community /usr/local/bin/eln.community
+COPY --from=gobuilder /cli /usr/local/bin/cli
 USER nobody:nobody
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/eln.community"]

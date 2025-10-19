@@ -32,6 +32,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 
 	"github.com/google/uuid"
@@ -88,7 +91,7 @@ type RecordsPageData struct {
 	Records    []Record
 }
 
-//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt sql/structure.sql
+//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
 var staticFiles embed.FS
 
 var (
@@ -117,38 +120,24 @@ var uuidv7Regex = regexp.MustCompile(`^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-7[a-fA-F0-9
 // used for cache busting of assets
 var buildId string
 
-// ensureSchema loads src/sql/structure.sql if the public schema has no tables yet.
+// ensureSchema runs migrations if needed
 func ensureSchema(ctx context.Context) error {
-	// 1) Check if any tables exist in public schema
-	var tableCount int
-	err := db.QueryRowContext(ctx, `
-        SELECT COUNT(*)
-          FROM information_schema.tables
-         WHERE table_schema = 'public'
-           AND table_type   = 'BASE TABLE'
-    `).Scan(&tableCount)
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return fmt.Errorf("checking existing tables: %w", err)
-	}
-	if tableCount > 0 {
-		// schema already initialized
-		return nil
+		return fmt.Errorf("creating postgres driver: %w", err)
 	}
 
-	// 2) Read the SQL file
-	sqlFile, err := staticFiles.Open("sql/structure.sql")
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://migrations",
+		"postgres", driver)
 	if err != nil {
-		return fmt.Errorf("reading structure.sql: %w", err)
+		return fmt.Errorf("creating migrator: %w", err)
 	}
-	defer sqlFile.Close()
-	sqlBytes, err := io.ReadAll(sqlFile)
-	if err != nil {
-		return fmt.Errorf("failed to read from file handle: %v", err)
-	}
+	defer m.Close()
 
-	// 3) Execute all statements in the file
-	if _, err := db.ExecContext(ctx, string(sqlBytes)); err != nil {
-		return fmt.Errorf("executing structure.sql: %w", err)
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("running migrations: %w", err)
 	}
 
 	return nil
