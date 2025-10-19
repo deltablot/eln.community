@@ -433,14 +433,29 @@ func createMigrator(db *sql.DB) (*migrate.Migrate, error) {
 		return nil, err
 	}
 
+	// Determine migration path based on environment
+	migrationPath := getMigrationPath()
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file:///sql",
+		migrationPath,
 		"postgres", driver)
 	if err != nil {
 		return nil, err
 	}
 
 	return m, nil
+}
+
+func getMigrationPath() string {
+	if _, err := os.Stat("/sql"); err == nil {
+		return "file:///sql"
+	}
+
+	if _, err := os.Stat("src/sql"); err == nil {
+		return "file://src/sql"
+	}
+
+	return "file:///sql"
 }
 
 func handleMigrateUp(db *sql.DB) {

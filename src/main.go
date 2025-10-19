@@ -126,8 +126,11 @@ func ensureSchema(ctx context.Context) error {
 		return fmt.Errorf("creating postgres driver: %w", err)
 	}
 
+	// Determine migration path based on environment
+	migrationPath := getMigrationPath()
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file:///sql",
+		migrationPath,
 		"postgres", driver)
 	if err != nil {
 		return fmt.Errorf("creating migrator: %w", err)
@@ -418,4 +421,16 @@ func main() {
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		errorLogger.Fatalf("failed to start server: %v", err)
 	}
+}
+
+func getMigrationPath() string {
+	if _, err := os.Stat("/sql"); err == nil {
+		return "file:///sql"
+	}
+
+	if _, err := os.Stat("src/sql"); err == nil {
+		return "file://src/sql"
+	}
+
+	return "file:///sql"
 }
