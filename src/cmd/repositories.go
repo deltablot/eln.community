@@ -5,12 +5,27 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 )
 
 var (
 	ErrCategoryNotFound      = errors.New("category not found")
 	ErrCategoryAlreadyExists = errors.New("category already exists")
+	ErrAdminNotFound         = errors.New("admin not found")
 )
+
+type Category struct {
+	Id         int64
+	Name       string
+	CreatedAt  time.Time
+	ModifiedAt time.Time
+}
+
+type Admin struct {
+	Orcid      string
+	CreatedAt  time.Time
+	ModifiedAt time.Time
+}
 
 // CategoryRepository defines the interface for category data operations
 type CategoryRepository interface {
@@ -19,14 +34,14 @@ type CategoryRepository interface {
 	Create(ctx context.Context, name string) (*Category, error)
 	Update(ctx context.Context, id int64, name string) (*Category, error)
 	Delete(ctx context.Context, id int64) error
-	// Record-category association methods
-	AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error
-	GetRecordCategories(ctx context.Context, recordID string) ([]Category, error)
 }
 
 // AdminRepository defines the interface for admin operations
 type AdminRepository interface {
 	IsAdmin(ctx context.Context, orcid string) (bool, error)
+	GetAll(ctx context.Context) ([]Admin, error)
+	Add(ctx context.Context, orcid string) (*Admin, error)
+	Remove(ctx context.Context, orcid string) error
 }
 
 // PostgresCategoryRepository implements CategoryRepository using PostgreSQL
@@ -172,36 +187,68 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 	return exists, nil
 }
 
-// AssociateCategoryWithRecord creates an association between a record and a category
-func (r *PostgresCategoryRepository) AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error {
-	_, err := tx.ExecContext(ctx,
-		`INSERT INTO records_categories (record_id, category_id) VALUES ($1, $2)`,
-		recordID, categoryID,
-	)
-	return err
-}
-
-// GetRecordCategories retrieves all categories associated with a specific record
-func (r *PostgresCategoryRepository) GetRecordCategories(ctx context.Context, recordID string) ([]Category, error) {
+// GetAll retrieves all admin ORCIDs
+func (r *PostgresAdminRepository) GetAll(ctx context.Context) ([]Admin, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT c.id, c.name, c.created_at, c.modified_at
-		FROM categories c
-		JOIN records_categories rc ON c.id = rc.category_id
-		WHERE rc.record_id = $1
-		ORDER BY c.name
-	`, recordID)
+		SELECT orcid, created_at, modified_at 
+		FROM admin_orcids 
+		ORDER BY created_at
+	`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var categories []Category
+	var admins []Admin
 	for rows.Next() {
-		var cat Category
-		if err := rows.Scan(&cat.Id, &cat.Name, &cat.CreatedAt, &cat.ModifiedAt); err != nil {
+		var admin Admin
+		if err := rows.Scan(&admin.Orcid, &admin.CreatedAt, &admin.ModifiedAt); err != nil {
 			return nil, err
 		}
-		categories = append(categories, cat)
+		admins = append(admins, admin)
 	}
-	return categories, rows.Err()
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return admins, nil
+}
+
+// Add adds a new admin ORCID
+func (r *PostgresAdminRepository) Add(ctx context.Context, orcid string) (*Admin, error) {
+	var admin Admin
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO admin_orcids (orcid) 
+		VALUES ($1) 
+		RETURNING orcid, created_at, modified_at
+	`, orcid).Scan(&admin.Orcid, &admin.CreatedAt, &admin.ModifiedAt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &admin, nil
+}
+
+// Remove removes an admin ORCID
+func (r *PostgresAdminRepository) Remove(ctx context.Context, orcid string) error {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM admin_orcids WHERE orcid = $1
+	`, orcid)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrAdminNotFound
+	}
+
+	return nil
 }

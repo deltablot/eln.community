@@ -6,26 +6,22 @@
 package main
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"mime"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -36,8 +32,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 
 	"github.com/google/uuid"
@@ -50,12 +48,13 @@ type Record struct {
 	Id        string          `json:"id"`
 	Metadata  json.RawMessage `json:"metadata"`
 	// This will be ignored by json.Marshal
-	MetadataPretty string    `json:"-"`
-	ModifiedAt     time.Time `json:"modified_at"`
-	Name           string    `json:"name"`
-	Sha256         string    `json:"sha256"`
-	UploaderName   string    `json:"uploader_name"`
-	UploaderOrcid  string    `json:"uploader_orcid"`
+	MetadataPretty string     `json:"-"`
+	ModifiedAt     time.Time  `json:"modified_at"`
+	Name           string     `json:"name"`
+	Sha256         string     `json:"sha256"`
+	UploaderName   string     `json:"uploader_name"`
+	UploaderOrcid  string     `json:"uploader_orcid"`
+	Categories     []Category `json:"categories,omitempty"`
 }
 
 type Category struct {
@@ -93,7 +92,7 @@ type RecordsPageData struct {
 	Records    []Record
 }
 
-//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt sql/structure.sql
+//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
 var staticFiles embed.FS
 
 var (
@@ -110,8 +109,6 @@ var app App
 // this will be overwritten during docker build
 var version string = "dev"
 
-var defaultMaxTotalFiles int64 = 24
-
 var siteUrl = "http://localhost"
 
 // uuidv7Regex ensures that the filename follows the format:
@@ -122,38 +119,26 @@ var uuidv7Regex = regexp.MustCompile(`^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-7[a-fA-F0-9
 // used for cache busting of assets
 var buildId string
 
-// ensureSchema loads src/sql/structure.sql if the public schema has no tables yet.
+// ensureSchema runs migrations if needed
 func ensureSchema(ctx context.Context) error {
-	// 1) Check if any tables exist in public schema
-	var tableCount int
-	err := db.QueryRowContext(ctx, `
-        SELECT COUNT(*)
-          FROM information_schema.tables
-         WHERE table_schema = 'public'
-           AND table_type   = 'BASE TABLE'
-    `).Scan(&tableCount)
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return fmt.Errorf("checking existing tables: %w", err)
-	}
-	if tableCount > 0 {
-		// schema already initialized
-		return nil
+		return fmt.Errorf("creating postgres driver: %w", err)
 	}
 
-	// 2) Read the SQL file
-	sqlFile, err := staticFiles.Open("sql/structure.sql")
+	// Determine migration path based on environment
+	migrationPath := getMigrationPath()
+
+	m, err := migrate.NewWithDatabaseInstance(
+		migrationPath,
+		"postgres", driver)
 	if err != nil {
-		return fmt.Errorf("reading structure.sql: %w", err)
-	}
-	defer sqlFile.Close()
-	sqlBytes, err := io.ReadAll(sqlFile)
-	if err != nil {
-		return fmt.Errorf("failed to read from file handle: %v", err)
+		return fmt.Errorf("creating migrator: %w", err)
 	}
 
-	// 3) Execute all statements in the file
-	if _, err := db.ExecContext(ctx, string(sqlBytes)); err != nil {
-		return fmt.Errorf("executing structure.sql: %w", err)
+	err = m.Up()
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("running migrations: %w", err)
 	}
 
 	return nil
@@ -201,11 +186,16 @@ func newS3Client() (*s3.Client, error) {
 	if accessKey == "" || secretKey == "" || region == "" {
 		log.Fatal("environment variables ACCESS_KEY, SECRET_KEY and REGION must be set")
 	}
+
+	s3Endpoint := os.Getenv("S3_ENDPOINT")
+	if s3Endpoint == "" {
+		s3Endpoint = "https://s3." + region + ".scw.cloud"
+	}
 	// Custom endpoint resolver pointing at Scaleway S3
 	endpointResolver := aws.EndpointResolverWithOptionsFunc(
 		func(service, region string, opts ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
-				URL:           "https://s3." + region + ".scw.cloud",
+				URL:           s3Endpoint,
 				SigningRegion: region,
 			}, nil
 		},
@@ -230,304 +220,10 @@ func newS3Client() (*s3.Client, error) {
 	return client, nil
 }
 
-// hashAndKey reads from body, returns the hex-encoded SHA256 and the S3 key path.
-func hashAndKey(body io.Reader) (hashHex, key string, err error) {
-	// Read all into memory (ok up to ~100 MB)
-	data, err := io.ReadAll(body)
-	if err != nil {
-		return "", "", err
-	}
-
-	// Compute SHA-256
-	sum := sha256.Sum256(data)
-	hashHex = hex.EncodeToString(sum[:])
-
-	// Build two-level sharded path: blobs/ab/cd/abcdef… .eln
-	key = fmt.Sprintf("%s/%s/%s/%s%s",
-		s3Prefix,
-		hashHex[0:2],
-		hashHex[2:4],
-		hashHex,
-		fileExt,
-	)
-
-	return hashHex, key, nil
-}
-
-// extractRoCrateMetadata reads f (a zip) and returns the contents of
-// "<root-folder>/ro-crate-metadata.json", or an error if not found.
-func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
-	// 1) Rewind to the beginning
-	if seeker, ok := f.(io.Seeker); ok {
-		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-			return nil, fmt.Errorf("cannot rewind file: %w", err)
-		}
-	} else {
-		return nil, fmt.Errorf("file is not seekable")
-	}
-
-	// 2) Slurp entire zip into memory (OK up to ~100MB)
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return nil, fmt.Errorf("reading zip data: %w", err)
-	}
-
-	// 3) Open it as a zip archive
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, fmt.Errorf("opening zip: %w", err)
-	}
-
-	// 4) Find the first-level root folder name
-	var root string
-	for _, zf := range zr.File {
-		parts := strings.SplitN(zf.Name, "/", 2)
-		if len(parts) == 2 {
-			root = parts[0]
-			break
-		}
-	}
-	if root == "" {
-		return nil, fmt.Errorf("no root folder found in zip")
-	}
-
-	// 5) Look for "<root>/ro-crate-metadata.json"
-	target := root + "/ro-crate-metadata.json"
-	for _, zf := range zr.File {
-		if zf.Name == target {
-			rc, err := zf.Open()
-			if err != nil {
-				return nil, fmt.Errorf("opening %q: %w", target, err)
-			}
-			defer rc.Close()
-			return io.ReadAll(rc)
-		}
-	}
-
-	return nil, fmt.Errorf("%q not found in zip", target)
-}
-
-// POST Handler
-func postHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var user *User
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	user_name, _ := sessionManager.Get(ctx, "name").(string)
-	if okO {
-		user = &User{
-			Name:  user_name,
-			Orcid: orcid,
-		}
-	}
-	// Retrieve the key from the request header.
-	/*
-		headerKey := r.Header.Get("Authorization")
-		if headerKey != buildId {
-			http.Error(w, "Unauthorized: invalid key", http.StatusUnauthorized)
-			return
-		}
-	*/
-
-	// Parse the multipart form with a maximum memory of 10 MB for file parts.
-	// Files larger than this size will be stored in temporary files.
-	err := r.ParseMultipartForm(10 << 20) // 10MB
-	if err != nil {
-		http.Error(w, "Error parsing multipart form: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Retrieve the file part.
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "Error retrieving file: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	defer file.Close()
-
-	maxBytes := app.MaxFileSize * 1024 * 1024
-	if header.Size > maxBytes {
-		http.Error(w, fmt.Sprintf("File too large. Maximum allowed is %d MB", app.MaxFileSize), http.StatusRequestEntityTooLarge)
-		return
-	}
-
-	// assign id
-	id, err := getUuidv7()
-	if err != nil {
-		http.Error(w, "Error: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	defer r.Body.Close()
-
-	// 1) Read the first 4 bytes to check for ZIP magic
-	sig := make([]byte, 4)
-	if _, err := file.Read(sig); err != nil {
-		http.Error(w, "could not read file header", http.StatusBadRequest)
-		return
-	}
-	// rewind so later code (hash/upload) sees the whole file
-	if seeker, ok := file.(io.Seeker); ok {
-		seeker.Seek(0, io.SeekStart)
-	}
-
-	// 2) Validate ZIP magic
-	if !bytes.Equal(sig, []byte{'P', 'K', 0x03, 0x04}) {
-		http.Error(w, "uploaded file is not an ELN archive", http.StatusBadRequest)
-		return
-	}
-
-	hashHex, key, err := hashAndKey(file)
-	if err != nil {
-		http.Error(w, "failed to read request body", http.StatusInternalServerError)
-		return
-	}
-
-	meta, err := extractRoCrateMetadata(file)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	name := r.FormValue("name")
-	if len(name) == 0 {
-		http.Error(w, "name must be at least one character", http.StatusBadRequest)
-		return
-	}
-
-	record := Record{
-		Id:            id,
-		Sha256:        hashHex,
-		Name:          name,
-		Metadata:      meta,
-		UploaderName:  user.Name,
-		UploaderOrcid: user.Orcid,
-	}
-
-	// DB insert
-	_, err = db.Exec(
-		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		record.Id, key, record.Sha256, record.Name, record.Metadata, record.UploaderName, record.UploaderOrcid,
-	)
-	// Will create an error if sha256 is not unique
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error inserting row in database: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	// S3
-	// Rewind so the uploader sees the bytes
-	if seeker, ok := file.(io.Seeker); ok {
-		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-			http.Error(w, "could not rewind file", http.StatusInternalServerError)
-			return
-		}
-	} else {
-		http.Error(w, "cannot rewind upload", http.StatusInternalServerError)
-		return
-	}
-
-	s3Client, err := newS3Client()
-	if err != nil {
-		log.Fatalf("failed to configure S3 client: %v", err)
-	}
-	uploader := manager.NewUploader(s3Client)
-
-	bucketName := os.Getenv("BUCKET_NAME")
-	if bucketName == "" {
-		log.Fatal("set BUCKET_NAME")
-	}
-	_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
-		Bucket:      aws.String(bucketName),
-		Key:         aws.String(key),
-		Body:        file,
-		ContentType: aws.String("application/vnd.eln+zip"),
-	})
-
-	if err != nil {
-		log.Printf("upload error: %v", err)
-		http.Error(w, "failed to upload", http.StatusInternalServerError)
-		return
-	}
-
-	// 2) Decide: JSON (API clients) vs. redirect (browser form)
-	accept := r.Header.Get("Accept")
-	if strings.Contains(accept, "text/html") {
-		// After a POST-from-form, redirect to GET /record/{id}
-		// Use 303 See Other so browsers use GET on the new URL
-		http.Redirect(w, r,
-			fmt.Sprintf("/records/%s", record.Id),
-			http.StatusSeeOther,
-		)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	infoLogger.Printf("received new file: %s", record.Id)
-
-	// Send a confirmation response back as JSON.
-	if err := json.NewEncoder(w).Encode(record); err != nil {
-		errorLogger.Printf("failed to write response: %v", err)
-	}
-}
 func getCategories(ctx context.Context) ([]Category, error) {
 	// Use the global category repository for backward compatibility
 	categoryRepo := NewPostgresCategoryRepository(db)
 	return categoryRepo.GetAll(ctx)
-}
-
-func scanRecords(ctx context.Context) ([]Record, error) {
-	rows, err := db.QueryContext(ctx, `
-	  SELECT id, sha256, name, metadata, created_at, modified_at FROM records
-    `)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// Iterate and build slice
-	var recs []Record
-	for rows.Next() {
-		var r Record
-		if err := rows.Scan(
-			&r.Id,
-			&r.Sha256,
-			&r.Name,
-			&r.Metadata,
-			&r.CreatedAt,
-			&r.ModifiedAt,
-		); err != nil {
-			return nil, err
-		}
-		recs = append(recs, r)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return recs, nil
-
-}
-
-// fetch a Record from db by id
-func scanRecord(ctx context.Context, id string) (Record, error) {
-	var rec Record
-	err := db.QueryRowContext(ctx, `
-	    SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid
-        FROM records
-        WHERE id = $1
-        `, id).Scan(
-		&rec.Id,
-		&rec.Sha256,
-		&rec.Name,
-		&rec.Metadata,
-		&rec.CreatedAt,
-		&rec.ModifiedAt,
-		&rec.UploaderName,
-		&rec.UploaderOrcid,
-	)
-	if err != nil {
-		return Record{}, err
-	}
-	return rec, nil
 }
 
 func getAbout(w http.ResponseWriter, r *http.Request) {
@@ -538,43 +234,6 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 	pageTmpl.ExecuteTemplate(w, "layout", nil)
 }
 
-func getBrowse(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
-		"templates/layout.html",
-		"templates/browse.html",
-	))
-
-	// CATEGORIES
-	categories, err := getCategories(r.Context())
-	if err != nil {
-		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
-		return
-	}
-
-	// RECORDS
-	records, err := scanRecords(r.Context())
-	if err != nil {
-		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
-		return
-	}
-
-	recs := make([]Record, 0, len(records))
-	for _, r := range records {
-		// clone r (shallow copy), then set only MetadataPretty
-		r.MetadataPretty = prettyJSON(r.Metadata)
-		recs = append(recs, r)
-	}
-
-	data := RecordsPageData{
-		App:        app,
-		Categories: categories,
-		Records:    recs,
-	}
-
-	w.Header().Set("Content-Type", "text/html")
-	pageTmpl.ExecuteTemplate(w, "layout", data)
-}
-
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	var pageTmpl = template.Must(template.ParseFS(staticFiles,
 		"templates/layout.html",
@@ -582,7 +241,7 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	))
 
 	categories, err := getCategories(r.Context())
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
 	}
@@ -608,46 +267,6 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	pageTmpl.ExecuteTemplate(w, "layout", data)
 }
 
-func getRecord(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
-		"templates/layout.html",
-		"templates/record.html",
-	))
-	const prefix = "/record/"
-	// Grab the id part in the URL
-	raw := strings.TrimPrefix(r.URL.Path, prefix)
-
-	// Split into id and extension
-	ext := filepath.Ext(raw) // ".eln" or ""
-	id := strings.TrimSuffix(raw, ext)
-
-	// validate id (uuidv7)
-	if !uuidv7Regex.MatchString(id) {
-		http.Error(w, "Invalid id format", http.StatusBadRequest)
-		return
-	}
-
-	// get record
-	record, err := scanRecord(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Error fetching record", http.StatusInternalServerError)
-		return
-	}
-
-	// prettify JSON
-	record.MetadataPretty = prettyJSON(record.Metadata)
-
-	data := RecordPageData{
-		App:    app,
-		Record: record,
-	}
-
-	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {
-		errorLogger.Printf("template exec error: %v", err)
-		http.Error(w, "Template error", http.StatusInternalServerError)
-	}
-}
-
 // securityHeaders is a middleware that injects your CSP, HSTS, etc.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -666,140 +285,6 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		next.ServeHTTP(w, r)
 	})
-}
-
-var (
-	oneHandlers = map[string]func(w http.ResponseWriter, r *http.Request, id string){
-		"application/json":        handleJSON,
-		"application/ld+json":     handleJSON,
-		"text/html":               handleHTML,
-		"application/vnd.eln+zip": handleZIP,
-	}
-)
-
-// GET /api/v1/record
-func getRecordApi(w http.ResponseWriter, r *http.Request) {
-
-	const prefix = "/api/v1/record/"
-	// 1) Make sure the path has our prefix
-	if !strings.HasPrefix(r.URL.Path, prefix) {
-		http.NotFound(w, r)
-		return
-	}
-
-	// 2) Trim off the prefix, e.g. "0196…c0b1.eln" or just "0196…c0b1"
-	raw := strings.TrimPrefix(r.URL.Path, prefix)
-
-	// 3) Split into id and extension
-	ext := filepath.Ext(raw) // ".eln" or ""
-	id := strings.TrimSuffix(raw, ext)
-
-	// 4) Validate only the UUID part
-	if !uuidv7Regex.MatchString(id) {
-		http.Error(w, "Invalid id format", http.StatusBadRequest)
-		return
-	}
-
-	if ext == ".eln" {
-		handleZIP(w, r, id)
-		return
-	}
-
-	// 1) Parse the Accept header into individual media types
-	accept := r.Header.Get("Accept")
-	parts := strings.Split(accept, ",")
-	for _, part := range parts {
-		// strip any params (e.g. ;q=0.9) and whitespace
-		mt := strings.TrimSpace(strings.SplitN(part, ";", 2)[0])
-
-		// 2) See if we have a handler for it
-		if handler, ok := oneHandlers[mt]; ok {
-			handler(w, r, id)
-			return
-		}
-	}
-	// 3) If none matched
-	http.Error(w, "Not Acceptable", http.StatusNotAcceptable)
-}
-
-func handleJSON(w http.ResponseWriter, r *http.Request, id string) {
-	record, err := scanRecord(r.Context(), id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
-		} else {
-			http.Error(w, "Database error", http.StatusInternalServerError)
-		}
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(record); err != nil {
-		errorLogger.Printf("failed to write response: %v", err)
-	}
-}
-
-func handleHTML(w http.ResponseWriter, r *http.Request, id string) {
-	record, err := scanRecord(r.Context(), id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
-		} else {
-			errorLogger.Printf("Database error: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-		}
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, "<pre>%#v</pre>", record)
-}
-
-func handleZIP(w http.ResponseWriter, r *http.Request, id string) {
-	ctx := r.Context()
-
-	// 1) Get the S3 key from the database
-	var s3Key string
-	err := db.QueryRowContext(ctx,
-		`SELECT s3_key FROM records WHERE id = $1`, id,
-	).Scan(&s3Key)
-	if err == sql.ErrNoRows {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		log.Printf("db error fetching s3_key for %s: %v", id, err)
-		return
-	}
-
-	// 2) Fetch the object from S3
-	s3Client, err := newS3Client()
-	if err != nil {
-		log.Fatalf("failed to configure S3 client: %v", err)
-	}
-	bucketName := os.Getenv("BUCKET_NAME")
-	resp, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(s3Key),
-	})
-	if err != nil {
-		http.Error(w, "Failed to fetch file", http.StatusBadGateway)
-		log.Printf("s3 get error for key %s: %v", s3Key, err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// 3) Stream it back to the client
-	//   - Use the Content-Type from S3 if available, else default
-	contentType := aws.ToString(resp.ContentType)
-	if contentType == "" {
-		contentType = "application/vnd.eln+zip"
-	}
-	w.Header().Set("Content-Type", contentType)
-	w.WriteHeader(http.StatusOK)
-
-	if _, err := io.Copy(w, resp.Body); err != nil {
-		log.Printf("error streaming %s to client: %v", id, err)
-	}
 }
 
 // serveAsset will pick the .br version if the client accepts it.
@@ -899,14 +384,17 @@ func main() {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
-	// API
-	mux.HandleFunc("POST /api/v1/records", postHandler)
-	mux.HandleFunc("GET /api/v1/record/", getRecordApi)
-
 	// Initialize repositories and handlers
 	categoryRepo := NewPostgresCategoryRepository(db)
 	adminRepo := NewPostgresAdminRepository(db)
+	recordRepo := NewPostgresRecordRepository(db, categoryRepo)
+
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
+	recordHandler := NewRecordHandler(recordRepo, categoryRepo, adminRepo)
+
+	// API
+	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
+	mux.HandleFunc("GET /api/v1/record/", recordHandler.Router)
 
 	// Category API routes
 	mux.HandleFunc("/api/v1/categories", categoryHandler.Router)
@@ -914,8 +402,8 @@ func main() {
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
-	mux.Handle("/browse", securityHeaders(http.HandlerFunc(getBrowse)))
-	mux.Handle("/record/", securityHeaders(http.HandlerFunc(getRecord)))
+	mux.Handle("/browse", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
+	mux.Handle("/record/", securityHeaders(http.HandlerFunc(recordHandler.GetRecordPage)))
 
 	// root catchall
 	mux.Handle("/", securityHeaders(http.HandlerFunc(getRoot)))
@@ -933,4 +421,16 @@ func main() {
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		errorLogger.Fatalf("failed to start server: %v", err)
 	}
+}
+
+func getMigrationPath() string {
+	if _, err := os.Stat("/sql"); err == nil {
+		return "file:///sql"
+	}
+
+	if _, err := os.Stat("src/sql"); err == nil {
+		return "file://src/sql"
+	}
+
+	return "file:///sql"
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,14 @@ import (
 type MockCategoryRepository struct {
 	categories map[int64]*Category
 	nextID     int64
+}
+
+func (m *MockCategoryRepository) AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error {
+	return nil
+}
+
+func (m *MockCategoryRepository) GetRecordCategories(ctx context.Context, recordID string) ([]Category, error) {
+	return []Category{}, nil
 }
 
 func NewMockCategoryRepository() *MockCategoryRepository {

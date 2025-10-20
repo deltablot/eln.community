@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
           const successToast = document.getElementById('successToast');
           if (successToast) {
             const toast = new bootstrap.Toast(successToast, {
-              delay: 2000,
+              delay: 3000,
               autohide: true
             });
 
@@ -65,10 +65,7 @@ document.addEventListener('DOMContentLoaded', function () {
           const errorToastBody = document.getElementById('errorToastBody');
           if (errorToast && errorToastBody) {
             errorToastBody.textContent = errorText || 'Upload failed. Please try again.';
-            const toast = new bootstrap.Toast(errorToast, {
-              delay: 2000,
-              autohide: true
-            });
+            const toast = new bootstrap.Toast(errorToast);
             toast.show();
           }
           console.error('Upload failed:', errorText);
@@ -79,10 +76,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const errorToastBody = document.getElementById('errorToastBody');
         if (errorToast && errorToastBody) {
           errorToastBody.textContent = 'Network error. Please check your connection and try again.';
-          const toast = new bootstrap.Toast(errorToast, {
-            delay: 5000,
-            autohide: true
-          });
+          const toast = new bootstrap.Toast(errorToast);
           toast.show();
         }
         console.error('Upload error:', error);
