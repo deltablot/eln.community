@@ -12,6 +12,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
@@ -32,6 +33,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 
 	"github.com/google/uuid"
@@ -88,7 +92,7 @@ type RecordsPageData struct {
 	Records    []Record
 }
 
-//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt sql/structure.sql
+//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
 var staticFiles embed.FS
 
 var (
@@ -105,8 +109,6 @@ var app App
 // this will be overwritten during docker build
 var version string = "dev"
 
-var defaultMaxTotalFiles int64 = 24
-
 var siteUrl = "http://localhost"
 
 // uuidv7Regex ensures that the filename follows the format:
@@ -117,38 +119,26 @@ var uuidv7Regex = regexp.MustCompile(`^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-7[a-fA-F0-9
 // used for cache busting of assets
 var buildId string
 
-// ensureSchema loads src/sql/structure.sql if the public schema has no tables yet.
+// ensureSchema runs migrations if needed
 func ensureSchema(ctx context.Context) error {
-	// 1) Check if any tables exist in public schema
-	var tableCount int
-	err := db.QueryRowContext(ctx, `
-        SELECT COUNT(*)
-          FROM information_schema.tables
-         WHERE table_schema = 'public'
-           AND table_type   = 'BASE TABLE'
-    `).Scan(&tableCount)
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return fmt.Errorf("checking existing tables: %w", err)
-	}
-	if tableCount > 0 {
-		// schema already initialized
-		return nil
+		return fmt.Errorf("creating postgres driver: %w", err)
 	}
 
-	// 2) Read the SQL file
-	sqlFile, err := staticFiles.Open("sql/structure.sql")
+	// Determine migration path based on environment
+	migrationPath := getMigrationPath()
+
+	m, err := migrate.NewWithDatabaseInstance(
+		migrationPath,
+		"postgres", driver)
 	if err != nil {
-		return fmt.Errorf("reading structure.sql: %w", err)
-	}
-	defer sqlFile.Close()
-	sqlBytes, err := io.ReadAll(sqlFile)
-	if err != nil {
-		return fmt.Errorf("failed to read from file handle: %v", err)
+		return fmt.Errorf("creating migrator: %w", err)
 	}
 
-	// 3) Execute all statements in the file
-	if _, err := db.ExecContext(ctx, string(sqlBytes)); err != nil {
-		return fmt.Errorf("executing structure.sql: %w", err)
+	err = m.Up()
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("running migrations: %w", err)
 	}
 
 	return nil
@@ -251,7 +241,7 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	))
 
 	categories, err := getCategories(r.Context())
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
 	}
@@ -431,4 +421,16 @@ func main() {
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		errorLogger.Fatalf("failed to start server: %v", err)
 	}
+}
+
+func getMigrationPath() string {
+	if _, err := os.Stat("/sql"); err == nil {
+		return "file:///sql"
+	}
+
+	if _, err := os.Stat("src/sql"); err == nil {
+		return "file://src/sql"
+	}
+
+	return "file:///sql"
 }

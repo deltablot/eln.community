@@ -63,7 +63,7 @@ CREATE TRIGGER trigger_update_modified_at_admin_orcids
     FOR EACH ROW
     EXECUTE FUNCTION update_modified_at();
 
--- RECORDs_CATEGORIES (Many-to-Many relationship between records and categories)
+-- RECORDS_CATEGORIES (Many-to-Many relationship between records and categories)
 CREATE TABLE IF NOT EXISTS records_categories (
   record_id   UUID         NOT NULL REFERENCES records(id) ON DELETE CASCADE,
   category_id INTEGER      NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
