@@ -54,6 +54,7 @@ type Record struct {
 	Sha256         string     `json:"sha256"`
 	UploaderName   string     `json:"uploader_name"`
 	UploaderOrcid  string     `json:"uploader_orcid"`
+	RorId          string     `json:"ror_id,omitempty"`
 	Categories     []Category `json:"categories,omitempty"`
 }
 
