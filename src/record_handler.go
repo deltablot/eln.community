@@ -114,6 +114,15 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse ROR ID (optional)
+	rorId := r.FormValue("ror_id")
+	normalizedRorId, isValid := validateAndNormalizeRorId(rorId)
+	if !isValid {
+		http.Error(w, "Invalid ROR ID format. Expected format: 0abcdef12 or https://ror.org/0abcdef12", http.StatusBadRequest)
+		return
+	}
+	rorId = normalizedRorId
+
 	// Parse category ID (optional)
 	categoryIDStr := r.FormValue("category")
 	var categoryID int64
@@ -135,6 +144,7 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		Metadata:      meta,
 		UploaderName:  user.Name,
 		UploaderOrcid: user.Orcid,
+		RorId:         rorId,
 	}
 
 	// Start transaction for record and category associations

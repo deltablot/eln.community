@@ -5,6 +5,14 @@
 
 A community platform for sharing Electronic Lab Notebook (ELN) archives, experiments, protocols, templates, and research resources. Built to foster collaboration and knowledge sharing in the scientific community.
 
+### ✨ Key Features
+
+- **ELN Archive Sharing**: Upload and share .eln files with the community
+- **ORCID Integration**: Secure authentication using ORCID credentials
+- **Research Organization Registry (ROR)**: Link uploads to research institutions via [ROR identifiers](https://ror.org/)
+- **Categorization**: Organize content with flexible category system
+- **RO-Crate Metadata**: Rich metadata support for research objects
+
 ### 🛠 Technology Stack
 
 - **Backend**: Go 1.24+ with HTTP server and session management

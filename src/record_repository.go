@@ -37,7 +37,7 @@ func NewPostgresRecordRepository(db *sql.DB, categoryRepo CategoryRepository) *P
 // GetAll retrieves all records with their categories
 func (r *PostgresRecordRepository) GetAll(ctx context.Context) ([]Record, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at 
+		SELECT id, sha256, name, metadata, created_at, modified_at, ror_id 
 		FROM records
 		ORDER BY created_at DESC
 	`)
@@ -49,6 +49,7 @@ func (r *PostgresRecordRepository) GetAll(ctx context.Context) ([]Record, error)
 	var records []Record
 	for rows.Next() {
 		var record Record
+		var rorId sql.NullString
 		if err := rows.Scan(
 			&record.Id,
 			&record.Sha256,
@@ -56,8 +57,13 @@ func (r *PostgresRecordRepository) GetAll(ctx context.Context) ([]Record, error)
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&rorId,
 		); err != nil {
 			return nil, err
+		}
+
+		if rorId.Valid {
+			record.RorId = rorId.String
 		}
 
 		// Get categories for this record
@@ -80,8 +86,9 @@ func (r *PostgresRecordRepository) GetAll(ctx context.Context) ([]Record, error)
 // GetByID retrieves a record by its ID with categories
 func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Record, error) {
 	var record Record
+	var rorId sql.NullString
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, ror_id
 		FROM records
 		WHERE id = $1
 	`, id).Scan(
@@ -93,6 +100,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 		&record.ModifiedAt,
 		&record.UploaderName,
 		&record.UploaderOrcid,
+		&rorId,
 	)
 
 	if err == sql.ErrNoRows {
@@ -100,6 +108,10 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if rorId.Valid {
+		record.RorId = rorId.String
 	}
 
 	// Get categories for this record
@@ -114,11 +126,16 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 
 // Create creates a new record within a transaction
 func (r *PostgresRecordRepository) Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error {
+	var rorId *string
+	if record.RorId != "" {
+		rorId = &record.RorId
+	}
+
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid, ror_id) 
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		record.Id, s3Key, record.Sha256, record.Name, record.Metadata,
-		record.UploaderName, record.UploaderOrcid,
+		record.UploaderName, record.UploaderOrcid, rorId,
 	)
 	return err
 }
@@ -155,7 +172,7 @@ func (r *PostgresRecordRepository) GetAllByCategory(ctx context.Context, categor
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at 
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.ror_id 
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
 		WHERE rc.category_id = $1
@@ -172,6 +189,7 @@ func (r *PostgresRecordRepository) GetAllByCategory(ctx context.Context, categor
 	for rows.Next() {
 		recordCount++
 		var record Record
+		var rorId sql.NullString
 		if err := rows.Scan(
 			&record.Id,
 			&record.Sha256,
@@ -179,9 +197,14 @@ func (r *PostgresRecordRepository) GetAllByCategory(ctx context.Context, categor
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&rorId,
 		); err != nil {
 			log.Printf("Error scanning record %d: %v", recordCount, err)
 			return nil, err
+		}
+
+		if rorId.Valid {
+			record.RorId = rorId.String
 		}
 
 		// Get categories for this record
