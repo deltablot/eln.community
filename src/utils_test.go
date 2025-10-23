@@ -8,12 +8,12 @@ func TestValidateAndNormalizeRorId(t *testing.T) {
 		expected string
 		valid    bool
 	}{
-		// Valid cases
+		// Valid cases real ROR https://ror.org/024mw5h28
 		{"", "", true}, // empty is valid
-		{"0abcdef12", "https://ror.org/0abcdef12", true},                 // just ID
-		{"https://ror.org/0abcdef12", "https://ror.org/0abcdef12", true}, // full URL
-		{"ror.org/0abcdef12", "https://ror.org/0abcdef12", true},         // without https
-		{"  0abcdef12  ", "https://ror.org/0abcdef12", true},             // with whitespace
+		{"024mw5h28", "https://ror.org/024mw5h28", true},                 // just ID
+		{"https://ror.org/024mw5h28", "https://ror.org/024mw5h28", true}, // full URL
+		{"ror.org/024mw5h28", "https://ror.org/024mw5h28", true},         // without https
+		{"  024mw5h28  ", "https://ror.org/024mw5h28", true},             // with whitespace
 
 		// Invalid cases
 		{"abcdef12", "", false},                      // missing leading 0
