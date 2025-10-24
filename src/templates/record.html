@@ -4,16 +4,46 @@
 <h3>Created at: {{ .Record.CreatedAt }}</h3>
 <h3>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h3>
 {{- if .Record.Categories }}
-<h3>Categories: 
+<h3>Categories:
   {{- range .Record.Categories }}
-    <span class="badge bg-primary me-1">{{ .Name }}</span>
+  <span class="badge bg-primary me-1">{{ .Name }}</span>
   {{- end }}
 </h3>
 {{- end }}
-<h3>Metadata: </h3>
-<details>
-  <summary>Display ro-crate-metadata.json</summary>
-<pre>{{ .Record.MetadataPretty }}</pre>
-</details>
-<!--pre>{{ printf "%#v" . }}</pre-->
+
+<h3>RO-Crate Metadata</h3>
+<div id="ro-crate-viewer">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <button class="btn btn-primary btn-sm" id="view-formatted" onclick="showFormattedView()">Formatted View</button>
+      <button class="btn btn-outline-secondary btn-sm" id="view-raw" onclick="showRawView()">Raw JSON</button>
+    </div>
+  </div>
+
+  <div id="formatted-view">
+    <div id="ro-crate-content">
+      <div class="text-center p-4">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Parsing RO-Crate metadata...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="raw-view" style="display: none;">
+    <pre class="bg-light p-3 rounded"><code>{{ .Record.MetadataPretty }}</code></pre>
+  </div>
+</div>
+
+<!-- Pass JSON data safely to JavaScript -->
+<script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
+<script>
+  // Parse JSON data safely
+  window.roCrateRawData = JSON.parse(document.getElementById('ro-crate-json-data').textContent);
+</script>
+
+<!-- Load JavaScript file -->
+<script src="/index.js"></script>
+
 {{ end }}
