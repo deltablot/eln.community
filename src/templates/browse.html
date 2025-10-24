@@ -53,8 +53,12 @@
     <li><strong>SHA256:</strong> {{ .Sha256 }}</li>
     <li><strong>Created at:</strong> {{ .CreatedAt.Format "2006-01-02 15:04:05 MST" }}</li>
     <li><strong>Modified at:</strong> {{ .ModifiedAt.Format "2006-01-02 15:04:05 MST" }}</li>
-    {{- if .RorId }}
-    <li><strong>Research Organization:</strong> <a href="{{ .RorId }}" target="_blank">{{ .RorId }}</a></li>
+    {{- if .RorIds }}
+    <li><strong>Research Organizations: </strong>
+      {{- range $i, $rorId := .RorIds }}
+        {{- if $i }}, {{ end }}<a href="https://ror.org/{{ $rorId }}" target="_blank">{{ $rorId }}</a>
+      {{- end }}
+    </li>
     {{- end }}
     {{- if .Categories }}
     <li><strong>Categories:</strong>

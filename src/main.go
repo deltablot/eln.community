@@ -54,7 +54,7 @@ type Record struct {
 	Sha256         string     `json:"sha256"`
 	UploaderName   string     `json:"uploader_name"`
 	UploaderOrcid  string     `json:"uploader_orcid"`
-	RorId          string     `json:"ror_id,omitempty"`
+	RorIds         []string   `json:"rors,omitempty"`
 	Categories     []Category `json:"categories,omitempty"`
 }
 
@@ -388,7 +388,8 @@ func main() {
 	// Initialize repositories and handlers
 	categoryRepo := NewPostgresCategoryRepository(db)
 	adminRepo := NewPostgresAdminRepository(db)
-	recordRepo := NewPostgresRecordRepository(db, categoryRepo)
+	rorRepo := NewPostgresRorRepository(db)
+	recordRepo := NewPostgresRecordRepository(db, categoryRepo, rorRepo)
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
 	recordHandler := NewRecordHandler(recordRepo, categoryRepo, adminRepo)
