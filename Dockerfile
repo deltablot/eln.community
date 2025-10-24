@@ -40,8 +40,8 @@ COPY --from=bundler /home/node/src/dist src/dist
 # -w turn off DWARF debugging
 # -s turn off symbol table
 # change version at linking time
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X 'main.Version=${VERSION}'" -o /eln.community ./src/main.go ./src/category_handler.go ./src/category_repository.go ./src/record_handler.go ./src/record_repository.go ./src/oidc.go ./src/utils.go
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /cli ./src/cmd/cli.go ./src/cmd/repositories.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X 'main.version=${VERSION}'" -o /eln.community ./src
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /cli ./src/cmd
 
 # use distroless instead of scratch to have ssl certificates and nobody
 FROM gcr.io/distroless/static:${GO_IMG_TAG}
