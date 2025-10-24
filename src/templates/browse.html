@@ -68,6 +68,7 @@
     </li>
     {{- end }}
     <li><strong>Metadata:</strong>
+      <a class='btn btn-secondary' href='/api/v1/record/{{ .Id }}.json'>Download Metadata</a>
       <pre>{{ .MetadataPretty }}</pre>
     </li>
   </ul>

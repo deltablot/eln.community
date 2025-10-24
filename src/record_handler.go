@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -246,6 +247,29 @@ func (h *RecordHandler) GetRecordHTML(w http.ResponseWriter, r *http.Request, id
 	fmt.Fprintf(w, "<pre>%#v</pre>", record)
 }
 
+// GetRecordMetadata handles metadata.json file download
+func (h *RecordHandler) GetRecordMetadata(w http.ResponseWriter, r *http.Request, id string) {
+	record, err := h.recordRepo.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrRecordNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Set headers for file download
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-metadata.json\"", id))
+	w.WriteHeader(http.StatusOK)
+
+	// Write the metadata JSON
+	if _, err := w.Write(record.Metadata); err != nil {
+		log.Printf("error streaming metadata for %s to client: %v", id, err)
+	}
+}
+
 // GetRecordZIP handles ZIP file download
 func (h *RecordHandler) GetRecordZIP(w http.ResponseWriter, r *http.Request, id string) {
 	ctx := r.Context()
@@ -253,7 +277,7 @@ func (h *RecordHandler) GetRecordZIP(w http.ResponseWriter, r *http.Request, id 
 	// Get the S3 key from the repository
 	s3Key, err := h.recordRepo.GetS3Key(ctx, id)
 	if err != nil {
-		if err == ErrRecordNotFound {
+		if errors.Is(err, ErrRecordNotFound) {
 			http.NotFound(w, r)
 		} else {
 			http.Error(w, "Database error", http.StatusInternalServerError)
@@ -325,6 +349,11 @@ func (h *RecordHandler) handleGetRecord(w http.ResponseWriter, r *http.Request) 
 
 	if ext == ".eln" {
 		h.GetRecordZIP(w, r, id)
+		return
+	}
+
+	if ext == ".json" {
+		h.GetRecordMetadata(w, r, id)
 		return
 	}
 
