@@ -3,6 +3,13 @@
 <h3>ID: {{ .Record.Id }}</h3>
 <h3>Created at: {{ .Record.CreatedAt }}</h3>
 <h3>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h3>
+{{- if .Record.RorIds }}
+<h3>Research Organizations:
+  {{- range $i, $rorId := .Record.RorIds }}
+  <span> </span>{{- if $i }}, {{ end }}<a href='https://ror.org/{{ $rorId }}' target='_blank'>{{ $rorId }}</a>
+  {{- end }}
+</h3>
+{{- end }}
 {{- if .Record.Categories }}
 <h3>Categories:
   {{- range .Record.Categories }}
