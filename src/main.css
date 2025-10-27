@@ -436,3 +436,11 @@ footer {
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+.hidden {
+    display: none !important;
+}
+
+.record-details {
+    margin-bottom: 1em;
+}

@@ -1,20 +1,28 @@
 document.addEventListener('DOMContentLoaded', function () {
 
   const errorDialog = document.getElementById('error-dialog');
-  const closeButton = errorDialog.querySelector("button");
-  closeButton.addEventListener("click", () => {
-    errorDialog.close();
-  });
+  if (errorDialog) {
+    const closeButton = errorDialog.querySelector("button");
+    if (closeButton) {
+      closeButton.addEventListener("click", () => {
+        errorDialog.close();
+      });
+    }
+  }
 
   const tosLink = document.getElementById('tos-link');
   const tosDialog = document.getElementById('tos');
-  tosLink.addEventListener("click", () => {
-    tosDialog.showModal();
-  });
-  const closeButtonTos = tosDialog.querySelector("button");
-  closeButtonTos.addEventListener("click", () => {
-    tosDialog.close();
-  });
+  if (tosLink && tosDialog) {
+    tosLink.addEventListener("click", () => {
+      tosDialog.showModal();
+    });
+    const closeButtonTos = tosDialog.querySelector("button");
+    if (closeButtonTos) {
+      closeButtonTos.addEventListener("click", () => {
+        tosDialog.close();
+      });
+    }
+  }
 
   // Handle form submission for success toast
   const uploadForm = document.querySelector('form[action="/api/v1/records"]');
@@ -93,25 +101,47 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initialize RO-Crate viewer if elements exist
   initializeRoCrateViewer();
+
+  // Handle category select change for browse page
+  const categorySelect = document.getElementById('category');
+  const searchForm = document.getElementById('searchForm');
+  if (categorySelect && searchForm) {
+    categorySelect.addEventListener('change', function() {
+      searchForm.submit();
+    });
+  }
 });
 
 // RO-Crate viewer functionality
 let roCrateData = null;
 
-// Make these functions globally available for onclick handlers
-window.showFormattedView = function () {
-  document.getElementById('formatted-view').style.display = 'block';
-  document.getElementById('raw-view').style.display = 'none';
-  document.getElementById('view-formatted').className = 'btn btn-primary btn-sm';
-  document.getElementById('view-raw').className = 'btn btn-outline-secondary btn-sm';
-};
+function showFormattedView() {
+  const formattedView = document.getElementById('formatted-view');
+  const rawView = document.getElementById('raw-view');
+  const formattedBtn = document.getElementById('view-formatted');
+  const rawBtn = document.getElementById('view-raw');
+  
+  if (formattedView && rawView && formattedBtn && rawBtn) {
+    formattedView.classList.remove('hidden');
+    rawView.classList.add('hidden');
+    formattedBtn.className = 'btn btn-primary btn-sm';
+    rawBtn.className = 'btn btn-outline-secondary btn-sm';
+  }
+}
 
-window.showRawView = function () {
-  document.getElementById('formatted-view').style.display = 'none';
-  document.getElementById('raw-view').style.display = 'block';
-  document.getElementById('view-formatted').className = 'btn btn-outline-secondary btn-sm';
-  document.getElementById('view-raw').className = 'btn btn-primary btn-sm';
-};
+function showRawView() {
+  const formattedView = document.getElementById('formatted-view');
+  const rawView = document.getElementById('raw-view');
+  const formattedBtn = document.getElementById('view-formatted');
+  const rawBtn = document.getElementById('view-raw');
+  
+  if (formattedView && rawView && formattedBtn && rawBtn) {
+    formattedView.classList.add('hidden');
+    rawView.classList.remove('hidden');
+    formattedBtn.className = 'btn btn-outline-secondary btn-sm';
+    rawBtn.className = 'btn btn-primary btn-sm';
+  }
+}
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -191,12 +221,13 @@ function renderHtmlContent(htmlContent, entityId) {
   // Create a safe blob URL for HTML content
   const safeEntityId = escapeHtml(entityId || 'unknown');
   const truncatedContent = htmlContent.length > 200 ? htmlContent.substring(0, 200) + '...' : htmlContent;
+  const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
 
   return `
     <div class="html-content-preview">
       <div class="d-flex align-items-center gap-2 mb-2">
         <span class="badge bg-info">HTML Content</span>
-        <button class="btn btn-sm btn-outline-primary" onclick="openHtmlInNewTab('${btoa(unescape(encodeURIComponent(htmlContent)))}', '${safeEntityId}')">
+        <button class="btn btn-sm btn-outline-primary html-open-btn" data-html-content="${base64Content}" data-entity-id="${safeEntityId}">
           <i class="fas fa-external-link-alt"></i> Open in New Tab
         </button>
       </div>
@@ -207,8 +238,7 @@ function renderHtmlContent(htmlContent, entityId) {
   `;
 }
 
-// Make this function globally available for onclick handlers
-window.openHtmlInNewTab = function (base64Content, entityId) {
+function openHtmlInNewTab(base64Content, entityId) {
   try {
     const htmlContent = decodeURIComponent(escape(atob(base64Content)));
     const blob = new Blob([htmlContent], { type: 'text/html' });
@@ -227,7 +257,7 @@ window.openHtmlInNewTab = function (base64Content, entityId) {
     console.error('Error opening HTML content:', error);
     alert('Error opening HTML content: ' + error.message);
   }
-};
+}
 
 function renderEntity(entity) {
   let html = '<div class="ro-crate-entity">';
@@ -275,8 +305,6 @@ function renderEntity(entity) {
 }
 
 function renderRoCrate(data) {
-  console.log('Rendering RO-Crate data:', data);
-
   if (!data || typeof data !== 'object') {
     return '<div class="alert alert-warning">Invalid RO-Crate format: data is not an object</div>';
   }
@@ -343,20 +371,51 @@ function initializeRoCrateViewer() {
     return; // Not on a record page, skip initialization
   }
 
+  // Add event listeners for view toggle buttons
+  const formattedBtn = document.getElementById('view-formatted');
+  const rawBtn = document.getElementById('view-raw');
+  
+  if (formattedBtn) {
+    formattedBtn.addEventListener('click', showFormattedView);
+  }
+  
+  if (rawBtn) {
+    rawBtn.addEventListener('click', showRawView);
+  }
+
+  // Add event delegation for HTML open buttons (they are created dynamically)
+  contentDiv.addEventListener('click', function(e) {
+    if (e.target.classList.contains('html-open-btn') || e.target.closest('.html-open-btn')) {
+      const button = e.target.classList.contains('html-open-btn') ? e.target : e.target.closest('.html-open-btn');
+      const base64Content = button.getAttribute('data-html-content');
+      const entityId = button.getAttribute('data-entity-id');
+      
+      if (base64Content && entityId) {
+        openHtmlInNewTab(base64Content, entityId);
+      }
+    }
+  });
+
   try {
-    // Use the directly embedded JSON data
-    if (typeof window.roCrateRawData === 'undefined') {
-      throw new Error('RO-Crate data not found');
+    // Parse JSON data from the script tag
+    const jsonDataElement = document.getElementById('ro-crate-json-data');
+    if (!jsonDataElement) {
+      throw new Error('RO-Crate data element not found');
     }
 
-    roCrateData = window.roCrateRawData;
-    console.log('RO-Crate data loaded:', roCrateData);
+    const jsonText = jsonDataElement.textContent;
+    if (!jsonText || jsonText.trim() === '') {
+      throw new Error('RO-Crate data is empty');
+    }
+
+    roCrateData = JSON.parse(jsonText);
 
     contentDiv.innerHTML = renderRoCrate(roCrateData);
   } catch (error) {
     console.error('Error processing RO-Crate data:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     contentDiv.innerHTML =
-      '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(error.message) +
+      '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(errorMessage) +
       '<br><small>Check browser console for more details</small></div>';
   }
 }
