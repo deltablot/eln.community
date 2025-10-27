@@ -4,7 +4,7 @@
 
   <!-- Category Filter -->
   <div class="col-md-6 mb-4">
-    <form method="get" action="/browse" class="row align-items-center">
+    <form method="get" action="/browse" class="row align-items-center" id="searchForm">
       <div class="col-auto">
         <select name="category" id="category" class="form-select" onchange="this.form.submit()">
           <option value="">All categories</option>
@@ -39,7 +39,7 @@
 
 {{- if .Records}}
 {{- range .Records}}
-<details style="margin-bottom:1em;">
+<details class="record-details">
   <summary><strong>{{ .Name }}</strong>
     {{- if .Categories }}
     {{- range .Categories }}
@@ -68,6 +68,7 @@
     </li>
     {{- end }}
     <li><strong>Metadata:</strong>
+      <a class='btn btn-secondary' href='/api/v1/record/{{ .Id }}.json'>Download Metadata</a>
       <pre>{{ .MetadataPretty }}</pre>
     </li>
   </ul>

@@ -1,29 +1,31 @@
 {{ define "content" }}
 <h1>{{ .Record.Name }}</h1>
-<h3>ID: {{ .Record.Id }}</h3>
-<h3>Created at: {{ .Record.CreatedAt }}</h3>
-<h3>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h3>
+<h4>ID: {{ .Record.Id }}</h4>
+<h4>Created at: {{ .Record.CreatedAt }}</h4>
+<h4>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h4>
+<a class="btn btn-success btn-sm h-25 text-center" href="/api/v1/record/{{ .Record.Id }}.eln">Download Eln File</a>
 {{- if .Record.RorIds }}
-<h3>Research Organizations:
+<h4>Research Organizations:
   {{- range $i, $rorId := .Record.RorIds }}
   <span> </span>{{- if $i }}, {{ end }}<a href='https://ror.org/{{ $rorId }}' target='_blank'>{{ $rorId }}</a>
   {{- end }}
-</h3>
+</h4>
 {{- end }}
 {{- if .Record.Categories }}
-<h3>Categories:
+<h4>Categories:
   {{- range .Record.Categories }}
   <span class="badge bg-primary me-1">{{ .Name }}</span>
   {{- end }}
-</h3>
+</h4>
 {{- end }}
 
-<h3>RO-Crate Metadata</h3>
+<h4>RO-Crate Metadata</h4>
+<a class="btn btn-success btn-sm h-25 text-center" href="/api/v1/record/{{ .Record.Id }}.json">Download Metadata</a>
 <div id="ro-crate-viewer">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-      <button class="btn btn-primary btn-sm" id="view-formatted" onclick="showFormattedView()">Formatted View</button>
-      <button class="btn btn-outline-secondary btn-sm" id="view-raw" onclick="showRawView()">Raw JSON</button>
+      <button class="btn btn-primary btn-sm" id="view-formatted">Formatted View</button>
+      <button class="btn btn-outline-secondary btn-sm" id="view-raw">Raw JSON</button>
     </div>
   </div>
 
@@ -38,17 +40,13 @@
     </div>
   </div>
 
-  <div id="raw-view" style="display: none;">
+  <div id="raw-view" class="hidden">
     <pre class="bg-light p-3 rounded"><code>{{ .Record.MetadataPretty }}</code></pre>
   </div>
 </div>
 
 <!-- Pass JSON data safely to JavaScript -->
 <script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
-<script>
-  // Parse JSON data safely
-  window.roCrateRawData = JSON.parse(document.getElementById('ro-crate-json-data').textContent);
-</script>
 
 <!-- Load JavaScript file -->
 <script src="/index.js"></script>
