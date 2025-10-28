@@ -12,7 +12,7 @@
 
     <div class="col-md-6">
       <div class="flex-grow-1">
-        <select name="category" id="category" class="form-select" onchange="document.getElementById('searchForm').submit();">
+        <select name="category" id="category" class="form-select" onchange="this.form.submit()">
           <option value="">All categories</option>
           {{- range .Categories }}
           <option value="{{ .Id }}" {{ if eq $.SelectedCategoryID .Id }}selected{{ end }}>{{ .Name }}</option>
@@ -55,7 +55,7 @@
 
 {{- if .Records}}
 {{- range .Records}}
-<details style="margin-bottom:1em;">
+<details class="record-details">
   <summary><strong>{{ .Name }}</strong>
     {{- if .Categories }}
     {{- range .Categories }}
