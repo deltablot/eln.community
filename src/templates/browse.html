@@ -12,7 +12,7 @@
 
     <div class="col-md-6">
       <div class="flex-grow-1">
-        <select name="category" id="category" class="form-select" onchange="this.form.submit()">
+        <select name="category" id="category" class="form-select">
           <option value="">All categories</option>
           {{- range .Categories }}
           <option value="{{ .Id }}" {{ if eq $.SelectedCategoryID .Id }}selected{{ end }}>{{ .Name }}</option>
