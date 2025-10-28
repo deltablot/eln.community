@@ -1,30 +1,46 @@
 {{ define "content" }}
 <div class="row">
-  <h2 class="col-md-6">Browse entries</h2>
+  <h2 class="col-md-12">Browse entries</h2>
+</div>
 
-  <!-- Category Filter -->
-  <div class="col-md-6 mb-4">
-    <form method="get" action="/browse" class="row align-items-center" id="searchForm">
-      <div class="col-auto">
-        <select name="category" id="category" class="form-select" onchange="this.form.submit()">
+<!-- Search and Filter Section -->
+<form method="get" action="/browse" id="searchForm">
+    <div class="mb-3">
+      <input  type="text" name="q" class="form-control" placeholder="Search by name, tags, ROR organizations, ORCID, or .eln content..." value="{{ .SearchQuery }}" />
+      <button class="btn btn-primary" type="submit">Search</button>
+    </div>
+
+    <div class="col-md-6">
+      <div class="flex-grow-1">
+        <select name="category" id="category" class="form-select">
           <option value="">All categories</option>
           {{- range .Categories }}
           <option value="{{ .Id }}" {{ if eq $.SelectedCategoryID .Id }}selected{{ end }}>{{ .Name }}</option>
           {{- end }}
         </select>
       </div>
-      {{- if .SelectedCategoryID }}
-      <div class="col-auto mt-2">
-        <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear filter</a>
+      <!-- Clear Filters -->
+      {{- if or .SelectedCategoryID .SearchQuery }}
+      <div class="mt-2">
+        <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear all</a>
       </div>
       {{- end }}
-    </form>
-  </div>
-</div>
+    </div>
+</form>
 
 <!-- Results count -->
 <div class="mb-3">
-  {{- if .SelectedCategoryID }}
+  {{- if and .SearchQuery .SelectedCategoryID }}
+  {{- $categoryName := "" }}
+  {{- range .Categories }}
+  {{- if eq .Id $.SelectedCategoryID }}
+  {{- $categoryName = .Name }}
+  {{- end }}
+  {{- end }}
+  <p class="text-muted">Showing {{ len .Records }} record(s) for search "{{ .SearchQuery }}" in category "{{ $categoryName }}"</p>
+  {{- else if .SearchQuery }}
+  <p class="text-muted">Showing {{ len .Records }} record(s) for search "{{ .SearchQuery }}"</p>
+  {{- else if .SelectedCategoryID }}
   {{- $categoryName := "" }}
   {{- range .Categories }}
   {{- if eq .Id $.SelectedCategoryID }}

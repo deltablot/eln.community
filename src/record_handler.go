@@ -544,23 +544,38 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse category filter parameter
+	// Parse query parameters
 	categoryIDStr := r.URL.Query().Get("category")
+	searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
+
 	var selectedCategoryID int64
 	var records []Record
 
+	// Parse category ID if provided
 	if categoryIDStr != "" {
-		// Filter by category
 		categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64)
 		if err != nil {
 			http.Error(w, "Invalid category ID", http.StatusBadRequest)
 			return
 		}
 		selectedCategoryID = categoryID
-		records, err = h.recordRepo.GetAllByCategory(r.Context(), categoryID)
+	}
+
+	// Determine which query to execute based on search and category parameters
+	if searchQuery != "" {
+		// Search with optional category filter
+		records, err = h.recordRepo.Search(r.Context(), searchQuery, selectedCategoryID)
 		if err != nil {
-			log.Printf("Error in GetBrowsePage filtering by category %d: %v", categoryID, err)
-			http.Error(w, fmt.Sprintf("Error fetching records for category %d", categoryID), http.StatusInternalServerError)
+			log.Printf("Error in GetBrowsePage searching for '%s': %v", searchQuery, err)
+			http.Error(w, "Error searching records", http.StatusInternalServerError)
+			return
+		}
+	} else if selectedCategoryID > 0 {
+		// Filter by category only
+		records, err = h.recordRepo.GetAllByCategory(r.Context(), selectedCategoryID)
+		if err != nil {
+			log.Printf("Error in GetBrowsePage filtering by category %d: %v", selectedCategoryID, err)
+			http.Error(w, fmt.Sprintf("Error fetching records for category %d", selectedCategoryID), http.StatusInternalServerError)
 			return
 		}
 	} else {
@@ -584,11 +599,13 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		Categories         []Category
 		Records            []Record
 		SelectedCategoryID int64
+		SearchQuery        string
 	}{
 		App:                app,
 		Categories:         categories,
 		Records:            recs,
 		SelectedCategoryID: selectedCategoryID,
+		SearchQuery:        searchQuery,
 	}
 
 	w.Header().Set("Content-Type", "text/html")

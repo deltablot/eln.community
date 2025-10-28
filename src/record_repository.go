@@ -15,6 +15,7 @@ var (
 type RecordRepository interface {
 	GetAll(ctx context.Context) ([]Record, error)
 	GetAllByCategory(ctx context.Context, categoryID int64) ([]Record, error)
+	Search(ctx context.Context, query string, categoryID int64) ([]Record, error)
 	GetByID(ctx context.Context, id string) (*Record, error)
 	Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error
 	GetS3Key(ctx context.Context, id string) (string, error)
@@ -233,6 +234,95 @@ func (r *PostgresRecordRepository) GetAllByCategory(ctx context.Context, categor
 
 	if err := rows.Err(); err != nil {
 		log.Printf("Error in rows iteration: %v", err)
+		return nil, err
+	}
+
+	return records, nil
+}
+
+// Search retrieves records based on search query, optionally filtered by category
+func (r *PostgresRecordRepository) Search(ctx context.Context, query string, categoryID int64) ([]Record, error) {
+	var sqlQuery string
+	var args []interface{}
+
+	if categoryID > 0 {
+		// Search within a specific category
+		sqlQuery = `
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at
+			FROM records r
+			JOIN records_categories rc ON r.id = rc.record_id
+			LEFT JOIN records_ror rr ON r.id = rr.record_id
+			LEFT JOIN categories c ON rc.category_id = c.id
+			WHERE rc.category_id = $1 AND (
+				r.name ILIKE $2 OR
+				r.metadata::text ILIKE $2 OR
+				r.uploader_name ILIKE $2 OR
+				r.uploader_orcid ILIKE $2 OR
+				rr.ror ILIKE $2 OR
+				c.name ILIKE $2
+			)
+			ORDER BY r.created_at DESC
+		`
+		args = []interface{}{categoryID, "%" + query + "%"}
+	} else {
+		// Search across all records
+		sqlQuery = `
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at
+			FROM records r
+			LEFT JOIN records_ror rr ON r.id = rr.record_id
+			LEFT JOIN records_categories rc ON r.id = rc.record_id
+			LEFT JOIN categories c ON rc.category_id = c.id
+			WHERE (
+				r.name ILIKE $1 OR
+				r.metadata::text ILIKE $1 OR
+				r.uploader_name ILIKE $1 OR
+				r.uploader_orcid ILIKE $1 OR
+				rr.ror ILIKE $1 OR
+				c.name ILIKE $1
+			)
+			ORDER BY r.created_at DESC
+		`
+		args = []interface{}{"%" + query + "%"}
+	}
+
+	rows, err := r.db.QueryContext(ctx, sqlQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []Record
+	for rows.Next() {
+		var record Record
+		if err := rows.Scan(
+			&record.Id,
+			&record.Sha256,
+			&record.Name,
+			&record.Metadata,
+			&record.CreatedAt,
+			&record.ModifiedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		// Get categories for this record
+		categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
+		if err != nil {
+			return nil, err
+		}
+		record.Categories = categories
+
+		// Get ROR IDs for this record
+		rorIds, err := r.rorRepo.GetRecordRorIds(ctx, record.Id)
+		if err != nil {
+			return nil, err
+		}
+		record.RorIds = rorIds
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
