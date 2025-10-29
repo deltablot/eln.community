@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -53,9 +54,11 @@ func validateAndNormalizeRorIds(rorIds []string) ([]string, error) {
 
 // sanitizeFilename removes or replaces characters that could be problematic for filesystems
 func sanitizeFilename(name string) string {
-	// Replace problematic characters with underscores
-	// This covers most filesystem-unsafe characters across Windows, macOS, and Linux
-	problematicChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
+	problematicChars, err := regexp.Compile(`[<>:"/\\|?*\x00-\x1f]`)
+	if err != nil {
+		log.Printf("Error in sanitizing filename '%s': %v", name, err)
+		return name
+	}
 	sanitized := problematicChars.ReplaceAllString(name, "_")
 
 	// Trim whitespace and dots from the ends (problematic on Windows)
