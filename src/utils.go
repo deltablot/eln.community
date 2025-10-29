@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -49,4 +50,29 @@ func validateAndNormalizeRorIds(rorIds []string) ([]string, error) {
 		}
 	}
 	return normalizedIds, nil
+}
+
+// sanitizeFilename removes or replaces characters that could be problematic for filesystems
+func sanitizeFilename(name string) string {
+	problematicChars, err := regexp.Compile(`[<>:"/\\|?*\x00-\x1f]`)
+	if err != nil {
+		log.Printf("Error in sanitizing filename '%s': %v", name, err)
+		return name
+	}
+	sanitized := problematicChars.ReplaceAllString(name, "_")
+
+	// Trim whitespace and dots from the ends (problematic on Windows)
+	sanitized = strings.Trim(sanitized, " .")
+
+	// Ensure the filename isn't empty after sanitization
+	if sanitized == "" {
+		sanitized = "unnamed"
+	}
+
+	// Limit length to avoid filesystem issues (255 chars is common limit, leave room for .eln)
+	if len(sanitized) > 250 {
+		sanitized = sanitized[:250]
+	}
+
+	return sanitized
 }

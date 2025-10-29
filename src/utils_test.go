@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestValidateAndNormalizeRorId(t *testing.T) {
 	tests := []struct {
@@ -27,6 +30,34 @@ func TestValidateAndNormalizeRorId(t *testing.T) {
 		}
 		if result != test.expected {
 			t.Errorf("validateAndNormalizeRorId(%q) result = %q, want %q", test.input, result, test.expected)
+		}
+	}
+}
+
+func TestSanitizeFilename(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Protocol for X", "Protocol for X"},
+		{"Protocol/for\\X", "Protocol_for_X"},
+		{"Protocol<for>X", "Protocol_for_X"},
+		{"Protocol:for|X", "Protocol_for_X"},
+		{"Protocol\"for*X", "Protocol_for_X"},
+		{"Protocol?for X", "Protocol_for X"},
+		{"", "unnamed"},
+		{"   ", "unnamed"},
+		{"...", "unnamed"},
+		{" Protocol for X ", "Protocol for X"},
+		{" Protocol for X. ", "Protocol for X"},
+		// Test very long filename (300 'a' characters should be truncated to 250)
+		{strings.Repeat("a", 300), strings.Repeat("a", 250)},
+	}
+
+	for _, test := range tests {
+		result := sanitizeFilename(test.input)
+		if result != test.expected {
+			t.Errorf("sanitizeFilename(%q) = %q, expected %q", test.input, result, test.expected)
 		}
 	}
 }
