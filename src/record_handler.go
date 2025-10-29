@@ -772,6 +772,7 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
+		log.Printf("DEBUG: Form parsing error: %v", err)
 		http.Error(w, "Error parsing form", http.StatusBadRequest)
 		return
 	}
@@ -867,7 +868,7 @@ func (h *RecordHandler) DeleteRecord(w http.ResponseWriter, r *http.Request, id 
 	// Get the existing record to check ownership and get S3 key
 	existingRecord, err := h.recordRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == ErrRecordNotFound {
+		if errors.Is(err, ErrRecordNotFound) {
 			http.NotFound(w, r)
 		} else {
 			http.Error(w, "Database error", http.StatusInternalServerError)

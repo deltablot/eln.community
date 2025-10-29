@@ -65,7 +65,7 @@
   </summary>
   <ul>
     <li>
-      <div class="btn-group" role="group">
+      <div class="gap-5" role="group">
         <a class='btn btn-primary btn-sm' href='/record/{{ .Id }}'>View</a>
         <a class='btn btn-secondary btn-sm' href='/api/v1/record/{{ .Id }}.eln'>Download</a>
         {{ if or (and $.User (eq $.User.Orcid .UploaderOrcid)) $.IsAdmin }}

@@ -422,9 +422,9 @@ function initializeRoCrateViewer() {
 
 // Handle edit form submission
 function initializeEditForm() {
-  const editForm = document.querySelector('form[action*="/api/v1/record/"]');
-  if (!editForm || editForm.getAttribute('action').includes('/records')) {
-    return; // Not an edit form or is the upload form
+  const editForm = document.querySelector('form.edit-record-form');
+  if (!editForm) {
+    return; // Not on edit page
   }
 
   editForm.addEventListener('submit', async function (e) {
@@ -439,6 +439,12 @@ function initializeEditForm() {
     }
 
     const formData = new FormData(this);
+    
+    // Debug: log form data
+    console.log('Edit form data being sent:');
+    for (let [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
 
     try {
       const response = await fetch(this.action, {
@@ -501,13 +507,10 @@ function initializeEditForm() {
 
 // Handle delete form submission
 function initializeDeleteForm() {
-  const deleteForm = document.querySelector('form[action*="/api/v1/record/"] input[name="_method"][value="DELETE"]');
-  if (!deleteForm) {
-    return; // Not a delete form
+  const form = document.querySelector('form.delete-record-form');
+  if (!form) {
+    return; // Not on edit page with delete form
   }
-
-  const form = deleteForm.closest('form');
-  if (!form) return;
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -558,6 +561,5 @@ function initializeDeleteForm() {
 
 // Initialize edit and delete forms when DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
-  initializeEditForm();
   initializeDeleteForm();
 });
