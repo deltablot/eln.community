@@ -259,9 +259,13 @@ func (h *RecordHandler) GetRecordMetadata(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Create a human-friendly filename using the record name
+	sanitizedName := sanitizeFilename(record.Name)
+	filename := fmt.Sprintf("%s-metadata.json", sanitizedName)
+
 	// Set headers for file download
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-metadata.json\"", id))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	w.WriteHeader(http.StatusOK)
 
 	// Write the metadata JSON
@@ -273,6 +277,18 @@ func (h *RecordHandler) GetRecordMetadata(w http.ResponseWriter, r *http.Request
 // GetRecordZIP handles ZIP file download
 func (h *RecordHandler) GetRecordZIP(w http.ResponseWriter, r *http.Request, id string) {
 	ctx := r.Context()
+
+	// Get the record to access both S3 key and name
+	record, err := h.recordRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrRecordNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			log.Printf("db error fetching record for %s: %v", id, err)
+		}
+		return
+	}
 
 	// Get the S3 key from the repository
 	s3Key, err := h.recordRepo.GetS3Key(ctx, id)
@@ -303,12 +319,17 @@ func (h *RecordHandler) GetRecordZIP(w http.ResponseWriter, r *http.Request, id 
 	}
 	defer resp.Body.Close()
 
+	// Create a human-friendly filename using the record name
+	sanitizedName := sanitizeFilename(record.Name)
+	filename := fmt.Sprintf("%s.eln", sanitizedName)
+
 	// Stream it back to the client
 	contentType := aws.ToString(resp.ContentType)
 	if contentType == "" {
 		contentType = "application/vnd.eln+zip"
 	}
 	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	w.WriteHeader(http.StatusOK)
 
 	if _, err := io.Copy(w, resp.Body); err != nil {
