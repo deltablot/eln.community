@@ -1,9 +1,18 @@
 {{ define "content" }}
-<h1>{{ .Record.Name }}</h1>
-<h4>ID: {{ .Record.Id }}</h4>
-<h4>Created at: {{ .Record.CreatedAt }}</h4>
-<h4>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h4>
-<a class="btn btn-success btn-sm h-25 text-center" href="/api/v1/record/{{ .Record.Id }}.eln">Download Eln File</a>
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1>{{ .Record.Name }}</h1>
+    <h4>ID: {{ .Record.Id }}</h4>
+    <h4>Created at: {{ .Record.CreatedAt }}</h4>
+    <h4>Uploaded by: {{ .Record.UploaderName }} (<a href='https://orcid.org/{{ .Record.UploaderOrcid }}'>orcid</a>)</h4>
+  </div>
+  <div class="record-actions">
+    <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.eln">Download Eln File</a>
+    {{ if .CanEdit }}
+    <a class="btn btn-primary btn-sm" href="/api/v1/record/{{ .Record.Id }}/edit">Edit</a>
+    {{ end }}
+  </div>
+</div>
 {{- if .Record.RorIds }}
 <h4>Research Organizations:
   {{- range $i, $rorId := .Record.RorIds }}

@@ -420,3 +420,144 @@ function initializeRoCrateViewer() {
   }
 }
 
+// Handle edit form submission
+function initializeEditForm() {
+  const editForm = document.querySelector('form[action*="/api/v1/record/"]');
+  if (!editForm || editForm.getAttribute('action').includes('/records')) {
+    return; // Not an edit form or is the upload form
+  }
+
+  editForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn?.textContent;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Updating...';
+    }
+
+    const formData = new FormData(this);
+
+    try {
+      const response = await fetch(this.action, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        // Show success toast
+        const successToast = document.getElementById('successToast');
+        if (successToast) {
+          const toast = new bootstrap.Toast(successToast, {
+            delay: 2000,
+            autohide: true
+          });
+
+          // Redirect to record page after toast hides
+          successToast.addEventListener('hidden.bs.toast', function () {
+            window.location.href = response.url || this.action.replace('/api/v1/record/', '/record/');
+          }, { once: true });
+
+          toast.show();
+        } else {
+          // Fallback redirect if no toast
+          setTimeout(() => {
+            window.location.href = response.url || this.action.replace('/api/v1/record/', '/record/');
+          }, 1000);
+        }
+      } else {
+        // Show error toast
+        const errorText = await response.text();
+        const errorToast = document.getElementById('errorToast');
+        const errorToastBody = document.getElementById('errorToastBody');
+        if (errorToast && errorToastBody) {
+          errorToastBody.textContent = errorText || 'Update failed. Please try again.';
+          const toast = new bootstrap.Toast(errorToast);
+          toast.show();
+        }
+        console.error('Update failed:', errorText);
+      }
+    } catch (error) {
+      // Show error toast for network/other errors
+      const errorToast = document.getElementById('errorToast');
+      const errorToastBody = document.getElementById('errorToastBody');
+      if (errorToast && errorToastBody) {
+        errorToastBody.textContent = 'Network error. Please check your connection and try again.';
+        const toast = new bootstrap.Toast(errorToast);
+        toast.show();
+      }
+      console.error('Update error:', error);
+    } finally {
+      // Reset button state
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText || 'Update Entry';
+      }
+    }
+  });
+}
+
+// Handle delete form submission
+function initializeDeleteForm() {
+  const deleteForm = document.querySelector('form[action*="/api/v1/record/"] input[name="_method"][value="DELETE"]');
+  if (!deleteForm) {
+    return; // Not a delete form
+  }
+
+  const form = deleteForm.closest('form');
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    // Double confirmation for delete
+    const confirmed = confirm('Are you sure you want to delete this entry? This action cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn?.textContent;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Deleting...';
+    }
+
+    const formData = new FormData(this);
+
+    try {
+      const response = await fetch(this.action, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        // Redirect to browse page
+        window.location.href = '/browse';
+      } else {
+        // Show error
+        const errorText = await response.text();
+        alert('Delete failed: ' + (errorText || 'Please try again.'));
+        console.error('Delete failed:', errorText);
+      }
+    } catch (error) {
+      alert('Network error. Please check your connection and try again.');
+      console.error('Delete error:', error);
+    } finally {
+      // Reset button state
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText || 'Delete Entry';
+      }
+    }
+  });
+}
+
+// Initialize edit and delete forms when DOM is loaded
+document.addEventListener('DOMContentLoaded', function () {
+  initializeEditForm();
+  initializeDeleteForm();
+});

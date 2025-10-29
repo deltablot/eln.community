@@ -18,6 +18,8 @@ type RecordRepository interface {
 	Search(ctx context.Context, query string, categoryID int64) ([]Record, error)
 	GetByID(ctx context.Context, id string) (*Record, error)
 	Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error
+	Update(ctx context.Context, tx *sql.Tx, record *Record) error
+	Delete(ctx context.Context, tx *sql.Tx, id string) error
 	GetS3Key(ctx context.Context, id string) (string, error)
 }
 
@@ -40,7 +42,7 @@ func NewPostgresRecordRepository(db *sql.DB, categoryRepo CategoryRepository, ro
 // GetAll retrieves all records with their categories and ROR IDs
 func (r *PostgresRecordRepository) GetAll(ctx context.Context) ([]Record, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_orcid
 		FROM records
 		ORDER BY created_at DESC
 	`)
@@ -59,6 +61,7 @@ func (r *PostgresRecordRepository) GetAll(ctx context.Context) ([]Record, error)
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&record.UploaderOrcid,
 		); err != nil {
 			return nil, err
 		}
@@ -184,7 +187,7 @@ func (r *PostgresRecordRepository) GetAllByCategory(ctx context.Context, categor
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_orcid
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
 		WHERE rc.category_id = $1
@@ -208,6 +211,7 @@ func (r *PostgresRecordRepository) GetAllByCategory(ctx context.Context, categor
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&record.UploaderOrcid,
 		); err != nil {
 			log.Printf("Error scanning record %d: %v", recordCount, err)
 			return nil, err
@@ -248,7 +252,7 @@ func (r *PostgresRecordRepository) Search(ctx context.Context, query string, cat
 	if categoryID > 0 {
 		// Search within a specific category
 		sqlQuery = `
-			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_orcid
 			FROM records r
 			JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
@@ -267,7 +271,7 @@ func (r *PostgresRecordRepository) Search(ctx context.Context, query string, cat
 	} else {
 		// Search across all records
 		sqlQuery = `
-			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_orcid
 			FROM records r
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN records_categories rc ON r.id = rc.record_id
@@ -301,6 +305,7 @@ func (r *PostgresRecordRepository) Search(ctx context.Context, query string, cat
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&record.UploaderOrcid,
 		); err != nil {
 			return nil, err
 		}
@@ -327,4 +332,66 @@ func (r *PostgresRecordRepository) Search(ctx context.Context, query string, cat
 	}
 
 	return records, nil
+}
+
+// Update updates an existing record within a transaction
+func (r *PostgresRecordRepository) Update(ctx context.Context, tx *sql.Tx, record *Record) error {
+	// Update the main record
+	_, err := tx.ExecContext(ctx,
+		`UPDATE records SET name = $2, modified_at = now() WHERE id = $1`,
+		record.Id, record.Name,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Clear existing category associations
+	_, err = tx.ExecContext(ctx,
+		`DELETE FROM records_categories WHERE record_id = $1`,
+		record.Id,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Clear existing ROR associations
+	_, err = tx.ExecContext(ctx,
+		`DELETE FROM records_ror WHERE record_id = $1`,
+		record.Id,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Insert new ROR associations
+	for _, rorId := range record.RorIds {
+		if err := r.rorRepo.AssociateRorWithRecord(ctx, tx, record.Id, rorId); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Delete removes a record and all its associations within a transaction
+func (r *PostgresRecordRepository) Delete(ctx context.Context, tx *sql.Tx, id string) error {
+	// Delete the record (cascading deletes will handle associations)
+	result, err := tx.ExecContext(ctx,
+		`DELETE FROM records WHERE id = $1`,
+		id,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
 }
