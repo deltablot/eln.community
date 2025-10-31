@@ -84,13 +84,16 @@ type RootPageData struct {
 
 type RecordPageData struct {
 	App
-	Record Record
+	Record  Record
+	CanEdit bool
 }
 
 type RecordsPageData struct {
 	App
 	Categories []Category
 	Records    []Record
+	User       *User
+	IsAdmin    bool
 }
 
 //go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
@@ -397,6 +400,10 @@ func main() {
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
 	mux.HandleFunc("GET /api/v1/record/", recordHandler.Router)
+	mux.HandleFunc("POST /api/v1/record/", recordHandler.Router)
+	mux.HandleFunc("PUT /api/v1/record/", recordHandler.Router)
+	mux.HandleFunc("PATCH /api/v1/record/", recordHandler.Router)
+	mux.HandleFunc("DELETE /api/v1/record/", recordHandler.Router)
 
 	// Category API routes
 	mux.HandleFunc("/api/v1/categories", categoryHandler.Router)
