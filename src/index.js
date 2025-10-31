@@ -518,33 +518,46 @@ function initializeEditForm() {
 function initializeDeleteButton() {
   const deleteBtn = document.getElementById('deleteBtn');
   const deleteForm = document.querySelector('form.delete-record-form');
+  const deleteModal = document.getElementById('deleteConfirmModal');
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
   
-  if (!deleteBtn || !deleteForm) {
+  if (!deleteBtn || !deleteForm || !deleteModal || !confirmDeleteBtn) {
     return; // Not on edit page
   }
 
-  deleteBtn.addEventListener('click', async function (e) {
+  // Show modal when delete button is clicked
+  deleteBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    const modal = new bootstrap.Modal(deleteModal);
+    modal.show();
+  });
+
+  // Handle actual delete when confirmed
+  confirmDeleteBtn.addEventListener('click', async function (e) {
     e.preventDefault();
 
-    // Confirmation dialog
-    const confirmed = confirm('Are you sure you want to delete this entry? This action cannot be undone.');
-    if (!confirmed) {
-      return;
-    }
+    const modal = bootstrap.Modal.getInstance(deleteModal);
+    const originalText = confirmDeleteBtn.textContent;
+    confirmDeleteBtn.disabled = true;
+    confirmDeleteBtn.textContent = 'Deleting...';
 
-    const originalText = deleteBtn.textContent;
-    deleteBtn.disabled = true;
-    deleteBtn.textContent = 'Deleting...';
-
+    // Convert form data to URL-encoded format
     const formData = new FormData(deleteForm);
+    const urlEncodedData = new URLSearchParams(formData).toString();
 
     try {
       const response = await fetch(deleteForm.action, {
         method: 'POST',
-        body: formData
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: urlEncodedData
       });
 
       if (response.ok) {
+        // Hide modal
+        modal.hide();
+        
         // Show success toast
         const successToast = document.getElementById('successToast');
         const successToastBody = successToast?.querySelector('.toast-body');
@@ -568,6 +581,9 @@ function initializeDeleteButton() {
           }, 1000);
         }
       } else {
+        // Hide modal
+        modal.hide();
+        
         // Show error toast
         const errorText = await response.text();
         const errorToast = document.getElementById('errorToast');
@@ -580,10 +596,13 @@ function initializeDeleteButton() {
         console.error('Delete failed:', errorText);
         
         // Reset button state
-        deleteBtn.disabled = false;
-        deleteBtn.textContent = originalText;
+        confirmDeleteBtn.disabled = false;
+        confirmDeleteBtn.textContent = originalText;
       }
     } catch (error) {
+      // Hide modal
+      modal.hide();
+      
       // Show error toast for network/other errors
       const errorToast = document.getElementById('errorToast');
       const errorToastBody = document.getElementById('errorToastBody');
@@ -595,8 +614,8 @@ function initializeDeleteButton() {
       console.error('Delete error:', error);
       
       // Reset button state
-      deleteBtn.disabled = false;
-      deleteBtn.textContent = originalText;
+      confirmDeleteBtn.disabled = false;
+      confirmDeleteBtn.textContent = originalText;
     }
   });
 }
