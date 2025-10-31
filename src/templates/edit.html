@@ -3,7 +3,7 @@
   <div id="successToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="toast-header">
       <strong class="me-auto text-success">Success</strong>
-      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close">X</button>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
     <div class="toast-body">
       Your entry has been successfully updated!
@@ -12,7 +12,7 @@
   <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="toast-header">
       <strong class="me-auto text-danger">Error</strong>
-      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close">X</button>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
     <div class="toast-body" id="errorToastBody">
       Update failed. Please try again.
@@ -20,66 +20,55 @@
   </div>
 </div>
 
-<div class="row">
-  <div class="col-md-8">
-    <h1>Edit Entry: {{ .Record.Name }}</h1>
-    <p class="text-muted">ID: {{ .Record.Id }}</p>
-    
-    <form method='post' action='/api/v1/record/{{ .Record.Id }}' class="edit-record-form" enctype="application/x-www-form-urlencoded">
-      {{ if .Categories }}
-      <div class="mb-3">
-        <label class="form-label fw-bold">Category</label>
-        <select name="category" class="form-control">
-          <option value="">Choose a category...</option>
-          {{ range .Categories }}
-          <option value="{{ .Id }}" {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}selected{{ end }}{{ end }}>{{ .Name }}</option>
-          {{ end }}
-        </select>
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <h1>Edit Entry: {{ .Record.Name }}</h1>
+      <p class="text-muted">ID: {{ .Record.Id }}</p>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <p class="mb-1"><strong>Created:</strong> {{ .Record.CreatedAt.Format "2006-01-02 15:04:05 MST" }}</p>
+          <p class="mb-1"><strong>Modified:</strong> {{ .Record.ModifiedAt.Format "2006-01-02 15:04:05 MST" }}</p>
+          <p class="mb-1"><strong>Uploaded by:</strong> {{ .Record.UploaderName }}</p>
+          <p class="mb-0"><strong>SHA256:</strong> <small>{{ .Record.Sha256 }}</small></p>
+        </div>
       </div>
-      {{ end }}
-      
-      <div class="mb-3">
-        <label class="form-label fw-bold">Name</label>
-        <input type='text' name='name' class='form-control' value="{{ .Record.Name }}" required />
-      </div>
-      
-      <div class="mb-3">
-        <label class="form-label fw-bold">Research Organization Registry (ROR) IDs</label>
-        <small class="form-text text-muted">Optional. Enter one or more ROR IDs separated by commas (e.g., 0abcdef12, 013meh722) <a href="https://ror.org/" target="_blank">Learn more about ROR</a></small>
-        <input type='text' name='rors' class='form-control' placeholder='0abcdef12, 013meh722' value="{{ range $i, $rorId := .Record.RorIds }}{{ if $i }}, {{ end }}{{ $rorId }}{{ end }}" />
-      </div>
-      
-      <div class="mb-3">
-        <button type='submit' class='btn btn-primary me-2'>Update Entry</button>
-        <a href='/record/{{ .Record.Id }}' class='btn btn-secondary'>Cancel</a>
-      </div>
-    </form>
-  </div>
-  
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">
-        <h5>Danger Zone</h5>
-      </div>
-      <div class="card-body">
-        <p class="text-muted">Once you delete an entry, there is no going back. Please be certain.</p>
-        <form method='post' action='/api/v1/record/{{ .Record.Id }}' class="delete-record-form" onsubmit="return confirm('Are you sure you want to delete this entry? This action cannot be undone.');">
-          <input type="hidden" name="_method" value="DELETE">
-          <button type='submit' class='btn btn-danger btn-sm'>Delete Entry</button>
-        </form>
-      </div>
-    </div>
-    
-    <div class="card mt-3">
-      <div class="card-header">
-        <h5>Entry Information</h5>
-      </div>
-      <div class="card-body">
-        <p><strong>Created:</strong> {{ .Record.CreatedAt.Format "2006-01-02 15:04:05 MST" }}</p>
-        <p><strong>Modified:</strong> {{ .Record.ModifiedAt.Format "2006-01-02 15:04:05 MST" }}</p>
-        <p><strong>Uploaded by:</strong> {{ .Record.UploaderName }}</p>
-        <p><strong>SHA256:</strong> <small>{{ .Record.Sha256 }}</small></p>
-      </div>
+
+      <form method='post' action='/api/v1/record/{{ .Record.Id }}' class="edit-record-form col-md-12" enctype="application/x-www-form-urlencoded">
+        {{ if .Categories }}
+        <div class="mb-3">
+          <label class="form-label fw-bold">Category</label>
+          <select name="category" class="form-control">
+            <option value="">Choose a category...</option>
+            {{ range .Categories }}
+            <option value="{{ .Id }}" {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}selected{{ end }}{{ end }}>{{ .Name }}</option>
+            {{ end }}
+          </select>
+        </div>
+        {{ end }}
+
+        <div class="mb-2">
+          <label class="form-label fw-bold">Name</label>
+          <input type='text' name='name' class='form-control' value="{{ .Record.Name }}" required />
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label fw-bold">Research Organization Registry (ROR) IDs</label>
+          <small class="form-text text-muted d-block mb-2">Optional. Enter one or more ROR IDs separated by commas (e.g., 0abcdef12, 013meh722) <a href="https://ror.org/" target="_blank">Learn more about ROR</a></small>
+          <input type='text' name='rors' class='form-control' placeholder='0abcdef12, 013meh722' value="{{ range $i, $rorId := .Record.RorIds }}{{ if $i }}, {{ end }}{{ $rorId }}{{ end }}" />
+        </div>
+
+        <div class="d-flex flex-row gap-2">
+          <button type='submit' class='btn btn-primary'>Update Entry</button>
+          <a href='/record/{{ .Record.Id }}' class='btn btn-secondary'>Cancel</a>
+          <button type='button' class='btn btn-danger ms-auto' id='deleteBtn'>Delete Entry</button>
+        </div>
+      </form>
+
+      <form method='post' action='/api/v1/record/{{ .Record.Id }}' class="delete-record-form d-none">
+        <input type="hidden" name="_method" value="DELETE">
+      </form>
     </div>
   </div>
 </div>
