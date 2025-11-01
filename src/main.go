@@ -278,7 +278,7 @@ func securityHeaders(next http.Handler) http.Handler {
 			"default-src 'self'; "+
 				"script-src 'self' https://cdn.jsdelivr.net; "+
 				"style-src 'self' https://cdn.jsdelivr.net; "+
-				"img-src 'self'; "+
+				"img-src 'self' data:; "+
 				"connect-src 'self'; "+
 				"frame-ancestors 'none';"+
 				"upgrade-insecure-requests;",
