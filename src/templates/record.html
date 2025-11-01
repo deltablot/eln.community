@@ -15,9 +15,8 @@
 </div>
 {{- if .Record.RorIds }}
 <h4>Research Organizations:
-  {{- range $i, $rorId := .Record.RorIds }}
-  <span> </span>{{- if $i }}, {{ end }}<a href='https://ror.org/{{ $rorId }}' target='_blank'>{{ $rorId }}</a>
-  {{- end }}
+  <span id="ror-organizations-loading">Loading...</span>
+  <span id="ror-organizations" class="d-none"></span>
 </h4>
 {{- end }}
 {{- if .Record.Categories }}
@@ -56,6 +55,9 @@
 
 <!-- Pass JSON data safely to JavaScript -->
 <script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
+{{- if .Record.RorIds }}
+<script type="application/json" id="ror-ids-data">{{ .Record.RorIds }}</script>
+{{- end }}
 
 <!-- Load JavaScript file -->
 <script src="/index.js"></script>

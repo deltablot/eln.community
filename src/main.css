@@ -533,3 +533,51 @@ footer {
     border: 1px solid transparent;
     border-radius: 0.375rem;
 }
+
+/* ROR Autocomplete Styles */
+.ror-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.ror-badge .btn-close {
+    padding: 0;
+    margin-left: 0.5rem;
+    opacity: 0.8;
+}
+
+.ror-badge .btn-close:hover {
+    opacity: 1;
+}
+
+#ror-search-results,
+#ror-search-results-upload {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0.375rem;
+    margin-top: 0.25rem;
+}
+
+#ror-search-results .list-group-item,
+#ror-search-results-upload .list-group-item {
+    cursor: pointer;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+#ror-search-results .list-group-item:last-child,
+#ror-search-results-upload .list-group-item:last-child {
+    border-bottom: none;
+}
+
+#ror-search-results .list-group-item:hover,
+#ror-search-results-upload .list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+#selected-rors,
+#selected-rors-upload {
+    min-height: 2rem;
+}

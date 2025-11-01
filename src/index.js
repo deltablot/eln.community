@@ -102,6 +102,15 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initialize RO-Crate viewer if elements exist
   initializeRoCrateViewer();
 
+  // Initialize ROR autocomplete for edit page
+  initializeRorAutocomplete('ror-search-input', 'ror-search-results', 'selected-rors', 'rors-hidden-input');
+  
+  // Initialize ROR autocomplete for upload page
+  initializeRorAutocomplete('ror-search-input-upload', 'ror-search-results-upload', 'selected-rors-upload', 'rors-hidden-input-upload');
+  
+  // Load ROR names for record page
+  loadRorNames();
+
   // Handle category select change for browse page
   const categorySelect = document.getElementById('category');
   const searchForm = document.getElementById('searchForm');
@@ -625,3 +634,219 @@ document.addEventListener('DOMContentLoaded', function () {
   initializeEditForm();
   initializeDeleteButton();
 });
+
+// ROR Autocomplete functionality
+let rorSearchTimeout = null;
+const rorCache = new Map();
+
+function initializeRorAutocomplete(inputId, resultsId, selectedId, hiddenInputId) {
+  const searchInput = document.getElementById(inputId);
+  const searchResults = document.getElementById(resultsId);
+  const selectedRors = document.getElementById(selectedId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+
+  if (!searchInput || !searchResults || !selectedRors || !hiddenInput) {
+    return; // Not on a page with ROR autocomplete
+  }
+
+  // Load existing ROR names for edit page
+  loadExistingRorNames(selectedId);
+
+  // Handle search input
+  searchInput.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    if (query.length < 2) {
+      searchResults.classList.add('d-none');
+      searchResults.innerHTML = '';
+      return;
+    }
+
+    // Debounce search
+    clearTimeout(rorSearchTimeout);
+    rorSearchTimeout = setTimeout(() => {
+      searchRorOrganizations(query, resultsId, selectedId, hiddenInputId, inputId);
+    }, 300);
+  });
+
+  // Handle clicks outside to close results
+  document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+      searchResults.classList.add('d-none');
+    }
+  });
+
+  // Handle remove button clicks
+  selectedRors.addEventListener('click', function(e) {
+    if (e.target.classList.contains('btn-close') || e.target.closest('.btn-close')) {
+      const badge = e.target.closest('.ror-badge');
+      if (badge) {
+        badge.remove();
+        updateHiddenInput(selectedId, hiddenInputId);
+      }
+    }
+  });
+}
+
+async function searchRorOrganizations(query, resultsId, selectedId, hiddenInputId, inputId) {
+  const searchResults = document.getElementById(resultsId);
+  
+  try {
+    searchResults.innerHTML = '<div class="list-group-item">Searching...</div>';
+    searchResults.classList.remove('d-none');
+
+    const response = await fetch(`/api/v1/ror/search?q=${encodeURIComponent(query)}`);
+    
+    if (!response.ok) {
+      throw new Error('Search failed');
+    }
+
+    const organizations = await response.json();
+    
+    if (organizations.length === 0) {
+      searchResults.innerHTML = '<div class="list-group-item">No results found</div>';
+      return;
+    }
+
+    // Cache results
+    organizations.forEach(org => {
+      rorCache.set(org.id, org);
+    });
+
+    // Display results
+    searchResults.innerHTML = '';
+    organizations.forEach(org => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'list-group-item list-group-item-action';
+      item.innerHTML = `
+        <div class="d-flex w-100 justify-content-between">
+          <h6 class="mb-1">${escapeHtml(org.name)}</h6>
+          <small class="text-muted">${escapeHtml(org.id)}</small>
+        </div>
+        ${org.types && org.types.length > 0 ? `<small class="text-muted">${org.types.map(t => escapeHtml(t)).join(', ')}</small>` : ''}
+      `;
+      
+      item.addEventListener('click', function() {
+        addRorOrganization(org, selectedId, hiddenInputId);
+        searchResults.classList.add('d-none');
+        document.getElementById(inputId).value = '';
+      });
+      
+      searchResults.appendChild(item);
+    });
+  } catch (error) {
+    console.error('Error searching ROR organizations:', error);
+    searchResults.innerHTML = '<div class="list-group-item text-danger">Error searching organizations</div>';
+  }
+}
+
+function addRorOrganization(org, selectedId, hiddenInputId) {
+  const selectedRors = document.getElementById(selectedId);
+  
+  // Check if already added
+  const existing = selectedRors.querySelector(`[data-ror-id="${org.id}"]`);
+  if (existing) {
+    return;
+  }
+
+  // Create badge
+  const badge = document.createElement('div');
+  badge.className = 'badge bg-primary me-2 mb-2 ror-badge';
+  badge.setAttribute('data-ror-id', org.id);
+  badge.innerHTML = `
+    <span class="ror-name">${escapeHtml(org.name)}</span>
+    <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove" style="font-size: 0.7rem;"></button>
+  `;
+  
+  selectedRors.appendChild(badge);
+  updateHiddenInput(selectedId, hiddenInputId);
+}
+
+function updateHiddenInput(selectedId, hiddenInputId) {
+  const selectedRors = document.getElementById(selectedId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  
+  const badges = selectedRors.querySelectorAll('.ror-badge');
+  const rorIds = Array.from(badges).map(badge => badge.getAttribute('data-ror-id'));
+  
+  hiddenInput.value = rorIds.join(', ');
+}
+
+async function loadExistingRorNames(selectedId) {
+  const selectedRors = document.getElementById(selectedId);
+  if (!selectedRors) return;
+
+  const badges = selectedRors.querySelectorAll('.ror-badge');
+  if (badges.length === 0) return;
+
+  const rorIds = Array.from(badges).map(badge => badge.getAttribute('data-ror-id'));
+  
+  try {
+    const response = await fetch(`/api/v1/ror/organizations?ids=${rorIds.join(',')}`);
+    if (!response.ok) {
+      console.error('Failed to load ROR names');
+      return;
+    }
+
+    const organizations = await response.json();
+    
+    // Update badges with names
+    organizations.forEach(org => {
+      rorCache.set(org.id, org);
+      const badge = selectedRors.querySelector(`[data-ror-id="${org.id}"]`);
+      if (badge) {
+        const nameSpan = badge.querySelector('.ror-name');
+        if (nameSpan) {
+          nameSpan.textContent = org.name;
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error loading ROR names:', error);
+  }
+}
+
+async function loadRorNames() {
+  const rorIdsElement = document.getElementById('ror-ids-data');
+  if (!rorIdsElement) {
+    return; // Not on a record page with ROR IDs
+  }
+
+  const loadingElement = document.getElementById('ror-organizations-loading');
+  const displayElement = document.getElementById('ror-organizations');
+  
+  if (!loadingElement || !displayElement) {
+    return;
+  }
+
+  try {
+    const rorIds = JSON.parse(rorIdsElement.textContent);
+    
+    if (!rorIds || rorIds.length === 0) {
+      loadingElement.classList.add('d-none');
+      return;
+    }
+
+    const response = await fetch(`/api/v1/ror/organizations?ids=${rorIds.join(',')}`);
+    if (!response.ok) {
+      throw new Error('Failed to load ROR organizations');
+    }
+
+    const organizations = await response.json();
+    
+    // Build display HTML
+    let html = '';
+    organizations.forEach((org, index) => {
+      if (index > 0) html += ', ';
+      html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank'>${escapeHtml(org.name)}</a>`;
+    });
+    
+    displayElement.innerHTML = html;
+    loadingElement.classList.add('d-none');
+    displayElement.classList.remove('d-none');
+  } catch (error) {
+    console.error('Error loading ROR names:', error);
+    loadingElement.textContent = 'Error loading organization names';
+  }
+}

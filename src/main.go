@@ -396,6 +396,7 @@ func main() {
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
 	recordHandler := NewRecordHandler(recordRepo, categoryRepo, adminRepo)
+	rorHandler := NewRorHandler()
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
@@ -408,6 +409,11 @@ func main() {
 	// Category API routes
 	mux.HandleFunc("/api/v1/categories", categoryHandler.Router)
 	mux.HandleFunc("/api/v1/categories/", categoryHandler.Router)
+
+	// ROR API routes
+	mux.HandleFunc("/api/v1/ror/search", rorHandler.Router)
+	mux.HandleFunc("/api/v1/ror/organizations", rorHandler.Router)
+	mux.HandleFunc("/api/v1/ror/organization/", rorHandler.Router)
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
