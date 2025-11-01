@@ -46,6 +46,7 @@ type RorDetailResponse struct {
 // RorHandler handles ROR-related HTTP requests
 type RorHandler struct {
 	httpClient *http.Client
+	cache      *InMemoryCache[RorOrganization]
 }
 
 // NewRorHandler creates a new ROR handler
@@ -54,6 +55,7 @@ func NewRorHandler() *RorHandler {
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		cache: NewInMemoryCache[RorOrganization](24 * time.Hour), // Cache for 24 hours
 	}
 }
 
@@ -124,6 +126,14 @@ func (h *RorHandler) GetRorOrganization(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
+	// Check cache first
+	if cachedOrg, found := h.cache.Get(normalizedID); found {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Cache", "HIT")
+		json.NewEncoder(w).Encode(cachedOrg)
+		return
+	}
+
 	// Call ROR API
 	rorURL := fmt.Sprintf("https://api.ror.org/organizations/%s", normalizedID)
 	resp, err := h.httpClient.Get(rorURL)
@@ -166,7 +176,11 @@ func (h *RorHandler) GetRorOrganization(w http.ResponseWriter, r *http.Request, 
 		Types: rorResp.Types,
 	}
 
+	// Cache the result
+	h.cache.Set(normalizedID, organization)
+
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache", "MISS")
 	json.NewEncoder(w).Encode(organization)
 }
 
@@ -179,20 +193,37 @@ func (h *RorHandler) GetRorOrganizations(w http.ResponseWriter, r *http.Request)
 	}
 
 	rorIDs := strings.Split(rorIDsParam, ",")
-	organizations := make([]RorOrganization, 0, len(rorIDs))
 
+	// Normalize and validate all IDs first
+	normalizedIDs := make([]string, 0, len(rorIDs))
 	for _, rorID := range rorIDs {
 		rorID = strings.TrimSpace(rorID)
 		if rorID == "" {
 			continue
 		}
 
-		// Validate ROR ID format
 		normalizedID, isValid := validateAndNormalizeRorId(rorID)
 		if !isValid {
 			log.Printf("Invalid ROR ID: %s", rorID)
 			continue
 		}
+		normalizedIDs = append(normalizedIDs, normalizedID)
+	}
+
+	// Check cache for all IDs at once
+	cachedOrgs, missingIDs := h.cache.GetMultiple(normalizedIDs)
+
+	organizations := make([]RorOrganization, 0, len(normalizedIDs))
+	cacheHits := len(cachedOrgs)
+	cacheMisses := len(missingIDs)
+
+	// Add cached organizations to result
+	for _, org := range cachedOrgs {
+		organizations = append(organizations, org)
+	}
+
+	// Fetch missing IDs from API
+	for _, normalizedID := range missingIDs {
 
 		// Call ROR API
 		rorURL := fmt.Sprintf("https://api.ror.org/organizations/%s", normalizedID)
@@ -221,14 +252,21 @@ func (h *RorHandler) GetRorOrganizations(w http.ResponseWriter, r *http.Request)
 			continue
 		}
 
-		organizations = append(organizations, RorOrganization{
+		org := RorOrganization{
 			ID:    normalizedID,
 			Name:  getDisplayName(rorResp.Names),
 			Types: rorResp.Types,
-		})
+		}
+
+		// Cache the result
+		h.cache.Set(normalizedID, org)
+
+		organizations = append(organizations, org)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache-Hits", fmt.Sprintf("%d", cacheHits))
+	w.Header().Set("X-Cache-Misses", fmt.Sprintf("%d", cacheMisses))
 	json.NewEncoder(w).Encode(organizations)
 }
 

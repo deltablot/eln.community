@@ -83,7 +83,7 @@
             {{- range .Record.RorIds }}
             <div class="badge bg-primary me-2 mb-2 ror-badge" data-ror-id="{{ . }}">
               <span class="ror-name">{{ . }}</span>
-              <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove" style="font-size: 0.7rem;"></button>
+              <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove"></button>
             </div>
             {{- end }}
           </div>
@@ -91,7 +91,7 @@
           <!-- Search input -->
           <div class="position-relative">
             <input type='text' id='ror-search-input' class='form-control' placeholder='Search for institutions...' autocomplete="off" />
-            <div id="ror-search-results" class="list-group position-absolute w-100 d-none" style="z-index: 1000; max-height: 300px; overflow-y: auto;"></div>
+            <div id="ror-search-results" class="list-group position-absolute w-100 d-none"></div>
           </div>
           
           <!-- Hidden input to store ROR IDs -->

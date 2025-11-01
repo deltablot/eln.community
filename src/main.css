@@ -581,3 +581,26 @@ footer {
 #selected-rors-upload {
     min-height: 2rem;
 }
+
+/* ROR search results positioning and styling */
+#ror-search-results,
+#ror-search-results-upload {
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* ROR badge close button sizing */
+.ror-badge .btn-close {
+    font-size: 0.7rem;
+}
+
+/* Hidden class for elements that should be hidden by default */
+.ror-hidden {
+    display: none;
+}
+
+/* Inline display for ROR organizations */
+.ror-inline {
+    display: inline;
+}

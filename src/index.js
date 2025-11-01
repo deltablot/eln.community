@@ -110,6 +110,9 @@ document.addEventListener('DOMContentLoaded', function () {
   
   // Load ROR names for record page
   loadRorNames();
+  
+  // Load ROR names for browse page
+  loadRorNamesForBrowse();
 
   // Handle category select change for browse page
   const categorySelect = document.getElementById('category');
@@ -756,7 +759,7 @@ function addRorOrganization(org, selectedId, hiddenInputId) {
   badge.setAttribute('data-ror-id', org.id);
   badge.innerHTML = `
     <span class="ror-name">${escapeHtml(org.name)}</span>
-    <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove" style="font-size: 0.7rem;"></button>
+    <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove"></button>
   `;
   
   selectedRors.appendChild(badge);
@@ -828,12 +831,7 @@ async function loadRorNames() {
       return;
     }
 
-    const response = await fetch(`/api/v1/ror/organizations?ids=${rorIds.join(',')}`);
-    if (!response.ok) {
-      throw new Error('Failed to load ROR organizations');
-    }
-
-    const organizations = await response.json();
+    const organizations = await fetchRorOrganizations(rorIds);
     
     // Build display HTML
     let html = '';
@@ -848,5 +846,118 @@ async function loadRorNames() {
   } catch (error) {
     console.error('Error loading ROR names:', error);
     loadingElement.textContent = 'Error loading organization names';
+  }
+}
+
+async function loadRorNamesForBrowse() {
+  const rorElements = document.querySelectorAll('.ror-organizations[data-ror-ids]');
+  if (rorElements.length === 0) {
+    return; // Not on browse page or no ROR IDs
+  }
+
+  // Collect all unique ROR IDs from all records
+  const allRorIds = new Set();
+  rorElements.forEach(element => {
+    const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
+    rorIds.forEach(id => allRorIds.add(id.trim()));
+  });
+
+  if (allRorIds.size === 0) {
+    return;
+  }
+
+  try {
+    // Fetch all organizations in one batch
+    const organizations = await fetchRorOrganizations(Array.from(allRorIds));
+    
+    // Create a map for quick lookup
+    const orgMap = new Map();
+    organizations.forEach(org => {
+      orgMap.set(org.id, org);
+    });
+
+    // Update each record's ROR display
+    rorElements.forEach(element => {
+      const recordId = element.getAttribute('data-record-id');
+      const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
+      const loadingElement = document.querySelector(`.ror-organizations-loading[data-record-id="${recordId}"]`);
+      
+      if (rorIds.length === 0) {
+        if (loadingElement) loadingElement.classList.add('ror-hidden');
+        return;
+      }
+
+      // Build display HTML
+      let html = '';
+      rorIds.forEach((rorId, index) => {
+        const org = orgMap.get(rorId.trim());
+        if (org) {
+          if (index > 0) html += ', ';
+          html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank'>${escapeHtml(org.name)}</a>`;
+        }
+      });
+      
+      if (html) {
+        element.innerHTML = html;
+        element.classList.remove('ror-hidden');
+        element.classList.add('ror-inline');
+      }
+      
+      if (loadingElement) {
+        loadingElement.classList.add('ror-hidden');
+      }
+    });
+  } catch (error) {
+    console.error('Error loading ROR names for browse:', error);
+    // Hide loading indicators on error
+    document.querySelectorAll('.ror-organizations-loading').forEach(el => {
+      el.textContent = 'Error loading';
+    });
+  }
+}
+
+// Fetch ROR organizations with caching
+async function fetchRorOrganizations(rorIds) {
+  if (!Array.isArray(rorIds) || rorIds.length === 0) {
+    return [];
+  }
+
+  // Check cache first
+  const uncachedIds = [];
+  const cachedOrgs = [];
+  
+  rorIds.forEach(id => {
+    if (rorCache.has(id)) {
+      cachedOrgs.push(rorCache.get(id));
+    } else {
+      uncachedIds.push(id);
+    }
+  });
+
+  // If all are cached, return immediately
+  if (uncachedIds.length === 0) {
+    return cachedOrgs;
+  }
+
+  // Fetch uncached IDs
+  try {
+    const response = await fetch(`/api/v1/ror/organizations?ids=${uncachedIds.join(',')}`);
+    if (!response.ok) {
+      throw new Error('Failed to load ROR organizations');
+    }
+
+    const organizations = await response.json();
+    
+    // Cache the results
+    organizations.forEach(org => {
+      rorCache.set(org.id, org);
+    });
+
+    // Return all organizations (cached + newly fetched)
+    return [...cachedOrgs, ...organizations];
+  } catch (error) {
+    console.error('Error fetching ROR organizations:', error);
+    // Return cached ones even if fetch fails
+    return cachedOrgs;
   }
 }
