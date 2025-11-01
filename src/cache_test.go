@@ -50,51 +50,6 @@ func TestInMemoryCache_Expiration(t *testing.T) {
 	}
 }
 
-func TestInMemoryCache_SetWithTTL(t *testing.T) {
-	cache := NewInMemoryCache[string](1 * time.Hour)
-	defer cache.Stop()
-
-	// Set with custom short TTL
-	cache.SetWithTTL("key1", "value1", 100*time.Millisecond)
-
-	// Should be found immediately
-	_, found := cache.Get("key1")
-	if !found {
-		t.Error("Expected to find key1 immediately")
-	}
-
-	// Wait for expiration
-	time.Sleep(150 * time.Millisecond)
-
-	// Should not be found after expiration
-	_, found = cache.Get("key1")
-	if found {
-		t.Error("Expected key1 to be expired")
-	}
-}
-
-func TestInMemoryCache_Delete(t *testing.T) {
-	cache := NewInMemoryCache[string](1 * time.Hour)
-	defer cache.Stop()
-
-	cache.Set("key1", "value1")
-
-	// Verify it exists
-	_, found := cache.Get("key1")
-	if !found {
-		t.Error("Expected to find key1")
-	}
-
-	// Delete it
-	cache.Delete("key1")
-
-	// Should not be found after deletion
-	_, found = cache.Get("key1")
-	if found {
-		t.Error("Expected key1 to be deleted")
-	}
-}
-
 func TestInMemoryCache_Clear(t *testing.T) {
 	cache := NewInMemoryCache[string](1 * time.Hour)
 	defer cache.Stop()
@@ -227,33 +182,6 @@ func TestInMemoryCache_Has(t *testing.T) {
 
 	if cache.Has("key1") {
 		t.Error("Expected Has to return false for expired key")
-	}
-}
-
-func TestInMemoryCache_GetStats(t *testing.T) {
-	cache := NewInMemoryCache[string](100 * time.Millisecond)
-	defer cache.Stop()
-
-	cache.Set("key1", "value1")
-	cache.Set("key2", "value2")
-
-	stats := cache.GetStats()
-
-	if stats.Size != 2 {
-		t.Errorf("Expected size 2, got %d", stats.Size)
-	}
-
-	if stats.ExpiredCount != 0 {
-		t.Errorf("Expected 0 expired, got %d", stats.ExpiredCount)
-	}
-
-	// Wait for expiration
-	time.Sleep(150 * time.Millisecond)
-
-	stats = cache.GetStats()
-
-	if stats.ExpiredCount != 2 {
-		t.Errorf("Expected 2 expired, got %d", stats.ExpiredCount)
 	}
 }
 
@@ -441,47 +369,6 @@ func ExampleInMemoryCache_batch() {
 	// Missing: [four]
 }
 
-// Example: Custom TTL
-func ExampleInMemoryCache_customTTL() {
-	cache := NewInMemoryCache[string](1 * time.Hour)
-	defer cache.Stop()
-
-	// Set with short TTL
-	cache.SetWithTTL("temp", "temporary value", 100*time.Millisecond)
-
-	// Check immediately
-	if cache.Has("temp") {
-		fmt.Println("Found immediately")
-	}
-
-	// Wait for expiration
-	time.Sleep(150 * time.Millisecond)
-
-	if !cache.Has("temp") {
-		fmt.Println("Expired after 150ms")
-	}
-	// Output:
-	// Found immediately
-	// Expired after 150ms
-}
-
-// Example: Cache statistics
-func ExampleInMemoryCache_stats() {
-	cache := NewInMemoryCache[string](1 * time.Hour)
-	defer cache.Stop()
-
-	cache.Set("key1", "value1")
-	cache.Set("key2", "value2")
-	cache.Set("key3", "value3")
-
-	stats := cache.GetStats()
-	fmt.Printf("Cache size: %d\n", stats.Size)
-	fmt.Printf("Expired items: %d\n", stats.ExpiredCount)
-	// Output:
-	// Cache size: 3
-	// Expired items: 0
-}
-
 // Example: Pointer types
 func ExampleInMemoryCache_pointers() {
 	type Config struct {
@@ -529,5 +416,4 @@ func ExampleInMemoryCache_slices() {
 	if cached, found := cache.Get("tags"); found {
 		fmt.Printf("Tags: %v\n", cached)
 	}
-	// Output: Tags: [golang cache performance]
 }

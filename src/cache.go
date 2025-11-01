@@ -82,25 +82,6 @@ func (c *InMemoryCache[T]) Set(key string, value T) {
 	}
 }
 
-// SetWithTTL stores a value in the cache with a custom TTL
-func (c *InMemoryCache[T]) SetWithTTL(key string, value T, ttl time.Duration) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.items[key] = &CacheEntry[T]{
-		Value:     value,
-		ExpiresAt: time.Now().Add(ttl),
-	}
-}
-
-// Delete removes a value from the cache
-func (c *InMemoryCache[T]) Delete(key string) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	delete(c.items, key)
-}
-
 // Clear removes all items from the cache
 func (c *InMemoryCache[T]) Clear() {
 	c.mutex.Lock()
@@ -163,45 +144,6 @@ func (c *InMemoryCache[T]) SetMultiple(items map[string]T) {
 			ExpiresAt: expiresAt,
 		}
 	}
-}
-
-// Stats returns cache statistics
-type CacheStats struct {
-	Size         int
-	ExpiredCount int
-	OldestEntry  time.Time
-	NewestEntry  time.Time
-}
-
-// GetStats returns statistics about the cache
-func (c *InMemoryCache[T]) GetStats() CacheStats {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	stats := CacheStats{
-		Size: len(c.items),
-	}
-
-	now := time.Now()
-	var oldest, newest time.Time
-
-	for _, entry := range c.items {
-		if now.After(entry.ExpiresAt) {
-			stats.ExpiredCount++
-		}
-
-		if oldest.IsZero() || entry.ExpiresAt.Before(oldest) {
-			oldest = entry.ExpiresAt
-		}
-		if newest.IsZero() || entry.ExpiresAt.After(newest) {
-			newest = entry.ExpiresAt
-		}
-	}
-
-	stats.OldestEntry = oldest
-	stats.NewestEntry = newest
-
-	return stats
 }
 
 // startCleanup runs periodic cleanup of expired entries

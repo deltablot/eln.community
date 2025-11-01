@@ -50,57 +50,6 @@ func TestRorClient_InvalidRorID(t *testing.T) {
 	}
 }
 
-func TestRorClient_ClearCache(t *testing.T) {
-	client := NewRorClient()
-	defer client.cache.Stop()
-
-	// Add some organizations to cache
-	testOrg := RorOrganization{
-		ID:    "042nb2s44",
-		Name:  "MIT",
-		Types: []string{"education"},
-	}
-	client.cache.Set("042nb2s44", testOrg)
-
-	// Verify it's in cache
-	if client.cache.Size() != 1 {
-		t.Errorf("Expected cache size 1, got %d", client.cache.Size())
-	}
-
-	// Clear cache
-	client.ClearCache()
-
-	// Verify cache is empty
-	if client.cache.Size() != 0 {
-		t.Errorf("Expected cache size 0 after clear, got %d", client.cache.Size())
-	}
-}
-
-func TestRorClient_GetCacheStats(t *testing.T) {
-	client := NewRorClient()
-	defer client.cache.Stop()
-
-	// Add some organizations to cache
-	orgs := []RorOrganization{
-		{ID: "042nb2s44", Name: "MIT", Types: []string{"education"}},
-		{ID: "013meh722", Name: "Cambridge", Types: []string{"education"}},
-	}
-
-	for _, org := range orgs {
-		client.cache.Set(org.ID, org)
-	}
-
-	stats := client.GetCacheStats()
-
-	if stats.Size != 2 {
-		t.Errorf("Expected cache size 2, got %d", stats.Size)
-	}
-
-	if stats.ExpiredCount != 0 {
-		t.Errorf("Expected 0 expired entries, got %d", stats.ExpiredCount)
-	}
-}
-
 func TestExtractRorID(t *testing.T) {
 	tests := []struct {
 		input    string

@@ -217,21 +217,6 @@ func (c *RorClient) fetchOrganizationsConcurrently(rorIDs []string) []RorOrganiz
 	return organizations
 }
 
-// GetCacheStats returns statistics about the cache
-func (c *RorClient) GetCacheStats() struct {
-	Size         int
-	ExpiredCount int
-	OldestEntry  time.Time
-	NewestEntry  time.Time
-} {
-	return c.cache.GetStats()
-}
-
-// ClearCache clears all cached organizations
-func (c *RorClient) ClearCache() {
-	c.cache.Clear()
-}
-
 // extractRorID extracts the ROR ID from a full ROR URL
 func extractRorID(rorURL string) string {
 	// Extract ID from "https://ror.org/042nb2s44"
