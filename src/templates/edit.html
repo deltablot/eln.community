@@ -81,10 +81,9 @@
           <!-- Selected ROR organizations display -->
           <div id="selected-rors" class="mb-2">
             {{- range .Record.RorIds }}
-            <div class="badge bg-primary me-2 mb-2 ror-badge" data-ror-id="{{ . }}">
+            <button type="button" class="btn btn-primary me-2 mb-2 ror-badge" data-ror-id="{{ . }}">
               <span class="ror-name">{{ . }}</span>
-              <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove"></button>
-            </div>
+            </button>
             {{- end }}
           </div>
           

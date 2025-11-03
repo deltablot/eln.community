@@ -681,12 +681,10 @@ function initializeRorAutocomplete(inputId, resultsId, selectedId, hiddenInputId
 
   // Handle remove button clicks
   selectedRors.addEventListener('click', function(e) {
-    if (e.target.classList.contains('btn-close') || e.target.closest('.btn-close')) {
-      const badge = e.target.closest('.ror-badge');
-      if (badge) {
-        badge.remove();
-        updateHiddenInput(selectedId, hiddenInputId);
-      }
+    const badge = e.target.closest('.ror-badge');
+    if (badge) {
+      badge.remove();
+      updateHiddenInput(selectedId, hiddenInputId);
     }
   });
 }
@@ -754,12 +752,12 @@ function addRorOrganization(org, selectedId, hiddenInputId) {
   }
 
   // Create badge
-  const badge = document.createElement('div');
-  badge.className = 'badge bg-primary me-2 mb-2 ror-badge';
+  const badge = document.createElement('button');
+  badge.type = 'button';
+  badge.className = 'btn btn-primary me-2 mb-2 ror-badge';
   badge.setAttribute('data-ror-id', org.id);
   badge.innerHTML = `
     <span class="ror-name">${escapeHtml(org.name)}</span>
-    <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove"></button>
   `;
   
   selectedRors.appendChild(badge);
