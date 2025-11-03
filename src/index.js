@@ -683,6 +683,8 @@ function initializeRorAutocomplete(inputId, resultsId, selectedId, hiddenInputId
   selectedRors.addEventListener('click', function(e) {
     const badge = e.target.closest('.ror-badge');
     if (badge) {
+      e.preventDefault();
+      e.stopPropagation();
       badge.remove();
       updateHiddenInput(selectedId, hiddenInputId);
     }
