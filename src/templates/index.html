@@ -43,9 +43,20 @@
     <label class="form-label fw-bold">Name your entry
       <input type='text' name='name' class='form-control mt-2' required />
     </label>
-    <label class="form-label fw-bold">Research Organization Registry (ROR) IDs
-      <small class="form-text text-muted">Optional. Enter one or more ROR IDs separated by commas (e.g., 0abcdef12, 013meh722) <a href="https://ror.org/" target="_blank">Learn more about ROR</a></small>
-      <input type='text' name='rors' class='form-control mt-2' placeholder='0abcdef12, 013meh722' />
+    <label class="form-label fw-bold">Research Organization Registry (ROR)
+      <small class="form-text text-muted">Optional. Start typing to search for institutions. <a href="https://ror.org/" target="_blank">Learn more about ROR</a></small>
+      
+      <!-- Selected ROR organizations display -->
+      <div id="selected-rors-upload" class="mb-2 mt-2"></div>
+      
+      <!-- Search input -->
+      <div class="position-relative mt-2">
+        <input type='text' id='ror-search-input-upload' class='form-control' placeholder='Search for institutions...' autocomplete="off" />
+        <div id="ror-search-results-upload" class="list-group position-absolute w-100 d-none"></div>
+      </div>
+      
+      <!-- Hidden input to store ROR IDs -->
+      <input type='hidden' name='rors' id='rors-hidden-input-upload' value='' />
     </label>
     <label class="form-label fw-bold">Upload .eln file
       <input type='file' name='file' class='form-control' accept=".eln" required />

@@ -102,6 +102,18 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initialize RO-Crate viewer if elements exist
   initializeRoCrateViewer();
 
+  // Initialize ROR autocomplete for edit page
+  initializeRorAutocomplete('ror-search-input', 'ror-search-results', 'selected-rors', 'rors-hidden-input');
+  
+  // Initialize ROR autocomplete for upload page
+  initializeRorAutocomplete('ror-search-input-upload', 'ror-search-results-upload', 'selected-rors-upload', 'rors-hidden-input-upload');
+  
+  // Load ROR names for record page
+  loadRorNames();
+  
+  // Load ROR names for browse page
+  loadRorNamesForBrowse();
+
   // Handle category select change for browse page
   const categorySelect = document.getElementById('category');
   const searchForm = document.getElementById('searchForm');
@@ -420,3 +432,533 @@ function initializeRoCrateViewer() {
   }
 }
 
+// Handle edit form submission
+function initializeEditForm() {
+  const editForm = document.querySelector('form.edit-record-form');
+  if (!editForm) {
+    return; // Not on edit page
+  }
+
+  editForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn?.textContent;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Updating...';
+    }
+
+    // Convert form data to URL-encoded format
+    const formData = new FormData(this);
+    const urlEncodedData = new URLSearchParams(formData).toString();
+
+    try {
+      const response = await fetch(this.action, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: urlEncodedData
+      });
+
+      if (response.ok) {
+        // Show success toast
+        const successToast = document.getElementById('successToast');
+        const successToastBody = successToast?.querySelector('.toast-body');
+        if (successToast && successToastBody) {
+          successToastBody.textContent = 'Entry updated successfully!';
+          const toast = new bootstrap.Toast(successToast, {
+            delay: 2000,
+            autohide: true
+          });
+
+          // Redirect to record page after toast hides
+          const recordId = this.action.split('/').pop();
+          successToast.addEventListener('hidden.bs.toast', function () {
+            window.location.href = '/record/' + recordId;
+          }, { once: true });
+
+          toast.show();
+        } else {
+          // Fallback redirect if no toast
+          const recordId = this.action.split('/').pop();
+          setTimeout(() => {
+            window.location.href = '/record/' + recordId;
+          }, 1000);
+        }
+      } else {
+        // Show error toast
+        const errorText = await response.text();
+        const errorToast = document.getElementById('errorToast');
+        const errorToastBody = document.getElementById('errorToastBody');
+        if (errorToast && errorToastBody) {
+          errorToastBody.textContent = errorText || 'Update failed. Please try again.';
+          const toast = new bootstrap.Toast(errorToast);
+          toast.show();
+        }
+        console.error('Update failed:', errorText);
+        
+        // Reset button state
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText || 'Update Entry';
+        }
+      }
+    } catch (error) {
+      // Show error toast for network/other errors
+      const errorToast = document.getElementById('errorToast');
+      const errorToastBody = document.getElementById('errorToastBody');
+      if (errorToast && errorToastBody) {
+        errorToastBody.textContent = 'Network error. Please check your connection and try again.';
+        const toast = new bootstrap.Toast(errorToast);
+        toast.show();
+      }
+      console.error('Update error:', error);
+      
+      // Reset button state
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText || 'Update Entry';
+      }
+    }
+  });
+}
+
+// Handle delete button click
+function initializeDeleteButton() {
+  const deleteBtn = document.getElementById('deleteBtn');
+  const deleteForm = document.querySelector('form.delete-record-form');
+  const deleteModal = document.getElementById('deleteConfirmModal');
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+  
+  if (!deleteBtn || !deleteForm || !deleteModal || !confirmDeleteBtn) {
+    return; // Not on edit page
+  }
+
+  // Show modal when delete button is clicked
+  deleteBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    const modal = new bootstrap.Modal(deleteModal);
+    modal.show();
+  });
+
+  // Handle actual delete when confirmed
+  confirmDeleteBtn.addEventListener('click', async function (e) {
+    e.preventDefault();
+
+    const modal = bootstrap.Modal.getInstance(deleteModal);
+    const originalText = confirmDeleteBtn.textContent;
+    confirmDeleteBtn.disabled = true;
+    confirmDeleteBtn.textContent = 'Deleting...';
+
+    // Convert form data to URL-encoded format
+    const formData = new FormData(deleteForm);
+    const urlEncodedData = new URLSearchParams(formData).toString();
+
+    try {
+      const response = await fetch(deleteForm.action, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: urlEncodedData
+      });
+
+      if (response.ok) {
+        // Hide modal
+        modal.hide();
+        
+        // Show success toast
+        const successToast = document.getElementById('successToast');
+        const successToastBody = successToast?.querySelector('.toast-body');
+        if (successToast && successToastBody) {
+          successToastBody.textContent = 'Entry deleted successfully!';
+          const toast = new bootstrap.Toast(successToast, {
+            delay: 2000,
+            autohide: true
+          });
+
+          // Redirect to browse page after toast hides
+          successToast.addEventListener('hidden.bs.toast', function () {
+            window.location.href = '/browse';
+          }, { once: true });
+
+          toast.show();
+        } else {
+          // Fallback redirect if no toast
+          setTimeout(() => {
+            window.location.href = '/browse';
+          }, 1000);
+        }
+      } else {
+        // Hide modal
+        modal.hide();
+        
+        // Show error toast
+        const errorText = await response.text();
+        const errorToast = document.getElementById('errorToast');
+        const errorToastBody = document.getElementById('errorToastBody');
+        if (errorToast && errorToastBody) {
+          errorToastBody.textContent = errorText || 'Delete failed. Please try again.';
+          const toast = new bootstrap.Toast(errorToast);
+          toast.show();
+        }
+        console.error('Delete failed:', errorText);
+        
+        // Reset button state
+        confirmDeleteBtn.disabled = false;
+        confirmDeleteBtn.textContent = originalText;
+      }
+    } catch (error) {
+      // Hide modal
+      modal.hide();
+      
+      // Show error toast for network/other errors
+      const errorToast = document.getElementById('errorToast');
+      const errorToastBody = document.getElementById('errorToastBody');
+      if (errorToast && errorToastBody) {
+        errorToastBody.textContent = 'Network error. Please check your connection and try again.';
+        const toast = new bootstrap.Toast(errorToast);
+        toast.show();
+      }
+      console.error('Delete error:', error);
+      
+      // Reset button state
+      confirmDeleteBtn.disabled = false;
+      confirmDeleteBtn.textContent = originalText;
+    }
+  });
+}
+
+// Initialize edit and delete forms when DOM is loaded
+document.addEventListener('DOMContentLoaded', function () {
+  initializeEditForm();
+  initializeDeleteButton();
+});
+
+// ROR Autocomplete functionality
+let rorSearchTimeout = null;
+const rorCache = new Map();
+
+function initializeRorAutocomplete(inputId, resultsId, selectedId, hiddenInputId) {
+  const searchInput = document.getElementById(inputId);
+  const searchResults = document.getElementById(resultsId);
+  const selectedRors = document.getElementById(selectedId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+
+  if (!searchInput || !searchResults || !selectedRors || !hiddenInput) {
+    return; // Not on a page with ROR autocomplete
+  }
+
+  // Load existing ROR names for edit page
+  loadExistingRorNames(selectedId);
+
+  // Handle search input
+  searchInput.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    if (query.length < 2) {
+      searchResults.classList.add('d-none');
+      searchResults.innerHTML = '';
+      return;
+    }
+
+    // Debounce search
+    clearTimeout(rorSearchTimeout);
+    rorSearchTimeout = setTimeout(() => {
+      searchRorOrganizations(query, resultsId, selectedId, hiddenInputId, inputId);
+    }, 300);
+  });
+
+  // Handle clicks outside to close results
+  document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+      searchResults.classList.add('d-none');
+    }
+  });
+
+  // Handle remove button clicks
+  selectedRors.addEventListener('click', function(e) {
+    const badge = e.target.closest('.ror-badge');
+    if (badge) {
+      e.preventDefault();
+      e.stopPropagation();
+      badge.remove();
+      updateHiddenInput(selectedId, hiddenInputId);
+    }
+  });
+}
+
+async function searchRorOrganizations(query, resultsId, selectedId, hiddenInputId, inputId) {
+  const searchResults = document.getElementById(resultsId);
+  
+  try {
+    searchResults.innerHTML = '<div class="list-group-item">Searching...</div>';
+    searchResults.classList.remove('d-none');
+
+    const response = await fetch(`/api/v1/ror/search?q=${encodeURIComponent(query)}`);
+    
+    if (!response.ok) {
+      throw new Error('Search failed');
+    }
+
+    const organizations = await response.json();
+    
+    if (organizations.length === 0) {
+      searchResults.innerHTML = '<div class="list-group-item">No results found</div>';
+      return;
+    }
+
+    // Cache results
+    organizations.forEach(org => {
+      rorCache.set(org.id, org);
+    });
+
+    // Display results
+    searchResults.innerHTML = '';
+    organizations.forEach(org => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'list-group-item list-group-item-action';
+      item.innerHTML = `
+        <div class="d-flex w-100 justify-content-between">
+          <h6 class="mb-1">${escapeHtml(org.name)}</h6>
+          <small class="text-muted">${escapeHtml(org.id)}</small>
+        </div>
+        ${org.types && org.types.length > 0 ? `<small class="text-muted">${org.types.map(t => escapeHtml(t)).join(', ')}</small>` : ''}
+      `;
+      
+      item.addEventListener('click', function() {
+        addRorOrganization(org, selectedId, hiddenInputId);
+        searchResults.classList.add('d-none');
+        document.getElementById(inputId).value = '';
+      });
+      
+      searchResults.appendChild(item);
+    });
+  } catch (error) {
+    console.error('Error searching ROR organizations:', error);
+    searchResults.innerHTML = '<div class="list-group-item text-danger">Error searching organizations</div>';
+  }
+}
+
+function addRorOrganization(org, selectedId, hiddenInputId) {
+  const selectedRors = document.getElementById(selectedId);
+  
+  // Check if already added
+  const existing = selectedRors.querySelector(`[data-ror-id="${org.id}"]`);
+  if (existing) {
+    return;
+  }
+
+  // Create badge
+  const badge = document.createElement('button');
+  badge.type = 'button';
+  badge.className = 'btn btn-primary me-2 mb-2 ror-badge';
+  badge.setAttribute('data-ror-id', org.id);
+  badge.innerHTML = `
+    <span class="ror-name">${escapeHtml(org.name)}</span>
+    <span class="badge bg-light text-dark ms-2">×</span>
+  `;
+  
+  selectedRors.appendChild(badge);
+  updateHiddenInput(selectedId, hiddenInputId);
+}
+
+function updateHiddenInput(selectedId, hiddenInputId) {
+  const selectedRors = document.getElementById(selectedId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  
+  const badges = selectedRors.querySelectorAll('.ror-badge');
+  const rorIds = Array.from(badges).map(badge => badge.getAttribute('data-ror-id'));
+  
+  hiddenInput.value = rorIds.join(', ');
+}
+
+async function loadExistingRorNames(selectedId) {
+  const selectedRors = document.getElementById(selectedId);
+  if (!selectedRors) return;
+
+  const badges = selectedRors.querySelectorAll('.ror-badge');
+  if (badges.length === 0) return;
+
+  const rorIds = Array.from(badges).map(badge => badge.getAttribute('data-ror-id'));
+  
+  try {
+    const response = await fetch(`/api/v1/ror/organizations?ids=${rorIds.join(',')}`);
+    if (!response.ok) {
+      console.error('Failed to load ROR names');
+      return;
+    }
+
+    const organizations = await response.json();
+    
+    // Update badges with names
+    organizations.forEach(org => {
+      rorCache.set(org.id, org);
+      const badge = selectedRors.querySelector(`[data-ror-id="${org.id}"]`);
+      if (badge) {
+        const nameSpan = badge.querySelector('.ror-name');
+        if (nameSpan) {
+          nameSpan.textContent = org.name;
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error loading ROR names:', error);
+  }
+}
+
+async function loadRorNames() {
+  const rorIdsElement = document.getElementById('ror-ids-data');
+  if (!rorIdsElement) {
+    return; // Not on a record page with ROR IDs
+  }
+
+  const loadingElement = document.getElementById('ror-organizations-loading');
+  const displayElement = document.getElementById('ror-organizations');
+  
+  if (!loadingElement || !displayElement) {
+    return;
+  }
+
+  try {
+    const rorIds = JSON.parse(rorIdsElement.textContent);
+    
+    if (!rorIds || rorIds.length === 0) {
+      loadingElement.classList.add('d-none');
+      return;
+    }
+
+    const organizations = await fetchRorOrganizations(rorIds);
+    
+    // Build display HTML
+    let html = '';
+    organizations.forEach((org, index) => {
+      if (index > 0) html += ', ';
+      html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank'>${escapeHtml(org.name)}</a>`;
+    });
+    
+    displayElement.innerHTML = html;
+    loadingElement.classList.add('d-none');
+    displayElement.classList.remove('d-none');
+  } catch (error) {
+    console.error('Error loading ROR names:', error);
+    loadingElement.textContent = 'Error loading organization names';
+  }
+}
+
+async function loadRorNamesForBrowse() {
+  const rorElements = document.querySelectorAll('.ror-organizations[data-ror-ids]');
+  if (rorElements.length === 0) {
+    return; // Not on browse page or no ROR IDs
+  }
+
+  // Collect all unique ROR IDs from all records
+  const allRorIds = new Set();
+  rorElements.forEach(element => {
+    const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
+    rorIds.forEach(id => allRorIds.add(id.trim()));
+  });
+
+  if (allRorIds.size === 0) {
+    return;
+  }
+
+  try {
+    // Fetch all organizations in one batch
+    const organizations = await fetchRorOrganizations(Array.from(allRorIds));
+    
+    // Create a map for quick lookup
+    const orgMap = new Map();
+    organizations.forEach(org => {
+      orgMap.set(org.id, org);
+    });
+
+    // Update each record's ROR display
+    rorElements.forEach(element => {
+      const recordId = element.getAttribute('data-record-id');
+      const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
+      const loadingElement = document.querySelector(`.ror-organizations-loading[data-record-id="${recordId}"]`);
+      
+      if (rorIds.length === 0) {
+        if (loadingElement) loadingElement.classList.add('ror-hidden');
+        return;
+      }
+
+      // Build display HTML
+      let html = '';
+      rorIds.forEach((rorId, index) => {
+        const org = orgMap.get(rorId.trim());
+        if (org) {
+          if (index > 0) html += ', ';
+          html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank'>${escapeHtml(org.name)}</a>`;
+        }
+      });
+      
+      if (html) {
+        element.innerHTML = html;
+        element.classList.remove('ror-hidden');
+        element.classList.add('ror-inline');
+      }
+      
+      if (loadingElement) {
+        loadingElement.classList.add('ror-hidden');
+      }
+    });
+  } catch (error) {
+    console.error('Error loading ROR names for browse:', error);
+    // Hide loading indicators on error
+    document.querySelectorAll('.ror-organizations-loading').forEach(el => {
+      el.textContent = 'Error loading';
+    });
+  }
+}
+
+// Fetch ROR organizations with caching
+async function fetchRorOrganizations(rorIds) {
+  if (!Array.isArray(rorIds) || rorIds.length === 0) {
+    return [];
+  }
+
+  // Check cache first
+  const uncachedIds = [];
+  const cachedOrgs = [];
+  
+  rorIds.forEach(id => {
+    if (rorCache.has(id)) {
+      cachedOrgs.push(rorCache.get(id));
+    } else {
+      uncachedIds.push(id);
+    }
+  });
+
+  // If all are cached, return immediately
+  if (uncachedIds.length === 0) {
+    return cachedOrgs;
+  }
+
+  // Fetch uncached IDs
+  try {
+    const response = await fetch(`/api/v1/ror/organizations?ids=${uncachedIds.join(',')}`);
+    if (!response.ok) {
+      throw new Error('Failed to load ROR organizations');
+    }
+
+    const organizations = await response.json();
+    
+    // Cache the results
+    organizations.forEach(org => {
+      rorCache.set(org.id, org);
+    });
+
+    // Return all organizations (cached + newly fetched)
+    return [...cachedOrgs, ...organizations];
+  } catch (error) {
+    console.error('Error fetching ROR organizations:', error);
+    // Return cached ones even if fetch fails
+    return cachedOrgs;
+  }
+}

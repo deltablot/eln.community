@@ -84,13 +84,16 @@ type RootPageData struct {
 
 type RecordPageData struct {
 	App
-	Record Record
+	Record  Record
+	CanEdit bool
 }
 
 type RecordsPageData struct {
 	App
 	Categories []Category
 	Records    []Record
+	User       *User
+	IsAdmin    bool
 }
 
 //go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
@@ -275,7 +278,7 @@ func securityHeaders(next http.Handler) http.Handler {
 			"default-src 'self'; "+
 				"script-src 'self' https://cdn.jsdelivr.net; "+
 				"style-src 'self' https://cdn.jsdelivr.net; "+
-				"img-src 'self'; "+
+				"img-src 'self' data:; "+
 				"connect-src 'self'; "+
 				"frame-ancestors 'none';"+
 				"upgrade-insecure-requests;",
@@ -393,14 +396,24 @@ func main() {
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
 	recordHandler := NewRecordHandler(recordRepo, categoryRepo, adminRepo)
+	rorHandler := NewRorHandler()
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
 	mux.HandleFunc("GET /api/v1/record/", recordHandler.Router)
+	mux.HandleFunc("POST /api/v1/record/", recordHandler.Router)
+	mux.HandleFunc("PUT /api/v1/record/", recordHandler.Router)
+	mux.HandleFunc("PATCH /api/v1/record/", recordHandler.Router)
+	mux.HandleFunc("DELETE /api/v1/record/", recordHandler.Router)
 
 	// Category API routes
 	mux.HandleFunc("/api/v1/categories", categoryHandler.Router)
 	mux.HandleFunc("/api/v1/categories/", categoryHandler.Router)
+
+	// ROR API routes
+	mux.HandleFunc("/api/v1/ror/search", rorHandler.Router)
+	mux.HandleFunc("/api/v1/ror/organizations", rorHandler.Router)
+	mux.HandleFunc("/api/v1/ror/organization/", rorHandler.Router)
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))

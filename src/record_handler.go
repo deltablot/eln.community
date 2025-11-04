@@ -346,6 +346,10 @@ func (h *RecordHandler) Router(w http.ResponseWriter, r *http.Request) {
 		h.CreateRecord(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && r.Method == "GET":
 		h.handleGetRecord(w, r)
+	case strings.HasPrefix(path, "/api/v1/record/") && (r.Method == "PUT" || r.Method == "PATCH" || r.Method == "POST"):
+		h.handleUpdateRecord(w, r)
+	case strings.HasPrefix(path, "/api/v1/record/") && r.Method == "DELETE":
+		h.handleDeleteRecord(w, r)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -360,6 +364,18 @@ func (h *RecordHandler) handleGetRecord(w http.ResponseWriter, r *http.Request) 
 	}
 
 	raw := strings.TrimPrefix(r.URL.Path, prefix)
+
+	// Check for edit endpoint
+	if strings.HasSuffix(raw, "/edit") {
+		id := strings.TrimSuffix(raw, "/edit")
+		if !uuidv7Regex.MatchString(id) {
+			http.Error(w, "Invalid id format", http.StatusBadRequest)
+			return
+		}
+		h.GetEditPage(w, r, id)
+		return
+	}
+
 	ext := filepath.Ext(raw)
 	id := strings.TrimSuffix(raw, ext)
 
@@ -395,6 +411,57 @@ func (h *RecordHandler) handleGetRecord(w http.ResponseWriter, r *http.Request) 
 
 	// Default to JSON
 	h.GetRecord(w, r, id)
+}
+
+// handleUpdateRecord processes PUT/PATCH/POST requests for individual records
+func (h *RecordHandler) handleUpdateRecord(w http.ResponseWriter, r *http.Request) {
+	const prefix = "/api/v1/record/"
+	if !strings.HasPrefix(r.URL.Path, prefix) {
+		http.NotFound(w, r)
+		return
+	}
+
+	raw := strings.TrimPrefix(r.URL.Path, prefix)
+	id := raw
+
+	if !uuidv7Regex.MatchString(id) {
+		http.Error(w, "Invalid id format", http.StatusBadRequest)
+		return
+	}
+
+	// Check for method override (for HTML forms)
+	if r.Method == "POST" {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			return
+		}
+
+		if r.FormValue("_method") == "DELETE" {
+			h.DeleteRecord(w, r, id)
+			return
+		}
+	}
+
+	h.UpdateRecord(w, r, id)
+}
+
+// handleDeleteRecord processes DELETE requests for individual records
+func (h *RecordHandler) handleDeleteRecord(w http.ResponseWriter, r *http.Request) {
+	const prefix = "/api/v1/record/"
+	if !strings.HasPrefix(r.URL.Path, prefix) {
+		http.NotFound(w, r)
+		return
+	}
+
+	raw := strings.TrimPrefix(r.URL.Path, prefix)
+	id := raw
+
+	if !uuidv7Regex.MatchString(id) {
+		http.Error(w, "Invalid id format", http.StatusBadRequest)
+		return
+	}
+
+	h.DeleteRecord(w, r, id)
 }
 
 // uploadToS3 handles S3 upload logic
@@ -540,9 +607,25 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	// prettify JSON
 	record.MetadataPretty = prettyJSON(record.Metadata)
 
+	// Check if current user can edit this record
+	ctx := r.Context()
+	canEdit := false
+	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
+		// User owns the record or is admin
+		if record.UploaderOrcid == orcid {
+			canEdit = true
+		} else {
+			// Check if user is admin
+			if isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid); err == nil && isAdmin {
+				canEdit = true
+			}
+		}
+	}
+
 	data := RecordPageData{
-		App:    app,
-		Record: *record,
+		App:     app,
+		Record:  *record,
+		CanEdit: canEdit,
 	}
 
 	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {
@@ -615,20 +698,314 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		recs = append(recs, r)
 	}
 
+	// Get current user info
+	ctx := r.Context()
+	var user *User
+	var isAdmin bool
+	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
+		name, _ := sessionManager.Get(ctx, "name").(string)
+		user = &User{
+			Name:  name,
+			Orcid: orcid,
+		}
+		// Check if user is admin
+		if adminStatus, err := h.adminRepo.IsAdmin(ctx, orcid); err == nil {
+			isAdmin = adminStatus
+		}
+	}
+
 	data := struct {
 		App                App
 		Categories         []Category
 		Records            []Record
 		SelectedCategoryID int64
 		SearchQuery        string
+		User               *User
+		IsAdmin            bool
 	}{
 		App:                app,
 		Categories:         categories,
 		Records:            recs,
 		SelectedCategoryID: selectedCategoryID,
 		SearchQuery:        searchQuery,
+		User:               user,
+		IsAdmin:            isAdmin,
 	}
 
 	w.Header().Set("Content-Type", "text/html")
 	pageTmpl.ExecuteTemplate(w, "layout", data)
+}
+
+// UpdateRecord handles PUT/PATCH requests to update a record
+func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id string) {
+	ctx := r.Context()
+
+	// Check if user is authenticated
+	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
+	if !okO {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get the existing record to check ownership
+	existingRecord, err := h.recordRepo.GetByID(ctx, id)
+	if err != nil {
+		if err == ErrRecordNotFound {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Check if user owns this record or is admin
+	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
+	if err != nil {
+		http.Error(w, "Error checking admin status", http.StatusInternalServerError)
+		return
+	}
+
+	if existingRecord.UploaderOrcid != orcid && !isAdmin {
+		http.Error(w, "You can only edit your own records", http.StatusForbidden)
+		return
+	}
+
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		log.Printf("DEBUG: Form parsing error: %v", err)
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
+
+	// Get updated values
+	name := r.FormValue("name")
+	if len(name) == 0 {
+		http.Error(w, "name must be at least one character", http.StatusBadRequest)
+		return
+	}
+
+	// Parse ROR IDs (optional, can be multiple)
+	rorIdsParam := r.FormValue("rors")
+	var rorIds []string
+	if rorIdsParam != "" {
+		rawRorIds := strings.Split(rorIdsParam, ",")
+		for _, rawRorId := range rawRorIds {
+			normalizedRorId, isValid := validateAndNormalizeRorId(strings.TrimSpace(rawRorId))
+			if !isValid {
+				http.Error(w, fmt.Sprintf("Invalid ROR ID format: %s", rawRorId), http.StatusBadRequest)
+				return
+			}
+			if normalizedRorId != "" {
+				rorIds = append(rorIds, normalizedRorId)
+			}
+		}
+	}
+
+	// Parse category ID (optional)
+	categoryIDStr := r.FormValue("category")
+	var categoryID int64
+	var hasCategory bool
+	if categoryIDStr != "" {
+		var err error
+		categoryID, err = strconv.ParseInt(categoryIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid category ID: %s", categoryIDStr), http.StatusBadRequest)
+			return
+		}
+		hasCategory = true
+	}
+
+	// Update the record
+	updatedRecord := *existingRecord
+	updatedRecord.Name = name
+	updatedRecord.RorIds = rorIds
+
+	// Start transaction
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error starting transaction: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// Update record
+	err = h.recordRepo.Update(ctx, tx, &updatedRecord)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error updating record: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Insert category association if a category was selected
+	if hasCategory {
+		err = h.categoryRepo.AssociateCategoryWithRecord(ctx, tx, updatedRecord.Id, categoryID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error associating category %d with record: %v", categoryID, err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		http.Error(w, fmt.Sprintf("Error committing transaction: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect to record page
+	http.Redirect(w, r, fmt.Sprintf("/record/%s", id), http.StatusSeeOther)
+}
+
+// DeleteRecord handles DELETE requests to remove a record
+func (h *RecordHandler) DeleteRecord(w http.ResponseWriter, r *http.Request, id string) {
+	ctx := r.Context()
+
+	// Check if user is authenticated
+	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
+	if !okO {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get the existing record to check ownership and get S3 key
+	existingRecord, err := h.recordRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrRecordNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Check if user owns this record or is admin
+	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
+	if err != nil {
+		http.Error(w, "Error checking admin status", http.StatusInternalServerError)
+		return
+	}
+
+	if existingRecord.UploaderOrcid != orcid && !isAdmin {
+		http.Error(w, "You can only delete your own records", http.StatusForbidden)
+		return
+	}
+
+	// Get S3 key for file deletion
+	s3Key, err := h.recordRepo.GetS3Key(ctx, id)
+	if err != nil {
+		http.Error(w, "Error getting S3 key", http.StatusInternalServerError)
+		return
+	}
+
+	// Start transaction
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error starting transaction: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// Delete from database
+	err = h.recordRepo.Delete(ctx, tx, id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error deleting record: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		http.Error(w, fmt.Sprintf("Error committing transaction: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Delete from S3
+	if err := h.deleteFromS3(s3Key); err != nil {
+		log.Printf("Warning: Failed to delete S3 object %s: %v", s3Key, err)
+		// Don't fail the request if S3 deletion fails
+	}
+
+	// Redirect to browse page
+	http.Redirect(w, r, "/browse", http.StatusSeeOther)
+}
+
+// GetEditPage handles GET requests for the edit form
+func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id string) {
+	ctx := r.Context()
+
+	// Check if user is authenticated
+	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
+	if !okO {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get the existing record
+	record, err := h.recordRepo.GetByID(ctx, id)
+	if err != nil {
+		if err == ErrRecordNotFound {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Check if user owns this record or is admin
+	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
+	if err != nil {
+		http.Error(w, "Error checking admin status", http.StatusInternalServerError)
+		return
+	}
+
+	if record.UploaderOrcid != orcid && !isAdmin {
+		http.Redirect(w, r, fmt.Sprintf("/record/%s", id), http.StatusSeeOther)
+		return
+	}
+
+	// Get all categories for the dropdown
+	categories, err := h.categoryRepo.GetAll(ctx)
+	if err != nil {
+		http.Error(w, "Error fetching categories", http.StatusInternalServerError)
+		return
+	}
+
+	// Render edit template
+	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+		"templates/layout.html",
+		"templates/edit.html",
+	))
+
+	data := struct {
+		App        App
+		Record     Record
+		Categories []Category
+	}{
+		App:        app,
+		Record:     *record,
+		Categories: categories,
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {
+		errorLogger.Printf("template exec error: %v", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+	}
+}
+
+// deleteFromS3 handles S3 file deletion
+func (h *RecordHandler) deleteFromS3(key string) error {
+	s3Client, err := newS3Client()
+	if err != nil {
+		return fmt.Errorf("failed to configure S3 client: %w", err)
+	}
+
+	bucketName := os.Getenv("BUCKET_NAME")
+	if bucketName == "" {
+		return fmt.Errorf("BUCKET_NAME not set")
+	}
+
+	_, err = s3Client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+	})
+
+	return err
 }
