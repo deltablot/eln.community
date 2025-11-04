@@ -760,6 +760,7 @@ function addRorOrganization(org, selectedId, hiddenInputId) {
   badge.setAttribute('data-ror-id', org.id);
   badge.innerHTML = `
     <span class="ror-name">${escapeHtml(org.name)}</span>
+    <span class="badge bg-light text-dark ms-2">×</span>
   `;
   
   selectedRors.appendChild(badge);

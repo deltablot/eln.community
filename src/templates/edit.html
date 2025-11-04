@@ -83,6 +83,7 @@
             {{- range .Record.RorIds }}
             <button type="button" class="btn btn-primary me-2 mb-2 ror-badge" data-ror-id="{{ . }}">
               <span class="ror-name">{{ . }}</span>
+              <span class="badge bg-light text-dark ms-2">×</span>
             </button>
             {{- end }}
           </div>
