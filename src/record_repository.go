@@ -15,6 +15,7 @@ var (
 type RecordRepository interface {
 	GetAll(ctx context.Context) ([]Record, error)
 	GetAllByCategory(ctx context.Context, categoryID int64) ([]Record, error)
+	GetAllByRorID(ctx context.Context, rorID string) ([]Record, error)
 	Search(ctx context.Context, query string, categoryID int64) ([]Record, error)
 	GetByID(ctx context.Context, id string) (*Record, error)
 	Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error
@@ -214,6 +215,64 @@ func (r *PostgresRecordRepository) GetAllByCategory(ctx context.Context, categor
 			&record.UploaderOrcid,
 		); err != nil {
 			log.Printf("Error scanning record %d: %v", recordCount, err)
+			return nil, err
+		}
+
+		// Get categories for this record
+		categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
+		if err != nil {
+			log.Printf("Error getting categories for record %s: %v", record.Id, err)
+			return nil, err
+		}
+		record.Categories = categories
+
+		// Get ROR IDs for this record
+		rorIds, err := r.rorRepo.GetRecordRorIds(ctx, record.Id)
+		if err != nil {
+			log.Printf("Error getting ROR IDs for record %s: %v", record.Id, err)
+			return nil, err
+		}
+		record.RorIds = rorIds
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("Error in rows iteration: %v", err)
+		return nil, err
+	}
+
+	return records, nil
+}
+
+// GetAllByRorID retrieves all records filtered by ROR ID with their categories and ROR IDs
+func (r *PostgresRecordRepository) GetAllByRorID(ctx context.Context, rorID string) ([]Record, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_orcid
+		FROM records r
+		JOIN records_ror rr ON r.id = rr.record_id
+		WHERE rr.ror = $1
+		ORDER BY r.created_at DESC
+	`, rorID)
+	if err != nil {
+		log.Printf("Error in GetAllByRorID query for ROR %s: %v", rorID, err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []Record
+	for rows.Next() {
+		var record Record
+		if err := rows.Scan(
+			&record.Id,
+			&record.Sha256,
+			&record.Name,
+			&record.Metadata,
+			&record.CreatedAt,
+			&record.ModifiedAt,
+			&record.UploaderOrcid,
+		); err != nil {
+			log.Printf("Error scanning record: %v", err)
 			return nil, err
 		}
 

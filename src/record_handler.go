@@ -651,6 +651,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	categoryIDStr := r.URL.Query().Get("category")
 	searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
+	rorID := strings.TrimSpace(r.URL.Query().Get("ror"))
 
 	var selectedCategoryID int64
 	var records []Record
@@ -665,13 +666,21 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		selectedCategoryID = categoryID
 	}
 
-	// Determine which query to execute based on search and category parameters
+	// Determine which query to execute based on search, category, and ROR parameters
 	if searchQuery != "" {
 		// Search with optional category filter
 		records, err = h.recordRepo.Search(r.Context(), searchQuery, selectedCategoryID)
 		if err != nil {
 			log.Printf("Error in GetBrowsePage searching for '%s': %v", searchQuery, err)
 			http.Error(w, "Error searching records", http.StatusInternalServerError)
+			return
+		}
+	} else if rorID != "" {
+		// Filter by ROR ID
+		records, err = h.recordRepo.GetAllByRorID(r.Context(), rorID)
+		if err != nil {
+			log.Printf("Error in GetBrowsePage filtering by ROR %s: %v", rorID, err)
+			http.Error(w, fmt.Sprintf("Error fetching records for ROR %s", rorID), http.StatusInternalServerError)
 			return
 		}
 	} else if selectedCategoryID > 0 {
@@ -719,6 +728,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		Categories         []Category
 		Records            []Record
 		SelectedCategoryID int64
+		SelectedRorID      string
 		SearchQuery        string
 		User               *User
 		IsAdmin            bool
@@ -727,6 +737,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		Categories:         categories,
 		Records:            recs,
 		SelectedCategoryID: selectedCategoryID,
+		SelectedRorID:      rorID,
 		SearchQuery:        searchQuery,
 		User:               user,
 		IsAdmin:            isAdmin,

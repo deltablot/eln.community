@@ -122,6 +122,9 @@ document.addEventListener('DOMContentLoaded', function () {
       searchForm.submit();
     });
   }
+
+  // Format relative timestamps
+  formatRelativeTimes();
 });
 
 // RO-Crate viewer functionality
@@ -838,7 +841,7 @@ async function loadRorNames() {
     let html = '';
     organizations.forEach((org, index) => {
       if (index > 0) html += ', ';
-      html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank'>${escapeHtml(org.name)}</a>`;
+      html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank' rel='noopener noreferrer'>${escapeHtml(org.name)}</a>`;
     });
     
     displayElement.innerHTML = html;
@@ -888,13 +891,13 @@ async function loadRorNamesForBrowse() {
         return;
       }
 
-      // Build display HTML
+      // Build display HTML with filter links
       let html = '';
       rorIds.forEach((rorId, index) => {
         const org = orgMap.get(rorId.trim());
         if (org) {
           if (index > 0) html += ', ';
-          html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank'>${escapeHtml(org.name)}</a>`;
+          html += `<a href='/browse?ror=${encodeURIComponent(org.id)}' class='ror-filter-link' title='Filter by ${escapeHtml(org.name)}'>${escapeHtml(org.name)}</a>`;
         }
       });
       
@@ -961,4 +964,49 @@ async function fetchRorOrganizations(rorIds) {
     // Return cached ones even if fetch fails
     return cachedOrgs;
   }
+}
+
+// Format timestamps as relative time (e.g., "2 weeks ago")
+function formatRelativeTimes() {
+  const timeElements = document.querySelectorAll('.relative-time');
+  
+  timeElements.forEach(element => {
+    const card = element.closest('.record-card-date');
+    if (!card) return;
+    
+    const timestamp = parseInt(card.getAttribute('data-timestamp'));
+    if (!timestamp) return;
+    
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
+    
+    let relativeTime;
+    
+    if (diffSecs < 60) {
+      relativeTime = 'just now';
+    } else if (diffMins < 60) {
+      relativeTime = diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`;
+    } else if (diffHours < 24) {
+      relativeTime = diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+    } else if (diffDays < 7) {
+      relativeTime = diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+    } else if (diffWeeks < 5) {
+      relativeTime = diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
+    } else if (diffMonths < 12) {
+      relativeTime = diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
+    } else {
+      relativeTime = diffYears === 1 ? '1 year ago' : `${diffYears} years ago`;
+    }
+    
+    element.textContent = relativeTime;
+    element.title = date.toLocaleString();
+  });
 }

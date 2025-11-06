@@ -6,12 +6,13 @@
 <!-- Search and Filter Section -->
 <form method="get" action="/browse" id="searchForm">
     <div class="mb-3">
-      <input  type="text" name="q" class="form-control" placeholder="Search by name, tags, ROR organizations, ORCID, or .eln content..." value="{{ .SearchQuery }}" />
+      <input type="text" name="q" class="form-control" placeholder="Search by name, tags, ROR organizations, ORCID, or .eln content..." value="{{ .SearchQuery }}" />
       <button class="btn btn-primary" type="submit">Search</button>
     </div>
 
-    <div class="col-md-6">
-      <div class="flex-grow-1">
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label for="category" class="form-label">Category</label>
         <select name="category" id="category" class="form-select">
           <option value="">All categories</option>
           {{- range .Categories }}
@@ -19,13 +20,18 @@
           {{- end }}
         </select>
       </div>
-      <!-- Clear Filters -->
-      {{- if or .SelectedCategoryID .SearchQuery }}
-      <div class="mt-2">
-        <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear all</a>
+      <div class="col-md-6">
+        <label for="ror" class="form-label">Organization (ROR)</label>
+        <input type="text" name="ror" id="ror" class="form-control" placeholder="Filter by ROR ID..." value="{{ .SelectedRorID }}" />
       </div>
-      {{- end }}
     </div>
+
+    <!-- Clear Filters -->
+    {{- if or .SelectedCategoryID .SearchQuery .SelectedRorID }}
+    <div class="mb-3">
+      <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear all filters</a>
+    </div>
+    {{- end }}
 </form>
 
 <!-- Results count -->
@@ -48,55 +54,60 @@
   {{- end }}
   {{- end }}
   <p class="text-muted">Showing {{ len .Records }} record(s) in category "{{ $categoryName }}"</p>
+  {{- else if .SelectedRorID }}
+  <p class="text-muted">Showing {{ len .Records }} record(s) for organization {{ .SelectedRorID }}</p>
   {{- else }}
   <p class="text-muted">Showing {{ len .Records }} record(s) total</p>
   {{- end }}
 </div>
 
+<!-- Records Grid -->
 {{- if .Records}}
-{{- range .Records}}
-<details class="record-details">
-  <summary><strong>{{ .Name }}</strong>
-    {{- if .Categories }}
-    {{- range .Categories }}
-    <span class="badge bg-secondary ms-1">{{ .Name }}</span>
-    {{- end }}
-    {{- end }}
-  </summary>
-  <ul>
-    <li>
-      <div class="gap-5" role="group">
-        <a class='btn btn-primary btn-sm' href='/record/{{ .Id }}'>View</a>
-        <a class='btn btn-secondary btn-sm' href='/api/v1/record/{{ .Id }}.eln'>Download</a>
-        {{ if or (and $.User (eq $.User.Orcid .UploaderOrcid)) $.IsAdmin }}
-        <a class='btn btn-outline-primary btn-sm' href='/api/v1/record/{{ .Id }}/edit'>Edit</a>
-        {{ end }}
+<div class="records-grid">
+  {{- range .Records}}
+  <div class="record-card">
+    <div class="record-card-header">
+      <h5 class="record-card-title">
+        <a href="/record/{{ .Id }}">{{ .Name }}</a>
+      </h5>
+    </div>
+    <div class="record-card-body">
+      <div class="record-card-meta">
+        <div class="record-card-author">
+          <strong>Author:</strong> {{ .UploaderName }}
+        </div>
+        <div class="record-card-date" data-timestamp="{{ .CreatedAt.Unix }}">
+          <strong>Created:</strong> <span class="relative-time">{{ .CreatedAt.Format "2006-01-02" }}</span>
+        </div>
       </div>
-    </li>
-    <li><strong>SHA256:</strong> {{ .Sha256 }}</li>
-    <li><strong>Created at:</strong> {{ .CreatedAt.Format "2006-01-02 15:04:05 MST" }}</li>
-    <li><strong>Modified at:</strong> {{ .ModifiedAt.Format "2006-01-02 15:04:05 MST" }}</li>
-    {{- if .RorIds }}
-    <li><strong>Research Organizations: </strong>
-      <span class="ror-organizations-loading" data-record-id="{{ .Id }}">Loading...</span>
-      <span class="ror-organizations ror-hidden" data-record-id="{{ .Id }}" data-ror-ids="{{ range $i, $rorId := .RorIds }}{{ if $i }},{{ end }}{{ $rorId }}{{ end }}"></span>
-    </li>
-    {{- end }}
-    {{- if .Categories }}
-    <li><strong>Categories:</strong>
-      {{- range .Categories }}
-      <span class="badge bg-primary me-1">{{ .Name }}</span>
+      
+      {{- if .Categories }}
+      <div class="record-card-categories">
+        {{- range .Categories }}
+        <a href="/browse?category={{ .Id }}" class="badge bg-primary category-badge">{{ .Name }}</a>
+        {{- end }}
+      </div>
       {{- end }}
-    </li>
-    {{- end }}
-    <li><strong>Metadata:</strong>
-      <a class='btn btn-secondary' href='/api/v1/record/{{ .Id }}.json'>Download Metadata</a>
-      <pre>{{ .MetadataPretty }}</pre>
-    </li>
-  </ul>
-</details>
-{{- end}}
+      
+      {{- if .RorIds }}
+      <div class="record-card-rors">
+        <strong>Organizations:</strong>
+        <span class="ror-organizations-loading" data-record-id="{{ .Id }}">Loading...</span>
+        <span class="ror-organizations ror-hidden" data-record-id="{{ .Id }}" data-ror-ids="{{ range $i, $rorId := .RorIds }}{{ if $i }},{{ end }}{{ $rorId }}{{ end }}"></span>
+      </div>
+      {{- end }}
+    </div>
+    <div class="record-card-actions">
+      <a class="btn btn-sm btn-primary" href="/record/{{ .Id }}">View</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/api/v1/record/{{ .Id }}.eln">Download</a>
+      {{ if or (and $.User (eq $.User.Orcid .UploaderOrcid)) $.IsAdmin }}
+      <a class="btn btn-sm btn-outline-primary" href="/api/v1/record/{{ .Id }}/edit">Edit</a>
+      {{ end }}
+    </div>
+  </div>
+  {{- end}}
+</div>
 {{- else}}
-<p><em>No records found.</em></p>
+<p class="text-center text-muted"><em>No records found.</em></p>
 {{- end}}
 {{ end }}
