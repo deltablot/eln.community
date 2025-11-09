@@ -121,46 +121,57 @@
 </div>
 
 <!-- Pagination -->
-<nav>
-  <ul class="pagination justify-content-end mb-0">
-    {{- if gt .Page 1 }}
-    <li class="page-item">
-      <a class="page-link" href="#" data-page="{{ sub .Page 1 }}">Previous</a>
-    </li>
-    {{- else }}
-    <li class="page-item disabled">
-      <a class="page-link" href="#">Previous</a>
-    </li>
-    {{- end }}
-    
-    {{- range $i := iterate .TotalPages }}
-    {{- $pageNum := add $i 1 }}
-    {{- if eq $pageNum $.Page }}
-    <li class="page-item active">
-      <a class="page-link" href="#">{{ $pageNum }}</a>
-    </li>
-    {{- else if or (le $pageNum 2) (ge $pageNum (sub $.TotalPages 1)) (and (ge $pageNum (sub $.Page 1)) (le $pageNum (add $.Page 1))) }}
-    <li class="page-item">
-      <a class="page-link" href="#" data-page="{{ $pageNum }}">{{ $pageNum }}</a>
-    </li>
-    {{- else if or (eq $pageNum 3) (eq $pageNum (sub $.TotalPages 2)) }}
-    <li class="page-item disabled">
-      <span class="page-link">...</span>
-    </li>
-    {{- end }}
-    {{- end }}
-    
-    {{- if lt .Page .TotalPages }}
-    <li class="page-item">
-      <a class="page-link" href="#" data-page="{{ add .Page 1 }}">Next</a>
-    </li>
-    {{- else }}
-    <li class="page-item disabled">
-      <a class="page-link" href="#">Next</a>
-    </li>
-    {{- end }}
-  </ul>
-</nav>
+<div class="d-flex flex-row justify-content-between">
+  <div>
+    <label for="pageSizeSelect" class="form-label me-2 mb-0">Items per page:</label>
+    <select id="pageSizeSelect" class="form-select form-select-sm d-inline-block w-auto">
+      <option value="10" {{ if eq .PageSize 10 }}selected{{ end }}>10</option>
+      <option value="20" {{ if eq .PageSize 20 }}selected{{ end }}>20</option>
+      <option value="30" {{ if eq .PageSize 30 }}selected{{ end }}>30</option>
+      <option value="50" {{ if eq .PageSize 50 }}selected{{ end }}>50</option>
+    </select>
+  </div>
+  <nav>
+    <ul class="pagination">
+      {{- if gt .Page 1 }}
+      <li class="page-item">
+        <a class="page-link" href="#" data-page="{{ sub .Page 1 }}">Previous</a>
+      </li>
+      {{- else }}
+      <li class="page-item disabled">
+        <a class="page-link" href="#">Previous</a>
+      </li>
+      {{- end }}
+
+      {{- range $i := iterate .TotalPages }}
+      {{- $pageNum := add $i 1 }}
+      {{- if eq $pageNum $.Page }}
+      <li class="page-item active">
+        <a class="page-link" href="#">{{ $pageNum }}</a>
+      </li>
+      {{- else if or (le $pageNum 2) (ge $pageNum (sub $.TotalPages 1)) (and (ge $pageNum (sub $.Page 1)) (le $pageNum (add $.Page 1))) }}
+      <li class="page-item">
+        <a class="page-link" href="#" data-page="{{ $pageNum }}">{{ $pageNum }}</a>
+      </li>
+      {{- else if or (eq $pageNum 3) (eq $pageNum (sub $.TotalPages 2)) }}
+      <li class="page-item disabled">
+        <span class="page-link">...</span>
+      </li>
+      {{- end }}
+      {{- end }}
+
+      {{- if lt .Page .TotalPages }}
+      <li class="page-item">
+        <a class="page-link" href="#" data-page="{{ add .Page 1 }}">Next</a>
+      </li>
+      {{- else }}
+      <li class="page-item disabled">
+        <a class="page-link" href="#">Next</a>
+      </li>
+      {{- end }}
+    </ul>
+  </nav>
+</div>
 
 <script>
   // Handle pagination clicks
