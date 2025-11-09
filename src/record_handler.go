@@ -634,9 +634,22 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetBrowsePage handles the browse page that lists all records
+// GetBrowsePage handles the browse page that lists all records with pagination
 func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+	funcMap := template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"iterate": func(count int) []int {
+			var i int
+			var items []int
+			for i = 0; i < count; i++ {
+				items = append(items, i)
+			}
+			return items
+		},
+	}
+
+	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
 		"templates/layout.html",
 		"templates/browse.html",
 	))
@@ -653,8 +666,29 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
 	rorID := strings.TrimSpace(r.URL.Query().Get("ror"))
 
+	// Parse pagination parameters
+	pageStr := r.URL.Query().Get("page")
+	pageSizeStr := r.URL.Query().Get("pageSize")
+
+	page := 1
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	pageSize := 10 // default
+	if pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+			pageSize = ps
+		}
+	}
+
+	offset := (page - 1) * pageSize
+
 	var selectedCategoryID int64
 	var records []Record
+	var totalCount int
 
 	// Parse category ID if provided
 	if categoryIDStr != "" {
@@ -669,7 +703,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	// Determine which query to execute based on search, category, and ROR parameters
 	if searchQuery != "" {
 		// Search with optional category filter
-		records, err = h.recordRepo.Search(r.Context(), searchQuery, selectedCategoryID)
+		records, totalCount, err = h.recordRepo.SearchPaginated(r.Context(), searchQuery, selectedCategoryID, pageSize, offset)
 		if err != nil {
 			log.Printf("Error in GetBrowsePage searching for '%s': %v", searchQuery, err)
 			http.Error(w, "Error searching records", http.StatusInternalServerError)
@@ -677,7 +711,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if rorID != "" {
 		// Filter by ROR ID
-		records, err = h.recordRepo.GetAllByRorID(r.Context(), rorID)
+		records, totalCount, err = h.recordRepo.GetAllByRorIDPaginated(r.Context(), rorID, pageSize, offset)
 		if err != nil {
 			log.Printf("Error in GetBrowsePage filtering by ROR %s: %v", rorID, err)
 			http.Error(w, fmt.Sprintf("Error fetching records for ROR %s", rorID), http.StatusInternalServerError)
@@ -685,7 +719,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if selectedCategoryID > 0 {
 		// Filter by category only
-		records, err = h.recordRepo.GetAllByCategory(r.Context(), selectedCategoryID)
+		records, totalCount, err = h.recordRepo.GetAllByCategoryPaginated(r.Context(), selectedCategoryID, pageSize, offset)
 		if err != nil {
 			log.Printf("Error in GetBrowsePage filtering by category %d: %v", selectedCategoryID, err)
 			http.Error(w, fmt.Sprintf("Error fetching records for category %d", selectedCategoryID), http.StatusInternalServerError)
@@ -693,7 +727,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Get all records
-		records, err = h.recordRepo.GetAll(r.Context())
+		records, totalCount, err = h.recordRepo.GetAllPaginated(r.Context(), pageSize, offset)
 		if err != nil {
 			http.Error(w, "Error fetching records", http.StatusInternalServerError)
 			return
@@ -705,6 +739,12 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		// clone r (shallow copy), then set only MetadataPretty
 		r.MetadataPretty = prettyJSON(r.Metadata)
 		recs = append(recs, r)
+	}
+
+	// Calculate pagination info
+	totalPages := (totalCount + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
 	}
 
 	// Get current user info
@@ -732,6 +772,10 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		SearchQuery        string
 		User               *User
 		IsAdmin            bool
+		Page               int
+		PageSize           int
+		TotalCount         int
+		TotalPages         int
 	}{
 		App:                app,
 		Categories:         categories,
@@ -741,6 +785,10 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		SearchQuery:        searchQuery,
 		User:               user,
 		IsAdmin:            isAdmin,
+		Page:               page,
+		PageSize:           pageSize,
+		TotalCount:         totalCount,
+		TotalPages:         totalPages,
 	}
 
 	w.Header().Set("Content-Type", "text/html")

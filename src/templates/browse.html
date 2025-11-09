@@ -32,81 +32,165 @@
       <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear all filters</a>
     </div>
     {{- end }}
+    
+    <!-- Hidden fields to preserve pagination -->
+    <input type="hidden" name="page" value="{{ .Page }}" id="pageInput" />
+    <input type="hidden" name="pageSize" value="{{ .PageSize }}" id="pageSizeInput" />
 </form>
 
-<!-- Results count -->
-<div class="mb-3">
-  {{- if and .SearchQuery .SelectedCategoryID }}
-  {{- $categoryName := "" }}
-  {{- range .Categories }}
-  {{- if eq .Id $.SelectedCategoryID }}
-  {{- $categoryName = .Name }}
-  {{- end }}
-  {{- end }}
-  <p class="text-muted">Showing {{ len .Records }} record(s) for search "{{ .SearchQuery }}" in category "{{ $categoryName }}"</p>
-  {{- else if .SearchQuery }}
-  <p class="text-muted">Showing {{ len .Records }} record(s) for search "{{ .SearchQuery }}"</p>
-  {{- else if .SelectedCategoryID }}
-  {{- $categoryName := "" }}
-  {{- range .Categories }}
-  {{- if eq .Id $.SelectedCategoryID }}
-  {{- $categoryName = .Name }}
-  {{- end }}
-  {{- end }}
-  <p class="text-muted">Showing {{ len .Records }} record(s) in category "{{ $categoryName }}"</p>
-  {{- else if .SelectedRorID }}
-  <p class="text-muted">Showing {{ len .Records }} record(s) for organization {{ .SelectedRorID }}</p>
-  {{- else }}
-  <p class="text-muted">Showing {{ len .Records }} record(s) total</p>
-  {{- end }}
+<!-- Results count and page size selector -->
+<div class="mb-3 d-flex justify-content-between align-items-center">
+  <div>
+    {{- if and .SearchQuery .SelectedCategoryID }}
+    {{- $categoryName := "" }}
+    {{- range .Categories }}
+    {{- if eq .Id $.SelectedCategoryID }}
+    {{- $categoryName = .Name }}
+    {{- end }}
+    {{- end }}
+    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for search "{{ .SearchQuery }}" in category "{{ $categoryName }}"</p>
+    {{- else if .SearchQuery }}
+    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for search "{{ .SearchQuery }}"</p>
+    {{- else if .SelectedCategoryID }}
+    {{- $categoryName := "" }}
+    {{- range .Categories }}
+    {{- if eq .Id $.SelectedCategoryID }}
+    {{- $categoryName = .Name }}
+    {{- end }}
+    {{- end }}
+    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) in category "{{ $categoryName }}"</p>
+    {{- else if .SelectedRorID }}
+    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for organization {{ .SelectedRorID }}</p>
+    {{- else }}
+    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) total</p>
+    {{- end }}
+  </div>
+  <div>
+    <label for="pageSizeSelect" class="form-label me-2 mb-0">Items per page:</label>
+    <select id="pageSizeSelect" class="form-select form-select-sm d-inline-block w-auto">
+      <option value="10" {{ if eq .PageSize 10 }}selected{{ end }}>10</option>
+      <option value="20" {{ if eq .PageSize 20 }}selected{{ end }}>20</option>
+      <option value="30" {{ if eq .PageSize 30 }}selected{{ end }}>30</option>
+      <option value="50" {{ if eq .PageSize 50 }}selected{{ end }}>50</option>
+    </select>
+  </div>
 </div>
 
-<!-- Records Grid -->
+<!-- Records Table -->
 {{- if .Records}}
-<div class="records-grid">
-  {{- range .Records}}
-  <div class="record-card">
-    <div class="record-card-header">
-      <h5 class="record-card-title">
-        <a href="/record/{{ .Id }}">{{ .Name }}</a>
-      </h5>
-    </div>
-    <div class="record-card-body">
-      <div class="record-card-meta">
-        <div class="record-card-author">
-          <strong>Author:</strong> {{ .UploaderName }}
-        </div>
-        <div class="record-card-date" data-timestamp="{{ .CreatedAt.Unix }}">
-          <strong>Created:</strong> <span class="relative-time">{{ .CreatedAt.Format "2006-01-02" }}</span>
-        </div>
-      </div>
-      
-      {{- if .Categories }}
-      <div class="record-card-categories">
-        {{- range .Categories }}
-        <a href="/browse?category={{ .Id }}" class="badge bg-primary category-badge">{{ .Name }}</a>
-        {{- end }}
-      </div>
-      {{- end }}
-      
-      {{- if .RorIds }}
-      <div class="record-card-rors">
-        <strong>Organizations:</strong>
-        <span class="ror-organizations-loading" data-record-id="{{ .Id }}">Loading...</span>
-        <span class="ror-organizations ror-hidden" data-record-id="{{ .Id }}" data-ror-ids="{{ range $i, $rorId := .RorIds }}{{ if $i }},{{ end }}{{ $rorId }}{{ end }}"></span>
-      </div>
-      {{- end }}
-    </div>
-    <div class="record-card-actions">
-      <a class="btn btn-sm btn-primary" href="/record/{{ .Id }}">View</a>
-      <a class="btn btn-sm btn-outline-secondary" href="/api/v1/record/{{ .Id }}.eln">Download</a>
-      {{ if or (and $.User (eq $.User.Orcid .UploaderOrcid)) $.IsAdmin }}
-      <a class="btn btn-sm btn-outline-primary" href="/api/v1/record/{{ .Id }}/edit">Edit</a>
-      {{ end }}
-    </div>
-  </div>
-  {{- end}}
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Author</th>
+        <th scope="col">Categories</th>
+        <th scope="col">Organizations</th>
+        <th scope="col">Created</th>
+        <th scope="col" class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{- range .Records}}
+      <tr>
+        <td>
+          <a href="/record/{{ .Id }}">{{ .Name }}</a>
+        </td>
+        <td>{{ .UploaderName }}</td>
+        <td>
+          {{- if .Categories }}
+          {{- range .Categories }}
+          <a href="/browse?category={{ .Id }}" class="badge bg-primary category-badge">{{ .Name }}</a>
+          {{- end }}
+          {{- else }}
+          <span class="text-muted">-</span>
+          {{- end }}
+        </td>
+        <td>
+          {{- if .RorIds }}
+          <span class="ror-organizations-loading" data-record-id="{{ .Id }}">Loading...</span>
+          <span class="ror-organizations ror-hidden" data-record-id="{{ .Id }}" data-ror-ids="{{ range $i, $rorId := .RorIds }}{{ if $i }},{{ end }}{{ $rorId }}{{ end }}"></span>
+          {{- else }}
+          <span class="text-muted">-</span>
+          {{- end }}
+        </td>
+        <td>
+          <span class="relative-time" data-timestamp="{{ .CreatedAt.Unix }}">{{ .CreatedAt.Format "2006-01-02" }}</span>
+        </td>
+        <td class="text-end">
+          <a class="btn btn-sm btn-primary me-1" href="/record/{{ .Id }}">View</a>
+          <a class="btn btn-sm btn-outline-secondary me-1" href="/api/v1/record/{{ .Id }}.eln">Download</a>
+          {{ if or (and $.User (eq $.User.Orcid .UploaderOrcid)) $.IsAdmin }}
+          <a class="btn btn-sm btn-outline-primary" href="/api/v1/record/{{ .Id }}/edit">Edit</a>
+          {{ end }}
+        </td>
+      </tr>
+      {{- end}}
+    </tbody>
+  </table>
 </div>
+
+<!-- Pagination -->
+<nav>
+  <ul class="pagination justify-content-end mb-0">
+    {{- if gt .Page 1 }}
+    <li class="page-item">
+      <a class="page-link" href="#" data-page="{{ sub .Page 1 }}">Previous</a>
+    </li>
+    {{- else }}
+    <li class="page-item disabled">
+      <a class="page-link" href="#">Previous</a>
+    </li>
+    {{- end }}
+    
+    {{- range $i := iterate .TotalPages }}
+    {{- $pageNum := add $i 1 }}
+    {{- if eq $pageNum $.Page }}
+    <li class="page-item active">
+      <a class="page-link" href="#">{{ $pageNum }}</a>
+    </li>
+    {{- else if or (le $pageNum 2) (ge $pageNum (sub $.TotalPages 1)) (and (ge $pageNum (sub $.Page 1)) (le $pageNum (add $.Page 1))) }}
+    <li class="page-item">
+      <a class="page-link" href="#" data-page="{{ $pageNum }}">{{ $pageNum }}</a>
+    </li>
+    {{- else if or (eq $pageNum 3) (eq $pageNum (sub $.TotalPages 2)) }}
+    <li class="page-item disabled">
+      <span class="page-link">...</span>
+    </li>
+    {{- end }}
+    {{- end }}
+    
+    {{- if lt .Page .TotalPages }}
+    <li class="page-item">
+      <a class="page-link" href="#" data-page="{{ add .Page 1 }}">Next</a>
+    </li>
+    {{- else }}
+    <li class="page-item disabled">
+      <a class="page-link" href="#">Next</a>
+    </li>
+    {{- end }}
+  </ul>
+</nav>
+
+<script>
+  // Handle pagination clicks
+  document.querySelectorAll('.pagination .page-link[data-page]').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const page = this.getAttribute('data-page');
+      document.getElementById('pageInput').value = page;
+      document.getElementById('searchForm').submit();
+    });
+  });
+  
+  // Handle page size change
+  document.getElementById('pageSizeSelect').addEventListener('change', function() {
+    document.getElementById('pageSizeInput').value = this.value;
+    document.getElementById('pageInput').value = '1'; // Reset to first page
+    document.getElementById('searchForm').submit();
+  });
+</script>
+
 {{- else}}
 <p class="text-center text-muted"><em>No records found.</em></p>
 {{- end}}
