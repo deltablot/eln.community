@@ -123,6 +123,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Initialize pagination for browse page
+  initializePagination();
+
   // Format relative timestamps
   formatRelativeTimes();
 });
@@ -1009,4 +1012,38 @@ function formatRelativeTimes() {
     element.textContent = relativeTime;
     element.title = date.toLocaleString();
   });
+}
+
+// Initialize pagination for browse page
+function initializePagination() {
+  // Handle pagination clicks
+  document.querySelectorAll('.pagination .page-link[data-page]').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const page = this.getAttribute('data-page');
+      const pageInput = document.getElementById('pageInput');
+      const searchForm = document.getElementById('searchForm');
+      
+      if (pageInput && searchForm) {
+        pageInput.value = page;
+        searchForm.submit();
+      }
+    });
+  });
+  
+  // Handle page size change
+  const pageSizeSelect = document.getElementById('pageSizeSelect');
+  if (pageSizeSelect) {
+    pageSizeSelect.addEventListener('change', function() {
+      const pageSizeInput = document.getElementById('pageSizeInput');
+      const pageInput = document.getElementById('pageInput');
+      const searchForm = document.getElementById('searchForm');
+      
+      if (pageSizeInput && pageInput && searchForm) {
+        pageSizeInput.value = this.value;
+        pageInput.value = '1'; // Reset to first page
+        searchForm.submit();
+      }
+    });
+  }
 }
