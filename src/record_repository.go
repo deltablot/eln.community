@@ -105,7 +105,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_orcid
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid
 		FROM records
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -125,6 +125,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&record.UploaderName,
 			&record.UploaderOrcid,
 		); err != nil {
 			return nil, 0, err
@@ -323,7 +324,7 @@ func (r *PostgresRecordRepository) GetAllByCategoryPaginated(ctx context.Context
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_orcid
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
 		WHERE rc.category_id = $1
@@ -345,6 +346,7 @@ func (r *PostgresRecordRepository) GetAllByCategoryPaginated(ctx context.Context
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&record.UploaderName,
 			&record.UploaderOrcid,
 		); err != nil {
 			return nil, 0, err
@@ -447,7 +449,7 @@ func (r *PostgresRecordRepository) GetAllByRorIDPaginated(ctx context.Context, r
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_orcid
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
 		WHERE rr.ror = $1
@@ -469,6 +471,7 @@ func (r *PostgresRecordRepository) GetAllByRorIDPaginated(ctx context.Context, r
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&record.UploaderName,
 			&record.UploaderOrcid,
 		); err != nil {
 			return nil, 0, err
@@ -616,7 +619,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 
 		// Search within a specific category
 		sqlQuery = `
-			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_orcid
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
 			FROM records r
 			JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
@@ -654,7 +657,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 
 		// Search across all records
 		sqlQuery = `
-			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_orcid
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
 			FROM records r
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN records_categories rc ON r.id = rc.record_id
@@ -696,6 +699,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
+			&record.UploaderName,
 			&record.UploaderOrcid,
 		); err != nil {
 			return nil, 0, err

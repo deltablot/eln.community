@@ -28,7 +28,7 @@
 
     <!-- Clear Filters -->
     {{- if or .SelectedCategoryID .SearchQuery .SelectedRorID }}
-    <div class="mb-3">
+    <div>
       <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear all filters</a>
     </div>
     {{- end }}
@@ -38,42 +38,30 @@
     <input type="hidden" name="pageSize" value="{{ .PageSize }}" id="pageSizeInput" />
 </form>
 
-<!-- Results count and page size selector -->
-<div class="mb-3 d-flex justify-content-between align-items-center">
-  <div>
-    {{- if and .SearchQuery .SelectedCategoryID }}
-    {{- $categoryName := "" }}
-    {{- range .Categories }}
-    {{- if eq .Id $.SelectedCategoryID }}
-    {{- $categoryName = .Name }}
-    {{- end }}
-    {{- end }}
-    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for search "{{ .SearchQuery }}" in category "{{ $categoryName }}"</p>
-    {{- else if .SearchQuery }}
-    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for search "{{ .SearchQuery }}"</p>
-    {{- else if .SelectedCategoryID }}
-    {{- $categoryName := "" }}
-    {{- range .Categories }}
-    {{- if eq .Id $.SelectedCategoryID }}
-    {{- $categoryName = .Name }}
-    {{- end }}
-    {{- end }}
-    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) in category "{{ $categoryName }}"</p>
-    {{- else if .SelectedRorID }}
-    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for organization {{ .SelectedRorID }}</p>
-    {{- else }}
-    <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) total</p>
-    {{- end }}
-  </div>
-  <div>
-    <label for="pageSizeSelect" class="form-label me-2 mb-0">Items per page:</label>
-    <select id="pageSizeSelect" class="form-select form-select-sm d-inline-block w-auto">
-      <option value="10" {{ if eq .PageSize 10 }}selected{{ end }}>10</option>
-      <option value="20" {{ if eq .PageSize 20 }}selected{{ end }}>20</option>
-      <option value="30" {{ if eq .PageSize 30 }}selected{{ end }}>30</option>
-      <option value="50" {{ if eq .PageSize 50 }}selected{{ end }}>50</option>
-    </select>
-  </div>
+<div class="mb-2">
+  {{- if and .SearchQuery .SelectedCategoryID }}
+  {{- $categoryName := "" }}
+  {{- range .Categories }}
+  {{- if eq .Id $.SelectedCategoryID }}
+  {{- $categoryName = .Name }}
+  {{- end }}
+  {{- end }}
+  <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for search "{{ .SearchQuery }}" in category "{{ $categoryName }}"</p>
+  {{- else if .SearchQuery }}
+  <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for search "{{ .SearchQuery }}"</p>
+  {{- else if .SelectedCategoryID }}
+  {{- $categoryName := "" }}
+  {{- range .Categories }}
+  {{- if eq .Id $.SelectedCategoryID }}
+  {{- $categoryName = .Name }}
+  {{- end }}
+  {{- end }}
+  <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) in category "{{ $categoryName }}"</p>
+  {{- else if .SelectedRorID }}
+  <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for organization {{ .SelectedRorID }}</p>
+  {{- else }}
+  <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) total</p>
+  {{- end }}
 </div>
 
 <!-- Records Table -->
@@ -115,7 +103,9 @@
           {{- end }}
         </td>
         <td>
-          <span class="relative-time" data-timestamp="{{ .CreatedAt.Unix }}">{{ .CreatedAt.Format "2006-01-02" }}</span>
+          <div class="record-card-date" data-timestamp="{{ .CreatedAt.Unix }}">
+            <span class="relative-time">{{ .CreatedAt.Format "2006-01-02" }}</span>
+          </div>
         </td>
         <td class="text-end">
           <a class="btn btn-sm btn-primary me-1" href="/record/{{ .Id }}">View</a>
