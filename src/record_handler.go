@@ -763,12 +763,25 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch ROR organization name if filtering by ROR
+	var rorOrgName string
+	if rorID != "" {
+		rorClient := NewRorClient()
+		if org, err := rorClient.GetOrganization(rorID); err == nil {
+			rorOrgName = org.Name
+		} else {
+			log.Printf("Error fetching ROR organization name for %s: %v", rorID, err)
+			rorOrgName = rorID // Fallback to ID if fetch fails
+		}
+	}
+
 	data := struct {
 		App                App
 		Categories         []Category
 		Records            []Record
 		SelectedCategoryID int64
 		SelectedRorID      string
+		SelectedRorName    string
 		SearchQuery        string
 		User               *User
 		IsAdmin            bool
@@ -782,6 +795,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		Records:            recs,
 		SelectedCategoryID: selectedCategoryID,
 		SelectedRorID:      rorID,
+		SelectedRorName:    rorOrgName,
 		SearchQuery:        searchQuery,
 		User:               user,
 		IsAdmin:            isAdmin,

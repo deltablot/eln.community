@@ -58,7 +58,7 @@
   {{- end }}
   <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) in category "{{ $categoryName }}"</p>
   {{- else if .SelectedRorID }}
-  <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for organization {{ .SelectedRorID }}</p>
+  <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for organization {{ if .SelectedRorName }}{{ .SelectedRorName }}{{ else }}{{ .SelectedRorID }}{{ end }}</p>
   {{- else }}
   <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) total</p>
   {{- end }}
