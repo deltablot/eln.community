@@ -594,3 +594,135 @@ footer {
 .ror-inline {
     display: inline;
 }
+
+/* Browse page - Records grid layout */
+.records-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.record-card {
+    flex: 1 1 calc(33.333% - 1rem);
+    min-width: 300px;
+    max-width: 100%;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.record-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.record-card-header {
+    padding: 1rem;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.record-card-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.record-card-title a {
+    color: var(--black);
+    text-decoration: none;
+}
+
+.record-card-title a:hover {
+    color: var(--blue);
+    text-decoration: underline;
+}
+
+.record-card-body {
+    padding: 1rem;
+    flex-grow: 1;
+}
+
+.record-card-meta {
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.record-card-author,
+.record-card-date {
+    margin-bottom: 0.25rem;
+}
+
+.record-card-categories {
+    margin-bottom: 0.75rem;
+}
+
+.category-badge {
+    display: inline-block;
+    margin-right: 0.25rem;
+    margin-bottom: 0.25rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.category-badge:hover {
+    opacity: 0.85;
+}
+
+.record-card-rors {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
+
+.record-card-rors a {
+    color: var(--blue);
+    text-decoration: none;
+}
+
+.record-card-rors a:hover {
+    text-decoration: underline;
+}
+
+.ror-filter-link {
+    color: var(--blue);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--blue);
+}
+
+.ror-filter-link:hover {
+    text-decoration: none;
+    border-bottom: 1px solid var(--blue);
+    color: var(--black);
+}
+
+.record-card-actions {
+    padding: 1rem;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .record-card {
+        flex: 1 1 calc(50% - 0.75rem);
+    }
+}
+
+@media (max-width: 768px) {
+    .record-card {
+        flex: 1 1 100%;
+    }
+    
+    .records-grid {
+        gap: 1rem;
+    }
+}
