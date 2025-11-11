@@ -238,10 +238,10 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 	pageTmpl.ExecuteTemplate(w, "layout", nil)
 }
 
-func getRoot(w http.ResponseWriter, r *http.Request) {
+func newEntry(w http.ResponseWriter, r *http.Request) {
 	var pageTmpl = template.Must(template.ParseFS(staticFiles,
 		"templates/layout.html",
-		"templates/index.html",
+		"templates/new.html",
 	))
 
 	categories, err := getCategories(r.Context())
@@ -417,11 +417,11 @@ func main() {
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
-	mux.Handle("/browse", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
 	mux.Handle("/record/", securityHeaders(http.HandlerFunc(recordHandler.GetRecordPage)))
+	mux.Handle("/entry", securityHeaders(http.HandlerFunc(newEntry)))
 
-	// root catchall
-	mux.Handle("/", securityHeaders(http.HandlerFunc(getRoot)))
+	// root catchall - now uses browse page
+	mux.Handle("/", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
 
 	// TODO use DEV env var to serve files directly to avoid recompilation
 	mux.HandleFunc("GET /index.js", serveAsset)
