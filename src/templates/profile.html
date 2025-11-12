@@ -1,0 +1,78 @@
+{{ define "content" }}
+<div class="row">
+  <div class="col-md-8 offset-md-2">
+    <h2>My Profile</h2>
+    
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16">
+            <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+            <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+          </svg>
+          {{ .User.Name }}
+        </h5>
+        <p class="card-text">
+          <strong>ORCID:</strong> 
+          <a href="https://orcid.org/{{ .User.Orcid }}" target="_blank" rel="noopener noreferrer">
+            {{ .User.Orcid }}
+          </a>
+        </p>
+        <p class="card-text">
+          <strong>Total Uploads:</strong> {{ .TotalRecords }}
+        </p>
+      </div>
+    </div>
+
+    <h3>My Entries</h3>
+    
+    {{ if .Records }}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Categories</th>
+            <th scope="col">Created</th>
+            <th scope="col" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range .Records }}
+          <tr>
+            <td>
+              <a href="/record/{{ .Id }}">{{ .Name }}</a>
+            </td>
+            <td>
+              {{ if .Categories }}
+              {{ range .Categories }}
+              <a href="/?category={{ .Id }}" class="badge bg-primary category-badge">{{ .Name }}</a>
+              {{ end }}
+              {{ else }}
+              <span class="text-muted">-</span>
+              {{ end }}
+            </td>
+            <td>
+              <div class="record-card-date" data-timestamp="{{ .CreatedAt.Unix }}">
+                <span class="relative-time">{{ .CreatedAt.Format "2006-01-02" }}</span>
+              </div>
+            </td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-primary me-1" href="/record/{{ .Id }}">View</a>
+              <a class="btn btn-sm btn-outline-secondary me-1" href="/api/v1/record/{{ .Id }}.eln">Download</a>
+              <a class="btn btn-sm btn-outline-primary" href="/api/v1/record/{{ .Id }}/edit">Edit</a>
+            </td>
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+    {{ else }}
+    <p class="text-center text-muted"><em>You haven't uploaded any entries yet.</em></p>
+    <div class="text-center">
+      <a href="/entry" class="btn btn-primary">Upload Your First Entry</a>
+    </div>
+    {{ end }}
+  </div>
+</div>
+{{ end }}

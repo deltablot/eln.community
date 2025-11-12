@@ -86,6 +86,7 @@ type RecordPageData struct {
 	App
 	Record  Record
 	CanEdit bool
+	User    *User
 }
 
 type RecordsPageData struct {
@@ -235,10 +236,38 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 		"templates/layout.html",
 		"templates/about.html",
 	))
-	pageTmpl.ExecuteTemplate(w, "layout", nil)
+
+	ctx := r.Context()
+	var user *User
+	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
+		name, _ := sessionManager.Get(ctx, "name").(string)
+		user = &User{
+			Name:  name,
+			Orcid: orcid,
+		}
+	}
+
+	data := struct {
+		App  App
+		User *User
+	}{
+		App:  app,
+		User: user,
+	}
+
+	pageTmpl.ExecuteTemplate(w, "layout", data)
 }
 
 func newEntry(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Check if user is authenticated
+	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
+	if !okO {
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
+	}
+
 	var pageTmpl = template.Must(template.ParseFS(staticFiles,
 		"templates/layout.html",
 		"templates/new.html",
@@ -250,21 +279,66 @@ func newEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
-	var user *User
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
 	name, _ := sessionManager.Get(ctx, "name").(string)
-	if okO {
-		user = &User{
-			Name:  name,
-			Orcid: orcid,
-		}
+	user := &User{
+		Name:  name,
+		Orcid: orcid,
 	}
 
 	data := RootPageData{
 		App:        app,
 		Categories: categories,
 		User:       user,
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	pageTmpl.ExecuteTemplate(w, "layout", data)
+}
+
+func getProfile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Check if user is authenticated
+	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
+	if !okO {
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
+	}
+
+	name, _ := sessionManager.Get(ctx, "name").(string)
+	user := &User{
+		Name:  name,
+		Orcid: orcid,
+	}
+
+	// Get user's records
+	recordRepo := NewPostgresRecordRepository(db, NewPostgresCategoryRepository(db), NewPostgresRorRepository(db))
+	records, totalCount, err := recordRepo.GetAllByOrcidPaginated(ctx, orcid, 100, 0)
+	if err != nil {
+		http.Error(w, "Error fetching records", http.StatusInternalServerError)
+		return
+	}
+
+	// Prettify metadata for each record
+	for i := range records {
+		records[i].MetadataPretty = prettyJSON(records[i].Metadata)
+	}
+
+	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+		"templates/layout.html",
+		"templates/profile.html",
+	))
+
+	data := struct {
+		App          App
+		User         *User
+		Records      []Record
+		TotalRecords int
+	}{
+		App:          app,
+		User:         user,
+		Records:      records,
+		TotalRecords: totalCount,
 	}
 
 	w.Header().Set("Content-Type", "text/html")
@@ -417,6 +491,7 @@ func main() {
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
+	mux.Handle("/profile", securityHeaders(http.HandlerFunc(getProfile)))
 	mux.Handle("/record/", securityHeaders(http.HandlerFunc(recordHandler.GetRecordPage)))
 	mux.Handle("/entry", securityHeaders(http.HandlerFunc(newEntry)))
 
