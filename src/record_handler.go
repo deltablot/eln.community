@@ -610,7 +610,13 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	// Check if current user can edit this record
 	ctx := r.Context()
 	canEdit := false
+	var user *User
 	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
+		name, _ := sessionManager.Get(ctx, "name").(string)
+		user = &User{
+			Name:  name,
+			Orcid: orcid,
+		}
 		// User owns the record or is admin
 		if record.UploaderOrcid == orcid {
 			canEdit = true
@@ -626,6 +632,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		App:     app,
 		Record:  *record,
 		CanEdit: canEdit,
+		User:    user,
 	}
 
 	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {
@@ -1010,6 +1017,12 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 		return
 	}
 
+	name, _ := sessionManager.Get(ctx, "name").(string)
+	user := &User{
+		Name:  name,
+		Orcid: orcid,
+	}
+
 	// Get the existing record
 	record, err := h.recordRepo.GetByID(ctx, id)
 	if err != nil {
@@ -1050,10 +1063,12 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 		App        App
 		Record     Record
 		Categories []Category
+		User       *User
 	}{
 		App:        app,
 		Record:     *record,
 		Categories: categories,
+		User:       user,
 	}
 
 	w.Header().Set("Content-Type", "text/html")

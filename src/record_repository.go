@@ -15,6 +15,7 @@ type RecordRepository interface {
 	GetAllPaginated(ctx context.Context, limit, offset int) ([]Record, int, error)
 	GetAllByCategoryPaginated(ctx context.Context, categoryID int64, limit, offset int) ([]Record, int, error)
 	GetAllByRorIDPaginated(ctx context.Context, rorID string, limit, offset int) ([]Record, int, error)
+	GetAllByOrcidPaginated(ctx context.Context, orcid string, limit, offset int) ([]Record, int, error)
 	SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int) ([]Record, int, error)
 	GetByID(ctx context.Context, id string) (*Record, error)
 	Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error
@@ -513,4 +514,67 @@ func (r *PostgresRecordRepository) Delete(ctx context.Context, tx *sql.Tx, id st
 	}
 
 	return nil
+}
+
+// GetAllByOrcidPaginated retrieves records by ORCID with pagination
+func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, orcid string, limit, offset int) ([]Record, int, error) {
+	// Get total count
+	var totalCount int
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM records WHERE uploader_orcid = $1`, orcid).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated records
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid
+		FROM records
+		WHERE uploader_orcid = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`, orcid, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var records []Record
+	for rows.Next() {
+		var rec Record
+		err := rows.Scan(
+			&rec.Id,
+			&rec.Name,
+			&rec.Sha256,
+			&rec.Metadata,
+			&rec.CreatedAt,
+			&rec.ModifiedAt,
+			&rec.UploaderName,
+			&rec.UploaderOrcid,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		// Fetch categories for this record
+		categories, err := r.categoryRepo.GetRecordCategories(ctx, rec.Id)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, 0, err
+		}
+		rec.Categories = categories
+
+		// Fetch ROR IDs for this record
+		rorIds, err := r.rorRepo.GetRecordRorIds(ctx, rec.Id)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, 0, err
+		}
+		rec.RorIds = rorIds
+
+		records = append(records, rec)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return records, totalCount, nil
 }

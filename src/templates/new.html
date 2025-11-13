@@ -19,16 +19,8 @@
       </div>
     </div>
   </div>
-  <h1>Welcome to the ELN Community</h1>
-  <p>A place to share ELN archives: experiments, protocols, templates, resources...</p>
-  {{ if .User }}
-    <span class="navbar-text">Welcome, {{ .User.Name }}</span>
-    <p>Your orcid: {{ .User.Orcid }}</p>
-    <a href="/auth/logout" class="btn btn-outline-secondary ms-2">Logout</a>
-  {{ else }}
-    <a href="/auth/login" class="btn btn-primary">Login with ORCID</a>
-  {{ end }}
-  {{ if .User }}
+  <h1>Upload an Entry</h1>
+  <p>Share your ELN archives: experiments, protocols, templates, resources...</p>
   <form method='post' action='/api/v1/records' enctype='multipart/form-data'>
     {{ if .Categories }}
     <label class="form-label fw-bold">Select a category
@@ -66,5 +58,4 @@
       <span class="btn-text">Send</span>
     </button>
   </form>
-  {{ end }}
 {{ end }}
