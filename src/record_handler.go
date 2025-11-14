@@ -796,6 +796,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		PageSize           int
 		TotalCount         int
 		TotalPages         int
+		CurrentPage        string
 	}{
 		App:                app,
 		Categories:         categories,
@@ -810,6 +811,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		PageSize:           pageSize,
 		TotalCount:         totalCount,
 		TotalPages:         totalPages,
+		CurrentPage:        "browse",
 	}
 
 	w.Header().Set("Content-Type", "text/html")
