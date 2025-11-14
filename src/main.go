@@ -248,11 +248,13 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		App  App
-		User *User
+		App         App
+		User        *User
+		CurrentPage string
 	}{
-		App:  app,
-		User: user,
+		App:         app,
+		User:        user,
+		CurrentPage: "about",
 	}
 
 	pageTmpl.ExecuteTemplate(w, "layout", data)
