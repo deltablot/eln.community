@@ -629,10 +629,11 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := RecordPageData{
-		App:     app,
-		Record:  *record,
-		CanEdit: canEdit,
-		User:    user,
+		App:         app,
+		Record:      *record,
+		CanEdit:     canEdit,
+		User:        user,
+		CurrentPage: "",
 	}
 
 	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {
@@ -1062,15 +1063,17 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 	))
 
 	data := struct {
-		App        App
-		Record     Record
-		Categories []Category
-		User       *User
+		App         App
+		Record      Record
+		Categories  []Category
+		User        *User
+		CurrentPage string
 	}{
-		App:        app,
-		Record:     *record,
-		Categories: categories,
-		User:       user,
+		App:         app,
+		Record:      *record,
+		Categories:  categories,
+		User:        user,
+		CurrentPage: "",
 	}
 
 	w.Header().Set("Content-Type", "text/html")
