@@ -98,3 +98,7 @@ Load the environment file before running:
 source .env
 go run src/*.go
 ```
+
+## Categories
+
+Taken from: https://skos.um.es/unesco6/view.php?l=en&fmt=1
