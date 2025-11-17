@@ -84,9 +84,10 @@ type RootPageData struct {
 
 type RecordPageData struct {
 	App
-	Record  Record
-	CanEdit bool
-	User    *User
+	Record      Record
+	CanEdit     bool
+	User        *User
+	CurrentPage string
 }
 
 type RecordsPageData struct {
@@ -287,10 +288,16 @@ func newEntry(w http.ResponseWriter, r *http.Request) {
 		Orcid: orcid,
 	}
 
-	data := RootPageData{
-		App:        app,
-		Categories: categories,
-		User:       user,
+	data := struct {
+		App         App
+		Categories  []Category
+		User        *User
+		CurrentPage string
+	}{
+		App:         app,
+		Categories:  categories,
+		User:        user,
+		CurrentPage: "",
 	}
 
 	w.Header().Set("Content-Type", "text/html")
@@ -336,11 +343,13 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		User         *User
 		Records      []Record
 		TotalRecords int
+		CurrentPage  string
 	}{
 		App:          app,
 		User:         user,
 		Records:      records,
 		TotalRecords: totalCount,
+		CurrentPage:  "",
 	}
 
 	w.Header().Set("Content-Type", "text/html")
