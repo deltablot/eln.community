@@ -12,17 +12,46 @@
 
     <div class="row g-3 mb-3">
       <div class="col-md-6">
-        <label class="form-label">Category</label>
-        <div class="category-tree-container">
+        <label class="form-label">Categories</label>
+        <!-- Selected categories badges -->
+        <div id="selected-categories-badges" class="mb-2">
+          {{- if $.SelectedCategoryID }}
+          {{- $selectedId := $.SelectedCategoryID }}
+          {{- range .Categories }}
+            {{- if eq .Id $selectedId }}
+            <button type="button" class="btn btn-primary me-2 mb-2 category-badge" data-category-id="{{ .Id }}">
+              <span class="category-badge-name">{{ .Name }}</span>
+              <span class="badge bg-light text-dark ms-2">×</span>
+            </button>
+            {{- end }}
+            {{- range .Subcategories }}
+              {{- if eq .Id $selectedId }}
+              <button type="button" class="btn btn-primary me-2 mb-2 category-badge" data-category-id="{{ .Id }}">
+                <span class="category-badge-name">{{ .Name }}</span>
+                <span class="badge bg-light text-dark ms-2">×</span>
+              </button>
+              {{- end }}
+              {{- range .Subcategories }}
+                {{- if eq .Id $selectedId }}
+                <button type="button" class="btn btn-primary me-2 mb-2 category-badge" data-category-id="{{ .Id }}">
+                  <span class="category-badge-name">{{ .Name }}</span>
+                  <span class="badge bg-light text-dark ms-2">×</span>
+                </button>
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- end }}
+        </div>
+        
+        <div class="mb-2">
+          <input type="text" class="form-control form-control-sm category-search" id="browse-category-search" placeholder="Search categories..." />
+        </div>
+        <div class="category-tree-container" id="browse-category-tree">
           <ul class="category-tree">
-            <li class="category-tree-item">
-              <div class="category-item {{ if not $.SelectedCategoryID }}active{{ end }}" data-category-id="">
-                <span class="category-name">All categories</span>
-              </div>
-            </li>
             {{- range .Categories }}
             <li class="category-tree-item">
-              <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}">
+              <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
                 {{- if .Subcategories }}
                 <span class="category-toggle"></span>
                 {{- else }}
@@ -34,7 +63,7 @@
               <ul class="category-children">
                 {{- range .Subcategories }}
                 <li class="category-tree-item">
-                  <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}">
+                  <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
                     {{- if .Subcategories }}
                     <span class="category-toggle"></span>
                     {{- else }}
@@ -46,7 +75,7 @@
                   <ul class="category-children">
                     {{- range .Subcategories }}
                     <li class="category-tree-item">
-                      <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}">
+                      <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
                         <span class="category-toggle no-children"></span>
                         <span class="category-name">{{ .Name }}</span>
                       </div>
@@ -61,6 +90,9 @@
             </li>
             {{- end }}
           </ul>
+          <div class="category-no-results" style="display: none;">
+            <p class="text-muted text-center py-3">No categories found</p>
+          </div>
         </div>
       </div>
       <div class="col-md-6">

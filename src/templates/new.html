@@ -30,6 +30,9 @@
           <span id="selected-category-text" class="text-muted">Choose a category...</span>
         </div>
         <div class="category-selector-dropdown" id="category-selector-dropdown">
+          <div class="category-search-wrapper">
+            <input type="text" class="form-control form-control-sm category-search" id="new-category-search" placeholder="Search categories..." />
+          </div>
           <ul class="category-tree">
             {{ range .Categories }}
             <li class="category-tree-item">
@@ -72,6 +75,9 @@
             </li>
             {{ end }}
           </ul>
+          <div class="category-no-results" style="display: none;">
+            <p class="text-muted text-center py-3">No categories found</p>
+          </div>
         </div>
       </div>
     </label>

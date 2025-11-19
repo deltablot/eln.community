@@ -1048,6 +1048,119 @@ function initializePagination() {
   }
 }
 
+// Category search functionality
+function initializeCategorySearch() {
+  // Search in browse page
+  const browseSearch = document.getElementById('browse-category-search');
+  if (browseSearch) {
+    const browseTree = document.getElementById('browse-category-tree');
+    browseSearch.addEventListener('input', function() {
+      filterCategories(this.value, browseTree);
+    });
+  }
+
+  // Search in new page dropdown
+  const newSearch = document.getElementById('new-category-search');
+  if (newSearch) {
+    const newDropdown = document.getElementById('category-selector-dropdown');
+    newSearch.addEventListener('input', function() {
+      filterCategories(this.value, newDropdown);
+    });
+  }
+
+  // Search in edit page dropdown
+  const editSearch = document.getElementById('edit-category-search');
+  if (editSearch) {
+    const editDropdown = document.getElementById('category-selector-dropdown');
+    editSearch.addEventListener('input', function() {
+      filterCategories(this.value, editDropdown);
+    });
+  }
+}
+
+function filterCategories(searchTerm, container) {
+  if (!container) return;
+
+  const term = searchTerm.toLowerCase().trim();
+  const allItems = container.querySelectorAll('.category-tree-item');
+  const noResults = container.querySelector('.category-no-results');
+  let visibleCount = 0;
+
+  if (term === '') {
+    // Show all items, collapse all
+    allItems.forEach(item => {
+      item.classList.remove('search-hidden', 'search-match');
+      const categoryItem = item.querySelector('.category-item');
+      const children = item.querySelector(':scope > .category-children');
+      const toggle = item.querySelector('.category-toggle');
+      
+      if (children) {
+        children.classList.remove('expanded');
+        if (toggle) toggle.classList.remove('expanded');
+        if (categoryItem) categoryItem.classList.remove('expanded');
+      }
+    });
+    if (noResults) noResults.style.display = 'none';
+    return;
+  }
+
+  // Filter categories
+  allItems.forEach(item => {
+    const categoryName = item.querySelector('.category-name');
+    if (!categoryName) return;
+
+    const text = categoryName.textContent.toLowerCase();
+    const matches = text.includes(term);
+
+    if (matches) {
+      // Show matching item
+      item.classList.remove('search-hidden');
+      item.classList.add('search-match');
+      visibleCount++;
+
+      // Show all parent items
+      let parent = item.parentElement;
+      while (parent) {
+        if (parent.classList.contains('category-tree-item')) {
+          parent.classList.remove('search-hidden');
+          
+          // Expand parent
+          const parentChildren = parent.querySelector(':scope > .category-children');
+          const parentToggle = parent.querySelector(':scope > .category-item > .category-toggle');
+          const parentItem = parent.querySelector(':scope > .category-item');
+          
+          if (parentChildren) {
+            parentChildren.classList.add('expanded');
+            if (parentToggle) parentToggle.classList.add('expanded');
+            if (parentItem) parentItem.classList.add('expanded');
+          }
+        }
+        parent = parent.parentElement;
+      }
+
+      // Expand children if this item has any
+      const children = item.querySelector(':scope > .category-children');
+      const toggle = item.querySelector('.category-toggle');
+      const categoryItem = item.querySelector('.category-item');
+      
+      if (children) {
+        children.classList.add('expanded');
+        if (toggle) toggle.classList.add('expanded');
+        if (categoryItem) categoryItem.classList.add('expanded');
+      }
+    } else {
+      // Hide non-matching items (will be shown if they're parents of matches)
+      item.classList.add('search-hidden');
+      item.classList.remove('search-match');
+    }
+  });
+
+  // Show/hide no results message
+  if (noResults) {
+    noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+  }
+}
+
 // Category Tree functionality
 function initializeCategoryTree() {
   // Handle toggle clicks for expanding/collapsing
@@ -1078,8 +1191,10 @@ function initializeCategoryTree() {
     });
   });
 
-  // Handle category selection for browse page (filter)
+  // Handle category selection for browse page (single select with badge UI)
   const browseCategoryItems = document.querySelectorAll('.category-tree-container .category-item');
+  const selectedCategoriesBadges = document.getElementById('selected-categories-badges');
+  
   browseCategoryItems.forEach(item => {
     item.addEventListener('click', function(e) {
       // Don't trigger if clicking on toggle
@@ -1088,29 +1203,93 @@ function initializeCategoryTree() {
       }
       
       const categoryId = this.getAttribute('data-category-id');
-      const searchForm = document.getElementById('searchForm');
+      const categoryName = this.getAttribute('data-category-name');
       
-      if (searchForm) {
-        // Create or update hidden input for category
-        let categoryInput = searchForm.querySelector('input[name="category"]');
-        if (!categoryInput) {
-          categoryInput = document.createElement('input');
-          categoryInput.type = 'hidden';
-          categoryInput.name = 'category';
-          searchForm.appendChild(categoryInput);
-        }
-        categoryInput.value = categoryId;
+      if (!categoryId || !categoryName) return;
+      
+      // Check if already selected
+      const existingBadge = selectedCategoriesBadges.querySelector(`[data-category-id="${categoryId}"]`);
+      if (existingBadge) {
+        // Remove if already selected (clear filter)
+        existingBadge.remove();
+        this.classList.remove('active');
+        updateCategoryFilter();
+      } else {
+        // Clear all existing badges (single select)
+        selectedCategoriesBadges.innerHTML = '';
         
-        // Reset to first page
-        const pageInput = document.getElementById('pageInput');
-        if (pageInput) {
-          pageInput.value = '1';
-        }
+        // Remove active from all items
+        browseCategoryItems.forEach(i => i.classList.remove('active'));
         
-        searchForm.submit();
+        // Add new badge
+        const badge = document.createElement('button');
+        badge.type = 'button';
+        badge.className = 'btn btn-primary me-2 mb-2 category-badge';
+        badge.setAttribute('data-category-id', categoryId);
+        badge.innerHTML = `
+          <span class="category-badge-name">${escapeHtml(categoryName)}</span>
+          <span class="badge bg-light text-dark ms-2">×</span>
+        `;
+        
+        selectedCategoriesBadges.appendChild(badge);
+        this.classList.add('active');
+        
+        // Update form and submit
+        updateCategoryFilter();
       }
     });
   });
+  
+  // Handle badge removal
+  if (selectedCategoriesBadges) {
+    selectedCategoriesBadges.addEventListener('click', function(e) {
+      const badge = e.target.closest('.category-badge');
+      if (badge) {
+        const categoryId = badge.getAttribute('data-category-id');
+        
+        // Remove badge
+        badge.remove();
+        
+        // Remove active state from tree
+        const treeItem = document.querySelector(`.category-tree-container .category-item[data-category-id="${categoryId}"]`);
+        if (treeItem) {
+          treeItem.classList.remove('active');
+        }
+        
+        // Update form and submit (will show all categories)
+        updateCategoryFilter();
+      }
+    });
+  }
+  
+  function updateCategoryFilter() {
+    const searchForm = document.getElementById('searchForm');
+    if (!searchForm) return;
+    
+    // Get selected category ID (single select)
+    const badge = selectedCategoriesBadges.querySelector('.category-badge');
+    const categoryId = badge ? badge.getAttribute('data-category-id') : '';
+    
+    // Remove existing category inputs
+    searchForm.querySelectorAll('input[name="category"]').forEach(input => input.remove());
+    
+    // Add category input if one is selected
+    if (categoryId) {
+      const categoryInput = document.createElement('input');
+      categoryInput.type = 'hidden';
+      categoryInput.name = 'category';
+      categoryInput.value = categoryId;
+      searchForm.appendChild(categoryInput);
+    }
+    
+    // Reset to first page
+    const pageInput = document.getElementById('pageInput');
+    if (pageInput) {
+      pageInput.value = '1';
+    }
+    
+    searchForm.submit();
+  }
 
   // Handle category selector for forms (new/edit pages)
   const selectorDisplay = document.getElementById('category-selector-display');
@@ -1176,4 +1355,5 @@ function initializeCategoryTree() {
 // Initialize category tree when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
   initializeCategoryTree();
+  initializeCategorySearch();
 });

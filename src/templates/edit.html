@@ -75,6 +75,9 @@
               </span>
             </div>
             <div class="category-selector-dropdown" id="category-selector-dropdown">
+              <div class="category-search-wrapper">
+                <input type="text" class="form-control form-control-sm category-search" id="edit-category-search" placeholder="Search categories..." />
+              </div>
               <ul class="category-tree">
                 <li class="category-tree-item">
                   <div class="category-item category-selectable" data-category-id="" data-category-name="None">
@@ -122,6 +125,9 @@
                 </li>
                 {{ end }}
               </ul>
+              <div class="category-no-results" style="display: none;">
+                <p class="text-muted text-center py-3">No categories found</p>
+              </div>
             </div>
           </div>
         </div>
