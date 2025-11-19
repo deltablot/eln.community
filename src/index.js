@@ -1047,3 +1047,133 @@ function initializePagination() {
     });
   }
 }
+
+// Category Tree functionality
+function initializeCategoryTree() {
+  // Handle toggle clicks for expanding/collapsing
+  document.querySelectorAll('.category-toggle:not(.no-children)').forEach(toggle => {
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      const categoryItem = this.closest('.category-item');
+      const treeItem = this.closest('.category-tree-item');
+      const children = treeItem.querySelector(':scope > .category-children');
+      
+      if (children) {
+        // Toggle expanded state
+        const isExpanded = children.classList.contains('expanded');
+        
+        if (isExpanded) {
+          // Collapse
+          children.classList.remove('expanded');
+          this.classList.remove('expanded');
+          categoryItem.classList.remove('expanded');
+        } else {
+          // Expand
+          children.classList.add('expanded');
+          this.classList.add('expanded');
+          categoryItem.classList.add('expanded');
+        }
+      }
+    });
+  });
+
+  // Handle category selection for browse page (filter)
+  const browseCategoryItems = document.querySelectorAll('.category-tree-container .category-item');
+  browseCategoryItems.forEach(item => {
+    item.addEventListener('click', function(e) {
+      // Don't trigger if clicking on toggle
+      if (e.target.classList.contains('category-toggle')) {
+        return;
+      }
+      
+      const categoryId = this.getAttribute('data-category-id');
+      const searchForm = document.getElementById('searchForm');
+      
+      if (searchForm) {
+        // Create or update hidden input for category
+        let categoryInput = searchForm.querySelector('input[name="category"]');
+        if (!categoryInput) {
+          categoryInput = document.createElement('input');
+          categoryInput.type = 'hidden';
+          categoryInput.name = 'category';
+          searchForm.appendChild(categoryInput);
+        }
+        categoryInput.value = categoryId;
+        
+        // Reset to first page
+        const pageInput = document.getElementById('pageInput');
+        if (pageInput) {
+          pageInput.value = '1';
+        }
+        
+        searchForm.submit();
+      }
+    });
+  });
+
+  // Handle category selector for forms (new/edit pages)
+  const selectorDisplay = document.getElementById('category-selector-display');
+  const selectorDropdown = document.getElementById('category-selector-dropdown');
+  const selectedCategoryInput = document.getElementById('selected-category-input');
+  const selectedCategoryText = document.getElementById('selected-category-text');
+  
+  if (selectorDisplay && selectorDropdown && selectedCategoryInput && selectedCategoryText) {
+    // Toggle dropdown on click
+    selectorDisplay.addEventListener('click', function(e) {
+      e.stopPropagation();
+      selectorDropdown.classList.toggle('show');
+      selectorDisplay.classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!selectorDropdown.contains(e.target) && e.target !== selectorDisplay) {
+        selectorDropdown.classList.remove('show');
+        selectorDisplay.classList.remove('open');
+      }
+    });
+
+    // Handle category selection in dropdown
+    selectorDropdown.querySelectorAll('.category-selectable').forEach(item => {
+      item.addEventListener('click', function(e) {
+        // Don't select if clicking on toggle
+        if (e.target.classList.contains('category-toggle')) {
+          return;
+        }
+        
+        const categoryId = this.getAttribute('data-category-id');
+        const categoryName = this.getAttribute('data-category-name');
+        
+        // Update hidden input
+        selectedCategoryInput.value = categoryId;
+        
+        // Update display text
+        if (categoryName && categoryName !== 'None') {
+          selectedCategoryText.textContent = categoryName;
+          selectedCategoryText.classList.remove('text-muted');
+        } else {
+          selectedCategoryText.textContent = 'None';
+          selectedCategoryText.classList.add('text-muted');
+        }
+        
+        // Remove active class from all items
+        selectorDropdown.querySelectorAll('.category-item').forEach(i => {
+          i.classList.remove('active');
+        });
+        
+        // Add active class to selected item
+        this.classList.add('active');
+        
+        // Close dropdown
+        selectorDropdown.classList.remove('show');
+        selectorDisplay.classList.remove('open');
+      });
+    });
+  }
+}
+
+// Initialize category tree when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initializeCategoryTree();
+});

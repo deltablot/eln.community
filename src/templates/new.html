@@ -24,12 +24,56 @@
   <form method='post' action='/api/v1/records' enctype='multipart/form-data'>
     {{ if .Categories }}
     <label class="form-label fw-bold">Select a category
-      <select name="category" class="form-control mt-2" required>
-        <option value="">Choose a category...</option>
-        {{ range .Categories }}
-        <option value="{{ .Id }}">{{ .Name }}</option>
-        {{ end }}
-      </select>
+      <input type="hidden" name="category" id="selected-category-input" required />
+      <div class="category-selector mt-2">
+        <div class="category-selector-display" id="category-selector-display">
+          <span id="selected-category-text" class="text-muted">Choose a category...</span>
+        </div>
+        <div class="category-selector-dropdown" id="category-selector-dropdown">
+          <ul class="category-tree">
+            {{ range .Categories }}
+            <li class="category-tree-item">
+              <div class="category-item category-selectable" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                {{- if .Subcategories }}
+                <span class="category-toggle"></span>
+                {{- else }}
+                <span class="category-toggle no-children"></span>
+                {{- end }}
+                <span class="category-name">{{ .Name }}</span>
+              </div>
+              {{- if .Subcategories }}
+              <ul class="category-children">
+                {{- range .Subcategories }}
+                <li class="category-tree-item">
+                  <div class="category-item category-selectable" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                    {{- if .Subcategories }}
+                    <span class="category-toggle"></span>
+                    {{- else }}
+                    <span class="category-toggle no-children"></span>
+                    {{- end }}
+                    <span class="category-name">{{ .Name }}</span>
+                  </div>
+                  {{- if .Subcategories }}
+                  <ul class="category-children">
+                    {{- range .Subcategories }}
+                    <li class="category-tree-item">
+                      <div class="category-item category-selectable" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                        <span class="category-toggle no-children"></span>
+                        <span class="category-name">{{ .Name }}</span>
+                      </div>
+                    </li>
+                    {{- end }}
+                  </ul>
+                  {{- end }}
+                </li>
+                {{- end }}
+              </ul>
+              {{- end }}
+            </li>
+            {{ end }}
+          </ul>
+        </div>
+      </div>
     </label>
     {{ end }}
     <label class="form-label fw-bold">Name your entry

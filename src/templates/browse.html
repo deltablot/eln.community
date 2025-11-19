@@ -12,13 +12,56 @@
 
     <div class="row g-3 mb-3">
       <div class="col-md-6">
-        <label for="category" class="form-label">Category</label>
-        <select name="category" id="category" class="form-select">
-          <option value="">All categories</option>
-          {{- range .Categories }}
-          <option value="{{ .Id }}" {{ if eq $.SelectedCategoryID .Id }}selected{{ end }}>{{ .Name }}</option>
-          {{- end }}
-        </select>
+        <label class="form-label">Category</label>
+        <div class="category-tree-container">
+          <ul class="category-tree">
+            <li class="category-tree-item">
+              <div class="category-item {{ if not $.SelectedCategoryID }}active{{ end }}" data-category-id="">
+                <span class="category-name">All categories</span>
+              </div>
+            </li>
+            {{- range .Categories }}
+            <li class="category-tree-item">
+              <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}">
+                {{- if .Subcategories }}
+                <span class="category-toggle"></span>
+                {{- else }}
+                <span class="category-toggle no-children"></span>
+                {{- end }}
+                <span class="category-name">{{ .Name }}</span>
+              </div>
+              {{- if .Subcategories }}
+              <ul class="category-children">
+                {{- range .Subcategories }}
+                <li class="category-tree-item">
+                  <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}">
+                    {{- if .Subcategories }}
+                    <span class="category-toggle"></span>
+                    {{- else }}
+                    <span class="category-toggle no-children"></span>
+                    {{- end }}
+                    <span class="category-name">{{ .Name }}</span>
+                  </div>
+                  {{- if .Subcategories }}
+                  <ul class="category-children">
+                    {{- range .Subcategories }}
+                    <li class="category-tree-item">
+                      <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}">
+                        <span class="category-toggle no-children"></span>
+                        <span class="category-name">{{ .Name }}</span>
+                      </div>
+                    </li>
+                    {{- end }}
+                  </ul>
+                  {{- end }}
+                </li>
+                {{- end }}
+              </ul>
+              {{- end }}
+            </li>
+            {{- end }}
+          </ul>
+        </div>
       </div>
       <div class="col-md-6">
         <label for="ror" class="form-label">Organization (ROR)</label>

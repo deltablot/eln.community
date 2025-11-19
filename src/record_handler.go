@@ -663,7 +663,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	))
 
 	// CATEGORIES
-	categories, err := h.categoryRepo.GetAll(r.Context())
+	categories, err := h.categoryRepo.GetAllHierarchical(r.Context())
 	if err != nil {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
@@ -1050,7 +1050,7 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 	}
 
 	// Get all categories for the dropdown
-	categories, err := h.categoryRepo.GetAll(ctx)
+	categories, err := h.categoryRepo.GetAllHierarchical(ctx)
 	if err != nil {
 		http.Error(w, "Error fetching categories", http.StatusInternalServerError)
 		return

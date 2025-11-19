@@ -726,3 +726,206 @@ footer {
         gap: 1rem;
     }
 }
+
+/* Category Tree View Styles */
+.category-tree-container {
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    background: #fff;
+    max-height: 450px;
+    overflow-y: auto;
+}
+
+.category-tree {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.category-tree-item {
+    margin: 0;
+    padding: 0;
+}
+
+.category-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.1s ease;
+}
+
+.category-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Root level categories */
+.category-tree > .category-tree-item > .category-item {
+    font-weight: 500;
+}
+
+/* Expanded parent category - blue background */
+.category-item.expanded {
+    background-color: #1565c0;
+    color: white;
+    font-weight: 500;
+}
+
+.category-item.expanded:hover {
+    background-color: #0d47a1;
+}
+
+/* Active/selected category */
+.category-item.active {
+    background-color: #1565c0;
+    color: white;
+}
+
+.category-item.active:hover {
+    background-color: #0d47a1;
+}
+
+/* Toggle icon (+ or -) */
+.category-toggle {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+    font-size: 1rem;
+    font-weight: bold;
+    color: #1565c0;
+    flex-shrink: 0;
+}
+
+.category-toggle::before {
+    content: '+';
+    display: block;
+}
+
+.category-toggle.expanded::before {
+    content: '−';
+}
+
+.category-item.expanded .category-toggle {
+    color: white;
+}
+
+.category-toggle.no-children {
+    visibility: hidden;
+}
+
+.category-name {
+    flex-grow: 1;
+    font-size: 0.95rem;
+}
+
+/* Children container */
+.category-children {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: none;
+    background-color: #fafafa;
+}
+
+.category-children.expanded {
+    display: block;
+}
+
+/* Indentation for nested levels */
+.category-children .category-item {
+    padding-left: 2.5rem;
+}
+
+.category-children .category-children .category-item {
+    padding-left: 4rem;
+    background-color: #fff;
+}
+
+/* Form category selector */
+.category-selector {
+    position: relative;
+}
+
+.category-selector-display {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    background: #fff;
+    cursor: pointer;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.category-selector-display:hover {
+    border-color: #86b7fe;
+}
+
+.category-selector-display.open {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.category-selector-display::after {
+    content: '▼';
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-left: 0.5rem;
+}
+
+.category-selector-display.open::after {
+    transform: rotate(180deg);
+}
+
+.category-selector-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1050;
+}
+
+.category-selector-dropdown.show {
+    display: block;
+}
+
+/* Scrollbar styling */
+.category-tree-container::-webkit-scrollbar,
+.category-selector-dropdown::-webkit-scrollbar {
+    width: 8px;
+}
+
+.category-tree-container::-webkit-scrollbar-track,
+.category-selector-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.category-tree-container::-webkit-scrollbar-thumb,
+.category-selector-dropdown::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.category-tree-container::-webkit-scrollbar-thumb:hover,
+.category-selector-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
