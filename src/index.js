@@ -1086,10 +1086,11 @@ function filterCategories(searchTerm, container) {
   const noResults = container.querySelector('.category-no-results');
   let visibleCount = 0;
 
-  if (term === '') {
+  // Hide no results message if search is empty
+  if (term.length === 0) {
     // Show all items, collapse all
     allItems.forEach(item => {
-      item.classList.remove('search-hidden', 'search-match');
+      item.classList.remove('search-hidden');
       const categoryItem = item.querySelector('.category-item');
       const children = item.querySelector(':scope > .category-children');
       const toggle = item.querySelector('.category-toggle');

@@ -784,11 +784,7 @@ footer {
     display: none;
 }
 
-.category-tree-item.search-match .category-name {
-    background-color: #fff3cd;
-    padding: 0.125rem 0.25rem;
-    border-radius: 0.125rem;
-}
+
 
 .category-tree {
     list-style: none;
