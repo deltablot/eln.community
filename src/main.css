@@ -751,6 +751,11 @@ footer {
     min-height: 2rem;
 }
 
+/* Browse page layout */
+.browse-search-filter-container {
+    padding: 1.5rem;
+}
+
 /* Category Tree View Styles */
 .category-search-wrapper {
     padding: 0.5rem;

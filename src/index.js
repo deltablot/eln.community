@@ -126,6 +126,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initialize pagination for browse page
   initializePagination();
 
+  // Initialize browse page search and filter
+  initializeBrowseSearch();
+
   // Format relative timestamps
   formatRelativeTimes();
 });
@@ -1021,13 +1024,7 @@ function initializePagination() {
     link.addEventListener('click', function(e) {
       e.preventDefault();
       const page = this.getAttribute('data-page');
-      const pageInput = document.getElementById('pageInput');
-      const searchForm = document.getElementById('searchForm');
-      
-      if (pageInput && searchForm) {
-        pageInput.value = page;
-        searchForm.submit();
-      }
+      navigateToBrowse({ page: page });
     });
   });
   
@@ -1035,14 +1032,93 @@ function initializePagination() {
   const pageSizeSelect = document.getElementById('pageSizeSelect');
   if (pageSizeSelect) {
     pageSizeSelect.addEventListener('change', function() {
-      const pageSizeInput = document.getElementById('pageSizeInput');
-      const pageInput = document.getElementById('pageInput');
-      const searchForm = document.getElementById('searchForm');
-      
-      if (pageSizeInput && pageInput && searchForm) {
-        pageSizeInput.value = this.value;
-        pageInput.value = '1'; // Reset to first page
-        searchForm.submit();
+      navigateToBrowse({ pageSize: this.value, page: '1' });
+    });
+  }
+}
+
+// Navigate to browse page with parameters
+function navigateToBrowse(params = {}) {
+  const url = new URL('/browse', window.location.origin);
+  
+  // Get current values from inputs
+  const searchInput = document.getElementById('searchInput');
+  const rorInput = document.getElementById('rorInput');
+  const pageInput = document.getElementById('pageInput');
+  const pageSizeInput = document.getElementById('pageSizeInput');
+  const selectedCategoryBadge = document.querySelector('#selected-categories-badges .category-badge');
+  
+  // Build query parameters
+  const queryParams = {};
+  
+  // Search query
+  const searchValue = params.q !== undefined ? params.q : (searchInput ? searchInput.value.trim() : '');
+  if (searchValue) {
+    queryParams.q = searchValue;
+  }
+  
+  // Category
+  const categoryId = params.category !== undefined ? params.category : (selectedCategoryBadge ? selectedCategoryBadge.getAttribute('data-category-id') : '');
+  if (categoryId) {
+    queryParams.category = categoryId;
+  }
+  
+  // ROR
+  const rorValue = params.ror !== undefined ? params.ror : (rorInput ? rorInput.value.trim() : '');
+  if (rorValue) {
+    queryParams.ror = rorValue;
+  }
+  
+  // Page
+  const pageValue = params.page !== undefined ? params.page : (pageInput ? pageInput.value : '1');
+  if (pageValue && pageValue !== '1') {
+    queryParams.page = pageValue;
+  }
+  
+  // Page size
+  const pageSizeValue = params.pageSize !== undefined ? params.pageSize : (pageSizeInput ? pageSizeInput.value : '10');
+  if (pageSizeValue && pageSizeValue !== '10') {
+    queryParams.pageSize = pageSizeValue;
+  }
+  
+  // Build URL with query parameters
+  Object.keys(queryParams).forEach(key => {
+    url.searchParams.append(key, queryParams[key]);
+  });
+  
+  // Navigate
+  window.location.href = url.toString();
+}
+
+// Initialize browse page search and filter
+function initializeBrowseSearch() {
+  const searchButton = document.getElementById('searchButton');
+  const searchInput = document.getElementById('searchInput');
+  const rorInput = document.getElementById('rorInput');
+  
+  if (!searchButton || !searchInput) {
+    return; // Not on browse page
+  }
+  
+  // Handle search button click
+  searchButton.addEventListener('click', function() {
+    navigateToBrowse({ page: '1' });
+  });
+  
+  // Handle Enter key in search input
+  searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      navigateToBrowse({ page: '1' });
+    }
+  });
+  
+  // Handle Enter key in ROR input
+  if (rorInput) {
+    rorInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        navigateToBrowse({ page: '1' });
       }
     });
   }
@@ -1212,31 +1288,10 @@ function initializeCategoryTree() {
       const existingBadge = selectedCategoriesBadges.querySelector(`[data-category-id="${categoryId}"]`);
       if (existingBadge) {
         // Remove if already selected (clear filter)
-        existingBadge.remove();
-        this.classList.remove('active');
-        updateCategoryFilter();
+        navigateToBrowse({ category: '', page: '1' });
       } else {
-        // Clear all existing badges (single select)
-        selectedCategoriesBadges.innerHTML = '';
-        
-        // Remove active from all items
-        browseCategoryItems.forEach(i => i.classList.remove('active'));
-        
-        // Add new badge
-        const badge = document.createElement('button');
-        badge.type = 'button';
-        badge.className = 'btn btn-primary me-2 mb-2 category-badge';
-        badge.setAttribute('data-category-id', categoryId);
-        badge.innerHTML = `
-          <span class="category-badge-name">${escapeHtml(categoryName)}</span>
-          <span class="badge bg-light text-dark ms-2">×</span>
-        `;
-        
-        selectedCategoriesBadges.appendChild(badge);
-        this.classList.add('active');
-        
-        // Update form and submit
-        updateCategoryFilter();
+        // Navigate with selected category
+        navigateToBrowse({ category: categoryId, page: '1' });
       }
     });
   });
@@ -1246,50 +1301,10 @@ function initializeCategoryTree() {
     selectedCategoriesBadges.addEventListener('click', function(e) {
       const badge = e.target.closest('.category-badge');
       if (badge) {
-        const categoryId = badge.getAttribute('data-category-id');
-        
-        // Remove badge
-        badge.remove();
-        
-        // Remove active state from tree
-        const treeItem = document.querySelector(`.category-tree-container .category-item[data-category-id="${categoryId}"]`);
-        if (treeItem) {
-          treeItem.classList.remove('active');
-        }
-        
-        // Update form and submit (will show all categories)
-        updateCategoryFilter();
+        // Navigate without category filter
+        navigateToBrowse({ category: '', page: '1' });
       }
     });
-  }
-  
-  function updateCategoryFilter() {
-    const searchForm = document.getElementById('searchForm');
-    if (!searchForm) return;
-    
-    // Get selected category ID (single select)
-    const badge = selectedCategoriesBadges.querySelector('.category-badge');
-    const categoryId = badge ? badge.getAttribute('data-category-id') : '';
-    
-    // Remove existing category inputs
-    searchForm.querySelectorAll('input[name="category"]').forEach(input => input.remove());
-    
-    // Add category input if one is selected
-    if (categoryId) {
-      const categoryInput = document.createElement('input');
-      categoryInput.type = 'hidden';
-      categoryInput.name = 'category';
-      categoryInput.value = categoryId;
-      searchForm.appendChild(categoryInput);
-    }
-    
-    // Reset to first page
-    const pageInput = document.getElementById('pageInput');
-    if (pageInput) {
-      pageInput.value = '1';
-    }
-    
-    searchForm.submit();
   }
 
   // Handle category selector for forms (new/edit pages)
