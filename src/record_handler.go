@@ -655,6 +655,14 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 			}
 			return items
 		},
+		"contains": func(slice []int64, item int64) bool {
+			for _, v := range slice {
+				if v == item {
+					return true
+				}
+			}
+			return false
+		},
 	}
 
 	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
@@ -695,17 +703,29 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * pageSize
 
 	var selectedCategoryID int64
+	var selectedCategoryIDs []int64
 	var records []Record
 	var totalCount int
 
-	// Parse category ID if provided
+	// Parse category ID(s) if provided - supports both single and multiple (comma-separated)
 	if categoryIDStr != "" {
-		categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64)
-		if err != nil {
-			http.Error(w, "Invalid category ID", http.StatusBadRequest)
-			return
+		categoryIDStrs := strings.Split(categoryIDStr, ",")
+		for _, idStr := range categoryIDStrs {
+			idStr = strings.TrimSpace(idStr)
+			if idStr == "" {
+				continue
+			}
+			categoryID, err := strconv.ParseInt(idStr, 10, 64)
+			if err != nil {
+				http.Error(w, "Invalid category ID", http.StatusBadRequest)
+				return
+			}
+			selectedCategoryIDs = append(selectedCategoryIDs, categoryID)
 		}
-		selectedCategoryID = categoryID
+		// Keep selectedCategoryID for backward compatibility (first category)
+		if len(selectedCategoryIDs) > 0 {
+			selectedCategoryID = selectedCategoryIDs[0]
+		}
 	}
 
 	// Determine which query to execute based on search, category, and ROR parameters
@@ -725,12 +745,12 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Error fetching records for ROR %s", rorID), http.StatusInternalServerError)
 			return
 		}
-	} else if selectedCategoryID > 0 {
-		// Filter by category only
-		records, totalCount, err = h.recordRepo.GetAllByCategoryPaginated(r.Context(), selectedCategoryID, pageSize, offset)
+	} else if len(selectedCategoryIDs) > 0 {
+		// Filter by categories (single or multiple)
+		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(r.Context(), selectedCategoryIDs, pageSize, offset)
 		if err != nil {
-			log.Printf("Error in GetBrowsePage filtering by category %d: %v", selectedCategoryID, err)
-			http.Error(w, fmt.Sprintf("Error fetching records for category %d", selectedCategoryID), http.StatusInternalServerError)
+			log.Printf("Error in GetBrowsePage filtering by categories %v: %v", selectedCategoryIDs, err)
+			http.Error(w, fmt.Sprintf("Error fetching records for categories"), http.StatusInternalServerError)
 			return
 		}
 	} else {
@@ -784,35 +804,37 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		App                App
-		Categories         []Category
-		Records            []Record
-		SelectedCategoryID int64
-		SelectedRorID      string
-		SelectedRorName    string
-		SearchQuery        string
-		User               *User
-		IsAdmin            bool
-		Page               int
-		PageSize           int
-		TotalCount         int
-		TotalPages         int
-		CurrentPage        string
+		App                 App
+		Categories          []Category
+		Records             []Record
+		SelectedCategoryID  int64
+		SelectedCategoryIDs []int64
+		SelectedRorID       string
+		SelectedRorName     string
+		SearchQuery         string
+		User                *User
+		IsAdmin             bool
+		Page                int
+		PageSize            int
+		TotalCount          int
+		TotalPages          int
+		CurrentPage         string
 	}{
-		App:                app,
-		Categories:         categories,
-		Records:            recs,
-		SelectedCategoryID: selectedCategoryID,
-		SelectedRorID:      rorID,
-		SelectedRorName:    rorOrgName,
-		SearchQuery:        searchQuery,
-		User:               user,
-		IsAdmin:            isAdmin,
-		Page:               page,
-		PageSize:           pageSize,
-		TotalCount:         totalCount,
-		TotalPages:         totalPages,
-		CurrentPage:        "browse",
+		App:                 app,
+		Categories:          categories,
+		Records:             recs,
+		SelectedCategoryID:  selectedCategoryID,
+		SelectedCategoryIDs: selectedCategoryIDs,
+		SelectedRorID:       rorID,
+		SelectedRorName:     rorOrgName,
+		SearchQuery:         searchQuery,
+		User:                user,
+		IsAdmin:             isAdmin,
+		Page:                page,
+		PageSize:            pageSize,
+		TotalCount:          totalCount,
+		TotalPages:          totalPages,
+		CurrentPage:         "browse",
 	}
 
 	w.Header().Set("Content-Type", "text/html")

@@ -15,16 +15,9 @@
           <div class="category-multiselect-input" id="categoryMultiselectInput">
             <!-- Selected categories will appear here as badges -->
             <div class="category-multiselect-tags" id="categoryMultiselectTags">
-              {{- if $.SelectedCategoryID }}
-              {{- $selectedId := $.SelectedCategoryID }}
-              {{- range .Categories }}
-                {{- if eq .Id $selectedId }}
-                <span class="category-tag" data-category-id="{{ .Id }}">
-                  <span class="category-tag-text">{{ .Name }}</span>
-                  <span class="category-tag-remove">×</span>
-                </span>
-                {{- end }}
-                {{- range .Subcategories }}
+              {{- if $.SelectedCategoryIDs }}
+              {{- range $selectedId := $.SelectedCategoryIDs }}
+                {{- range $.Categories }}
                   {{- if eq .Id $selectedId }}
                   <span class="category-tag" data-category-id="{{ .Id }}">
                     <span class="category-tag-text">{{ .Name }}</span>
@@ -37,6 +30,14 @@
                       <span class="category-tag-text">{{ .Name }}</span>
                       <span class="category-tag-remove">×</span>
                     </span>
+                    {{- end }}
+                    {{- range .Subcategories }}
+                      {{- if eq .Id $selectedId }}
+                      <span class="category-tag" data-category-id="{{ .Id }}">
+                        <span class="category-tag-text">{{ .Name }}</span>
+                        <span class="category-tag-remove">×</span>
+                      </span>
+                      {{- end }}
                     {{- end }}
                   {{- end }}
                 {{- end }}
@@ -56,8 +57,8 @@
               <ul class="category-tree">
                 {{- range .Categories }}
                 <li class="category-tree-item">
-                  <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                    <input type="checkbox" class="category-checkbox" {{ if eq $.SelectedCategoryID .Id }}checked{{ end }} />
+                  <div class="category-item {{ if contains $.SelectedCategoryIDs .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                    <input type="checkbox" class="category-checkbox" {{ if contains $.SelectedCategoryIDs .Id }}checked{{ end }} />
                     {{- if .Subcategories }}
                     <span class="category-toggle"></span>
                     {{- else }}
@@ -69,8 +70,8 @@
                   <ul class="category-children">
                     {{- range .Subcategories }}
                     <li class="category-tree-item">
-                      <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                        <input type="checkbox" class="category-checkbox" {{ if eq $.SelectedCategoryID .Id }}checked{{ end }} />
+                      <div class="category-item {{ if contains $.SelectedCategoryIDs .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                        <input type="checkbox" class="category-checkbox" {{ if contains $.SelectedCategoryIDs .Id }}checked{{ end }} />
                         {{- if .Subcategories }}
                         <span class="category-toggle"></span>
                         {{- else }}
@@ -82,8 +83,8 @@
                       <ul class="category-children">
                         {{- range .Subcategories }}
                         <li class="category-tree-item">
-                          <div class="category-item {{ if eq $.SelectedCategoryID .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                            <input type="checkbox" class="category-checkbox" {{ if eq $.SelectedCategoryID .Id }}checked{{ end }} />
+                          <div class="category-item {{ if contains $.SelectedCategoryIDs .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                            <input type="checkbox" class="category-checkbox" {{ if contains $.SelectedCategoryIDs .Id }}checked{{ end }} />
                             <span class="category-toggle no-children"></span>
                             <span class="category-name">{{ .Name }}</span>
                           </div>

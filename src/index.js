@@ -1378,9 +1378,8 @@ function initializeCategoryMultiselect() {
     applyBtn.addEventListener('click', function() {
       const categoryIds = Array.from(selectedCategories);
       if (categoryIds.length > 0) {
-        // For now, we'll use the first selected category
-        // You can modify the backend to support multiple categories
-        navigateToBrowse({ category: categoryIds[0], page: '1' });
+        // Send multiple categories as comma-separated values
+        navigateToBrowse({ category: categoryIds.join(','), page: '1' });
       } else {
         navigateToBrowse({ category: '', page: '1' });
       }
