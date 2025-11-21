@@ -114,9 +114,19 @@
   {{- if and .SearchQuery .SelectedCategoryID }}
   {{- $categoryName := "" }}
   {{- range .Categories }}
-  {{- if eq .Id $.SelectedCategoryID }}
-  {{- $categoryName = .Name }}
-  {{- end }}
+    {{- if eq .Id $.SelectedCategoryID }}
+      {{- $categoryName = .Name }}
+    {{- end }}
+    {{- range .Subcategories }}
+      {{- if eq .Id $.SelectedCategoryID }}
+        {{- $categoryName = .Name }}
+      {{- end }}
+      {{- range .Subcategories }}
+        {{- if eq .Id $.SelectedCategoryID }}
+          {{- $categoryName = .Name }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
   {{- end }}
   <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for search "{{ .SearchQuery }}" in category "{{ $categoryName }}"</p>
   {{- else if .SearchQuery }}
@@ -124,9 +134,19 @@
   {{- else if .SelectedCategoryID }}
   {{- $categoryName := "" }}
   {{- range .Categories }}
-  {{- if eq .Id $.SelectedCategoryID }}
-  {{- $categoryName = .Name }}
-  {{- end }}
+    {{- if eq .Id $.SelectedCategoryID }}
+      {{- $categoryName = .Name }}
+    {{- end }}
+    {{- range .Subcategories }}
+      {{- if eq .Id $.SelectedCategoryID }}
+        {{- $categoryName = .Name }}
+      {{- end }}
+      {{- range .Subcategories }}
+        {{- if eq .Id $.SelectedCategoryID }}
+          {{- $categoryName = .Name }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
   {{- end }}
   <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) in category "{{ $categoryName }}"</p>
   {{- else if .SelectedRorID }}
