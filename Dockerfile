@@ -48,6 +48,7 @@ FROM gcr.io/distroless/static:${GO_IMG_TAG}
 COPY --from=gobuilder /eln.community /usr/local/bin/eln.community
 COPY --from=gobuilder /cli /usr/local/bin/cli
 COPY --from=gobuilder /app/src/sql /sql
+COPY --from=gobuilder /app/src/seed/categories.ttl /seed/categories.ttl
 USER nobody:nobody
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/eln.community"]

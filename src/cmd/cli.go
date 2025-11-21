@@ -411,31 +411,26 @@ func seedDatabase(ctx context.Context, db *sql.DB) {
 	categoryRepo := NewPostgresCategoryRepository(db)
 	adminRepo := NewPostgresAdminRepository(db)
 
-	// Seed categories
-	sampleCategories := []string{
-		"Chemistry",
-		"Biology",
-		"Physics",
-		"Materials Science",
-		"Environmental Science",
-	}
+	// Import categories from Turtle file
+	fmt.Println("Importing categories from Turtle file...")
+	categoriesFilePath := "/seed/categories.ttl"
 
-	fmt.Println("Seeding categories...")
-	for _, name := range sampleCategories {
-		category, err := categoryRepo.Create(ctx, name, nil)
-		if err != nil {
-			if err == ErrCategoryAlreadyExists {
-				fmt.Printf("Category '%s' already exists, skipping\n", name)
-				continue
-			}
-			errorLogger.Printf("Failed to create category '%s': %v", name, err)
-			continue
+	// Check if file exists, if not try local path for development
+	if _, err := os.Stat(categoriesFilePath); os.IsNotExist(err) {
+		categoriesFilePath = "src/seed/categories.ttl"
+		if _, err := os.Stat(categoriesFilePath); os.IsNotExist(err) {
+			fmt.Printf("Warning: Categories file not found at /seed/categories.ttl or src/seed/categories.ttl\n")
+			fmt.Println("Skipping category import...")
+		} else {
+			importCategories(ctx, categoryRepo, categoriesFilePath)
 		}
-		fmt.Printf("Created category: %s (ID: %d)\n", category.Name, category.Id)
+	} else {
+		importCategories(ctx, categoryRepo, categoriesFilePath)
 	}
 
+	// Add sample admin ORCID
 	sampleAdminOrcid := "0000-0000-0000-0000"
-	fmt.Printf("Adding sample admin ORCID: %s\n", sampleAdminOrcid)
+	fmt.Printf("\nAdding sample admin ORCID: %s\n", sampleAdminOrcid)
 	_, err := adminRepo.Add(ctx, sampleAdminOrcid)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate") {
@@ -447,7 +442,7 @@ func seedDatabase(ctx context.Context, db *sql.DB) {
 		fmt.Printf("Added admin ORCID: %s\n", sampleAdminOrcid)
 	}
 
-	fmt.Println("Database seeding completed")
+	fmt.Println("\nDatabase seeding completed")
 }
 
 func createMigrator(db *sql.DB) (*migrate.Migrate, error) {
