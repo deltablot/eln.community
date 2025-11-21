@@ -1122,6 +1122,9 @@ function initializeBrowseSearch() {
       }
     });
   }
+  
+  // Handle category multi-select
+  initializeCategoryMultiselect();
 }
 
 // Category search functionality
@@ -1235,6 +1238,178 @@ function filterCategories(searchTerm, container) {
   // Show/hide no results message
   if (noResults) {
     noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+  }
+}
+
+// Initialize category multi-select
+function initializeCategoryMultiselect() {
+  const multiselectInput = document.getElementById('categoryMultiselectInput');
+  const multiselectDropdown = document.getElementById('categoryMultiselectDropdown');
+  const multiselectTags = document.getElementById('categoryMultiselectTags');
+  const multiselectPlaceholder = document.getElementById('categoryMultiselectPlaceholder');
+  
+  if (!multiselectInput || !multiselectDropdown || !multiselectTags) {
+    return; // Not on browse page
+  }
+  
+  // Track selected categories
+  const selectedCategories = new Set();
+  
+  // Initialize with existing selections
+  const existingTags = multiselectTags.querySelectorAll('.category-tag');
+  existingTags.forEach(tag => {
+    const categoryId = tag.getAttribute('data-category-id');
+    if (categoryId) {
+      selectedCategories.add(categoryId);
+    }
+  });
+  
+  // Update placeholder visibility
+  function updatePlaceholder() {
+    if (selectedCategories.size > 0) {
+      multiselectPlaceholder.classList.add('hidden');
+    } else {
+      multiselectPlaceholder.classList.remove('hidden');
+    }
+  }
+  
+  updatePlaceholder();
+  
+  // Toggle dropdown
+  multiselectInput.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const isOpen = !multiselectDropdown.classList.contains('d-none');
+    
+    if (isOpen) {
+      multiselectDropdown.classList.add('d-none');
+      multiselectInput.classList.remove('open');
+    } else {
+      multiselectDropdown.classList.remove('d-none');
+      multiselectInput.classList.add('open');
+    }
+  });
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!multiselectDropdown.contains(e.target) && !multiselectInput.contains(e.target)) {
+      multiselectDropdown.classList.add('d-none');
+      multiselectInput.classList.remove('open');
+    }
+  });
+  
+  // Handle checkbox changes
+  const checkboxes = multiselectDropdown.querySelectorAll('.category-checkbox');
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function(e) {
+      e.stopPropagation();
+      const categoryItem = this.closest('.category-item');
+      const categoryId = categoryItem.getAttribute('data-category-id');
+      const categoryName = categoryItem.getAttribute('data-category-name');
+      
+      if (this.checked) {
+        // Add category
+        selectedCategories.add(categoryId);
+        addCategoryTag(categoryId, categoryName);
+        categoryItem.classList.add('active');
+      } else {
+        // Remove category
+        selectedCategories.delete(categoryId);
+        removeCategoryTag(categoryId);
+        categoryItem.classList.remove('active');
+      }
+      
+      updatePlaceholder();
+    });
+  });
+  
+  // Handle tag removal
+  multiselectTags.addEventListener('click', function(e) {
+    if (e.target.classList.contains('category-tag-remove')) {
+      e.stopPropagation();
+      const tag = e.target.closest('.category-tag');
+      const categoryId = tag.getAttribute('data-category-id');
+      
+      // Remove from selected set
+      selectedCategories.delete(categoryId);
+      
+      // Remove tag
+      tag.remove();
+      
+      // Uncheck checkbox
+      const checkbox = multiselectDropdown.querySelector(`.category-item[data-category-id="${categoryId}"] .category-checkbox`);
+      if (checkbox) {
+        checkbox.checked = false;
+        checkbox.closest('.category-item').classList.remove('active');
+      }
+      
+      updatePlaceholder();
+    }
+  });
+  
+  // Add category tag
+  function addCategoryTag(categoryId, categoryName) {
+    // Check if already exists
+    if (multiselectTags.querySelector(`[data-category-id="${categoryId}"]`)) {
+      return;
+    }
+    
+    const tag = document.createElement('span');
+    tag.className = 'category-tag';
+    tag.setAttribute('data-category-id', categoryId);
+    tag.innerHTML = `
+      <span class="category-tag-text">${escapeHtml(categoryName)}</span>
+      <span class="category-tag-remove">×</span>
+    `;
+    
+    multiselectTags.appendChild(tag);
+  }
+  
+  // Remove category tag
+  function removeCategoryTag(categoryId) {
+    const tag = multiselectTags.querySelector(`[data-category-id="${categoryId}"]`);
+    if (tag) {
+      tag.remove();
+    }
+  }
+  
+  // Apply filters button
+  const applyBtn = document.getElementById('categoryApplyBtn');
+  if (applyBtn) {
+    applyBtn.addEventListener('click', function() {
+      const categoryIds = Array.from(selectedCategories);
+      if (categoryIds.length > 0) {
+        // For now, we'll use the first selected category
+        // You can modify the backend to support multiple categories
+        navigateToBrowse({ category: categoryIds[0], page: '1' });
+      } else {
+        navigateToBrowse({ category: '', page: '1' });
+      }
+    });
+  }
+  
+  // Clear all button
+  const clearBtn = document.getElementById('categoryClearBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      // Clear all selections
+      selectedCategories.clear();
+      
+      // Remove all tags
+      multiselectTags.innerHTML = '';
+      
+      // Uncheck all checkboxes
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        checkbox.closest('.category-item').classList.remove('active');
+      });
+      
+      updatePlaceholder();
+      
+      // Navigate to clear filters
+      navigateToBrowse({ category: '', page: '1' });
+    });
   }
 }
 
