@@ -887,6 +887,7 @@ footer {
     cursor: pointer;
     width: 16px;
     height: 16px;
+    margin-top: 14px;
     flex-shrink: 0;
 }
 
