@@ -84,14 +84,11 @@ func (r *PostgresCategoryRepository) GetAllHierarchical(ctx context.Context) ([]
 		allCategories[i].Subcategories = []Category{}
 	}
 
-	// Build the tree structure
-	var rootCategories []Category
+	// Build the tree structure by adding children to parents
+	// We need to do this in a way that preserves references
 	for i := range allCategories {
 		cat := &allCategories[i]
-		if cat.ParentId == nil {
-			// Root level category
-			rootCategories = append(rootCategories, *cat)
-		} else {
+		if cat.ParentId != nil {
 			// Add to parent's subcategories
 			if parent, exists := categoryMap[*cat.ParentId]; exists {
 				parent.Subcategories = append(parent.Subcategories, *cat)
@@ -99,10 +96,30 @@ func (r *PostgresCategoryRepository) GetAllHierarchical(ctx context.Context) ([]
 		}
 	}
 
-	// Update root categories with their populated subcategories
-	for i := range rootCategories {
-		if cat, exists := categoryMap[rootCategories[i].Id]; exists {
-			rootCategories[i].Subcategories = cat.Subcategories
+	// Now we need to recursively copy the subcategories to ensure all levels are populated
+	var copyCategory func(*Category) Category
+	copyCategory = func(cat *Category) Category {
+		result := *cat
+		result.Subcategories = []Category{}
+
+		// Get the category from the map to get its populated subcategories
+		if mapCat, exists := categoryMap[cat.Id]; exists {
+			for i := range mapCat.Subcategories {
+				// Recursively copy each subcategory
+				result.Subcategories = append(result.Subcategories, copyCategory(&mapCat.Subcategories[i]))
+			}
+		}
+
+		return result
+	}
+
+	// Build root categories with full hierarchy
+	var rootCategories []Category
+	for i := range allCategories {
+		cat := &allCategories[i]
+		if cat.ParentId == nil {
+			// Root level category - copy with full hierarchy
+			rootCategories = append(rootCategories, copyCategory(cat))
 		}
 	}
 
