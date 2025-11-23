@@ -751,11 +751,6 @@ footer {
     min-height: 2rem;
 }
 
-/* Browse page layout */
-.browse-search-filter-container {
-    padding: 1.5rem;
-}
-
 /* Category Multi-Select Component */
 .category-multiselect {
     position: relative;
