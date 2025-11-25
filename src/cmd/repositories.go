@@ -17,6 +17,7 @@ var (
 type Category struct {
 	Id         int64
 	Name       string
+	ParentId   *int64
 	CreatedAt  time.Time
 	ModifiedAt time.Time
 }
@@ -31,8 +32,9 @@ type Admin struct {
 type CategoryRepository interface {
 	GetAll(ctx context.Context) ([]Category, error)
 	GetByID(ctx context.Context, id int64) (*Category, error)
-	Create(ctx context.Context, name string) (*Category, error)
-	Update(ctx context.Context, id int64, name string) (*Category, error)
+	GetByName(ctx context.Context, name string) (*Category, error)
+	Create(ctx context.Context, name string, parentID *int64) (*Category, error)
+	Update(ctx context.Context, id int64, name string, parentID *int64) (*Category, error)
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -57,7 +59,7 @@ func NewPostgresCategoryRepository(db *sql.DB) *PostgresCategoryRepository {
 // GetAll retrieves all categories
 func (r *PostgresCategoryRepository) GetAll(ctx context.Context) ([]Category, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, created_at, modified_at 
+		SELECT id, name, parent_id, created_at, modified_at 
 		FROM categories 
 		ORDER BY name
 	`)
@@ -69,7 +71,7 @@ func (r *PostgresCategoryRepository) GetAll(ctx context.Context) ([]Category, er
 	var categories []Category
 	for rows.Next() {
 		var c Category
-		if err := rows.Scan(&c.Id, &c.Name, &c.CreatedAt, &c.ModifiedAt); err != nil {
+		if err := rows.Scan(&c.Id, &c.Name, &c.ParentId, &c.CreatedAt, &c.ModifiedAt); err != nil {
 			return nil, err
 		}
 		categories = append(categories, c)
@@ -86,10 +88,29 @@ func (r *PostgresCategoryRepository) GetAll(ctx context.Context) ([]Category, er
 func (r *PostgresCategoryRepository) GetByID(ctx context.Context, id int64) (*Category, error) {
 	var category Category
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, name, created_at, modified_at 
+		SELECT id, name, parent_id, created_at, modified_at 
 		FROM categories 
 		WHERE id = $1
-	`, id).Scan(&category.Id, &category.Name, &category.CreatedAt, &category.ModifiedAt)
+	`, id).Scan(&category.Id, &category.Name, &category.ParentId, &category.CreatedAt, &category.ModifiedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrCategoryNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &category, nil
+}
+
+// GetByName retrieves a category by its name
+func (r *PostgresCategoryRepository) GetByName(ctx context.Context, name string) (*Category, error) {
+	var category Category
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, name, parent_id, created_at, modified_at 
+		FROM categories 
+		WHERE name = $1
+	`, name).Scan(&category.Id, &category.Name, &category.ParentId, &category.CreatedAt, &category.ModifiedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrCategoryNotFound
@@ -102,13 +123,13 @@ func (r *PostgresCategoryRepository) GetByID(ctx context.Context, id int64) (*Ca
 }
 
 // Create creates a new category
-func (r *PostgresCategoryRepository) Create(ctx context.Context, name string) (*Category, error) {
+func (r *PostgresCategoryRepository) Create(ctx context.Context, name string, parentID *int64) (*Category, error) {
 	var category Category
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO categories (name) 
-		VALUES ($1) 
-		RETURNING id, name, created_at, modified_at
-	`, name).Scan(&category.Id, &category.Name, &category.CreatedAt, &category.ModifiedAt)
+		INSERT INTO categories (name, parent_id) 
+		VALUES ($1, $2) 
+		RETURNING id, name, parent_id, created_at, modified_at
+	`, name, parentID).Scan(&category.Id, &category.Name, &category.ParentId, &category.CreatedAt, &category.ModifiedAt)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "unique") {
@@ -121,14 +142,14 @@ func (r *PostgresCategoryRepository) Create(ctx context.Context, name string) (*
 }
 
 // Update updates an existing category
-func (r *PostgresCategoryRepository) Update(ctx context.Context, id int64, name string) (*Category, error) {
+func (r *PostgresCategoryRepository) Update(ctx context.Context, id int64, name string, parentID *int64) (*Category, error) {
 	var category Category
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE categories 
-		SET name = $1 
-		WHERE id = $2 
-		RETURNING id, name, created_at, modified_at
-	`, name, id).Scan(&category.Id, &category.Name, &category.CreatedAt, &category.ModifiedAt)
+		SET name = $1, parent_id = $2 
+		WHERE id = $3 
+		RETURNING id, name, parent_id, created_at, modified_at
+	`, name, parentID, id).Scan(&category.Id, &category.Name, &category.ParentId, &category.CreatedAt, &category.ModifiedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrCategoryNotFound

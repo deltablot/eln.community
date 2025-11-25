@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 )
 
 var (
@@ -14,6 +16,7 @@ var (
 type RecordRepository interface {
 	GetAllPaginated(ctx context.Context, limit, offset int) ([]Record, int, error)
 	GetAllByCategoryPaginated(ctx context.Context, categoryID int64, limit, offset int) ([]Record, int, error)
+	GetAllByCategoriesPaginated(ctx context.Context, categoryIDs []int64, limit, offset int) ([]Record, int, error)
 	GetAllByRorIDPaginated(ctx context.Context, rorID string, limit, offset int) ([]Record, int, error)
 	GetAllByOrcidPaginated(ctx context.Context, orcid string, limit, offset int) ([]Record, int, error)
 	SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int) ([]Record, int, error)
@@ -204,6 +207,92 @@ func (r *PostgresRecordRepository) GetAllByCategoryPaginated(ctx context.Context
 		ORDER BY r.created_at DESC
 		LIMIT $2 OFFSET $3
 	`, categoryID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var records []Record
+	for rows.Next() {
+		var record Record
+		if err := rows.Scan(
+			&record.Id,
+			&record.Sha256,
+			&record.Name,
+			&record.Metadata,
+			&record.CreatedAt,
+			&record.ModifiedAt,
+			&record.UploaderName,
+			&record.UploaderOrcid,
+		); err != nil {
+			return nil, 0, err
+		}
+
+		// Get categories for this record
+		categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
+		if err != nil {
+			return nil, 0, err
+		}
+		record.Categories = categories
+
+		// Get ROR IDs for this record
+		rorIds, err := r.rorRepo.GetRecordRorIds(ctx, record.Id)
+		if err != nil {
+			return nil, 0, err
+		}
+		record.RorIds = rorIds
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return records, totalCount, nil
+}
+
+// GetAllByCategoriesPaginated retrieves records filtered by multiple categories with pagination
+func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Context, categoryIDs []int64, limit, offset int) ([]Record, int, error) {
+	if len(categoryIDs) == 0 {
+		return r.GetAllPaginated(ctx, limit, offset)
+	}
+
+	// Build the query with placeholders for multiple category IDs
+	placeholders := make([]string, len(categoryIDs))
+	args := make([]interface{}, len(categoryIDs))
+	for i, id := range categoryIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+	inClause := strings.Join(placeholders, ",")
+
+	// Get total count
+	var totalCount int
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(DISTINCT r.id)
+		FROM records r
+		JOIN records_categories rc ON r.id = rc.record_id
+		WHERE rc.category_id IN (%s)
+	`, inClause)
+
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get records
+	selectQuery := fmt.Sprintf(`
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
+		FROM records r
+		JOIN records_categories rc ON r.id = rc.record_id
+		WHERE rc.category_id IN (%s)
+		ORDER BY r.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, inClause, len(categoryIDs)+1, len(categoryIDs)+2)
+
+	queryArgs := append(args, limit, offset)
+	rows, err := r.db.QueryContext(ctx, selectQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}

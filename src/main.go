@@ -59,10 +59,12 @@ type Record struct {
 }
 
 type Category struct {
-	Id         int64
-	Name       string
-	CreatedAt  time.Time
-	ModifiedAt time.Time
+	Id            int64      `json:"id"`
+	Name          string     `json:"name"`
+	ParentId      *int64     `json:"parent_id,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	ModifiedAt    time.Time  `json:"modified_at"`
+	Subcategories []Category `json:"subcategories,omitempty"`
 }
 
 type User struct {
@@ -229,7 +231,7 @@ func newS3Client() (*s3.Client, error) {
 func getCategories(ctx context.Context) ([]Category, error) {
 	// Use the global category repository for backward compatibility
 	categoryRepo := NewPostgresCategoryRepository(db)
-	return categoryRepo.GetAll(ctx)
+	return categoryRepo.GetAllHierarchical(ctx)
 }
 
 func getAbout(w http.ResponseWriter, r *http.Request) {

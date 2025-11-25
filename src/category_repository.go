@@ -15,10 +15,12 @@ var (
 // CategoryRepository defines the interface for category data operations
 type CategoryRepository interface {
 	GetAll(ctx context.Context) ([]Category, error)
+	GetAllHierarchical(ctx context.Context) ([]Category, error)
 	GetByID(ctx context.Context, id int64) (*Category, error)
-	Create(ctx context.Context, name string) (*Category, error)
-	Update(ctx context.Context, id int64, name string) (*Category, error)
+	Create(ctx context.Context, name string, parentID *int64) (*Category, error)
+	Update(ctx context.Context, id int64, name string, parentID *int64) (*Category, error)
 	Delete(ctx context.Context, id int64) error
+	GetSubcategories(ctx context.Context, parentID int64) ([]Category, error)
 	// Record-category association methods
 	AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error
 	GetRecordCategories(ctx context.Context, recordID string) ([]Category, error)
@@ -39,10 +41,10 @@ func NewPostgresCategoryRepository(db *sql.DB) *PostgresCategoryRepository {
 	return &PostgresCategoryRepository{db: db}
 }
 
-// GetAll retrieves all categories
+// GetAll retrieves all categories (flat list)
 func (r *PostgresCategoryRepository) GetAll(ctx context.Context) ([]Category, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, created_at, modified_at 
+		SELECT id, name, parent_id, created_at, modified_at 
 		FROM categories 
 		ORDER BY name
 	`)
@@ -54,7 +56,7 @@ func (r *PostgresCategoryRepository) GetAll(ctx context.Context) ([]Category, er
 	var categories []Category
 	for rows.Next() {
 		var c Category
-		if err := rows.Scan(&c.Id, &c.Name, &c.CreatedAt, &c.ModifiedAt); err != nil {
+		if err := rows.Scan(&c.Id, &c.Name, &c.ParentId, &c.CreatedAt, &c.ModifiedAt); err != nil {
 			return nil, err
 		}
 		categories = append(categories, c)
@@ -67,14 +69,96 @@ func (r *PostgresCategoryRepository) GetAll(ctx context.Context) ([]Category, er
 	return categories, nil
 }
 
+// GetAllHierarchical retrieves all categories organized in a tree structure
+func (r *PostgresCategoryRepository) GetAllHierarchical(ctx context.Context) ([]Category, error) {
+	// Get all categories
+	allCategories, err := r.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build a map for quick lookup
+	categoryMap := make(map[int64]*Category)
+	for i := range allCategories {
+		categoryMap[allCategories[i].Id] = &allCategories[i]
+		allCategories[i].Subcategories = []Category{}
+	}
+
+	// Build the tree structure by adding children to parents
+	// We need to do this in a way that preserves references
+	for i := range allCategories {
+		cat := &allCategories[i]
+		if cat.ParentId != nil {
+			// Add to parent's subcategories
+			if parent, exists := categoryMap[*cat.ParentId]; exists {
+				parent.Subcategories = append(parent.Subcategories, *cat)
+			}
+		}
+	}
+
+	// Now we need to recursively copy the subcategories to ensure all levels are populated
+	var copyCategory func(*Category) Category
+	copyCategory = func(cat *Category) Category {
+		result := *cat
+		result.Subcategories = []Category{}
+
+		// Get the category from the map to get its populated subcategories
+		if mapCat, exists := categoryMap[cat.Id]; exists {
+			for i := range mapCat.Subcategories {
+				// Recursively copy each subcategory
+				result.Subcategories = append(result.Subcategories, copyCategory(&mapCat.Subcategories[i]))
+			}
+		}
+
+		return result
+	}
+
+	// Build root categories with full hierarchy
+	var rootCategories []Category
+	for i := range allCategories {
+		cat := &allCategories[i]
+		if cat.ParentId == nil {
+			// Root level category - copy with full hierarchy
+			rootCategories = append(rootCategories, copyCategory(cat))
+		}
+	}
+
+	return rootCategories, nil
+}
+
+// GetSubcategories retrieves all direct children of a category
+func (r *PostgresCategoryRepository) GetSubcategories(ctx context.Context, parentID int64) ([]Category, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, name, parent_id, created_at, modified_at 
+		FROM categories 
+		WHERE parent_id = $1
+		ORDER BY name
+	`, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []Category
+	for rows.Next() {
+		var c Category
+		if err := rows.Scan(&c.Id, &c.Name, &c.ParentId, &c.CreatedAt, &c.ModifiedAt); err != nil {
+			return nil, err
+		}
+		categories = append(categories, c)
+	}
+
+	return categories, rows.Err()
+}
+
 // GetByID retrieves a category by its ID
 func (r *PostgresCategoryRepository) GetByID(ctx context.Context, id int64) (*Category, error) {
 	var category Category
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, name, created_at, modified_at 
+		SELECT id, name, parent_id, created_at, modified_at 
 		FROM categories 
 		WHERE id = $1
-	`, id).Scan(&category.Id, &category.Name, &category.CreatedAt, &category.ModifiedAt)
+	`, id).Scan(&category.Id, &category.Name, &category.ParentId, &category.CreatedAt, &category.ModifiedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrCategoryNotFound
@@ -87,13 +171,13 @@ func (r *PostgresCategoryRepository) GetByID(ctx context.Context, id int64) (*Ca
 }
 
 // Create creates a new category
-func (r *PostgresCategoryRepository) Create(ctx context.Context, name string) (*Category, error) {
+func (r *PostgresCategoryRepository) Create(ctx context.Context, name string, parentID *int64) (*Category, error) {
 	var category Category
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO categories (name) 
-		VALUES ($1) 
-		RETURNING id, name, created_at, modified_at
-	`, name).Scan(&category.Id, &category.Name, &category.CreatedAt, &category.ModifiedAt)
+		INSERT INTO categories (name, parent_id) 
+		VALUES ($1, $2) 
+		RETURNING id, name, parent_id, created_at, modified_at
+	`, name, parentID).Scan(&category.Id, &category.Name, &category.ParentId, &category.CreatedAt, &category.ModifiedAt)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "unique") {
@@ -106,14 +190,14 @@ func (r *PostgresCategoryRepository) Create(ctx context.Context, name string) (*
 }
 
 // Update updates an existing category
-func (r *PostgresCategoryRepository) Update(ctx context.Context, id int64, name string) (*Category, error) {
+func (r *PostgresCategoryRepository) Update(ctx context.Context, id int64, name string, parentID *int64) (*Category, error) {
 	var category Category
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE categories 
-		SET name = $1 
-		WHERE id = $2 
-		RETURNING id, name, created_at, modified_at
-	`, name, id).Scan(&category.Id, &category.Name, &category.CreatedAt, &category.ModifiedAt)
+		SET name = $1, parent_id = $2 
+		WHERE id = $3 
+		RETURNING id, name, parent_id, created_at, modified_at
+	`, name, parentID, id).Scan(&category.Id, &category.Name, &category.ParentId, &category.CreatedAt, &category.ModifiedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrCategoryNotFound
@@ -184,7 +268,7 @@ func (r *PostgresCategoryRepository) AssociateCategoryWithRecord(ctx context.Con
 // GetRecordCategories retrieves all categories associated with a specific record
 func (r *PostgresCategoryRepository) GetRecordCategories(ctx context.Context, recordID string) ([]Category, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT c.id, c.name, c.created_at, c.modified_at
+		SELECT c.id, c.name, c.parent_id, c.created_at, c.modified_at
 		FROM categories c
 		JOIN records_categories rc ON c.id = rc.category_id
 		WHERE rc.record_id = $1
@@ -198,7 +282,7 @@ func (r *PostgresCategoryRepository) GetRecordCategories(ctx context.Context, re
 	var categories []Category
 	for rows.Next() {
 		var cat Category
-		if err := rows.Scan(&cat.Id, &cat.Name, &cat.CreatedAt, &cat.ModifiedAt); err != nil {
+		if err := rows.Scan(&cat.Id, &cat.Name, &cat.ParentId, &cat.CreatedAt, &cat.ModifiedAt); err != nil {
 			return nil, err
 		}
 		categories = append(categories, cat)

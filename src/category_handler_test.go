@@ -40,6 +40,21 @@ func (m *MockCategoryRepository) GetAll(ctx context.Context) ([]Category, error)
 	return categories, nil
 }
 
+func (m *MockCategoryRepository) GetAllHierarchical(ctx context.Context) ([]Category, error) {
+	// For mock, just return flat list
+	return m.GetAll(ctx)
+}
+
+func (m *MockCategoryRepository) GetSubcategories(ctx context.Context, parentID int64) ([]Category, error) {
+	var subcategories []Category
+	for _, cat := range m.categories {
+		if cat.ParentId != nil && *cat.ParentId == parentID {
+			subcategories = append(subcategories, *cat)
+		}
+	}
+	return subcategories, nil
+}
+
 func (m *MockCategoryRepository) GetByID(ctx context.Context, id int64) (*Category, error) {
 	if cat, exists := m.categories[id]; exists {
 		return cat, nil
@@ -47,7 +62,7 @@ func (m *MockCategoryRepository) GetByID(ctx context.Context, id int64) (*Catego
 	return nil, ErrCategoryNotFound
 }
 
-func (m *MockCategoryRepository) Create(ctx context.Context, name string) (*Category, error) {
+func (m *MockCategoryRepository) Create(ctx context.Context, name string, parentID *int64) (*Category, error) {
 	// Check for duplicate names
 	for _, cat := range m.categories {
 		if cat.Name == name {
@@ -58,6 +73,7 @@ func (m *MockCategoryRepository) Create(ctx context.Context, name string) (*Cate
 	category := &Category{
 		Id:         m.nextID,
 		Name:       name,
+		ParentId:   parentID,
 		CreatedAt:  time.Now(),
 		ModifiedAt: time.Now(),
 	}
@@ -66,7 +82,7 @@ func (m *MockCategoryRepository) Create(ctx context.Context, name string) (*Cate
 	return category, nil
 }
 
-func (m *MockCategoryRepository) Update(ctx context.Context, id int64, name string) (*Category, error) {
+func (m *MockCategoryRepository) Update(ctx context.Context, id int64, name string, parentID *int64) (*Category, error) {
 	if _, exists := m.categories[id]; !exists {
 		return nil, ErrCategoryNotFound
 	}
@@ -80,6 +96,7 @@ func (m *MockCategoryRepository) Update(ctx context.Context, id int64, name stri
 
 	category := m.categories[id]
 	category.Name = name
+	category.ParentId = parentID
 	category.ModifiedAt = time.Now()
 	return category, nil
 }
@@ -118,8 +135,8 @@ func TestCategoryHandler_GetCategories(t *testing.T) {
 	handler := NewCategoryHandler(mockCategoryRepo, mockAdminRepo)
 
 	// Add test data
-	mockCategoryRepo.Create(context.Background(), "Chemistry")
-	mockCategoryRepo.Create(context.Background(), "Physics")
+	mockCategoryRepo.Create(context.Background(), "Chemistry", nil)
+	mockCategoryRepo.Create(context.Background(), "Physics", nil)
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/v1/categories", nil)
@@ -150,7 +167,7 @@ func TestCategoryHandler_GetCategory(t *testing.T) {
 	handler := NewCategoryHandler(mockCategoryRepo, mockAdminRepo)
 
 	// Add test data
-	_, _ = mockCategoryRepo.Create(context.Background(), "Chemistry")
+	_, _ = mockCategoryRepo.Create(context.Background(), "Chemistry", nil)
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/v1/categories/1", nil)
@@ -233,7 +250,7 @@ func TestCategoryHandler_CreateCategory_DuplicateName(t *testing.T) {
 	handler := NewCategoryHandler(mockCategoryRepo, mockAdminRepo)
 
 	// Add existing category
-	mockCategoryRepo.Create(context.Background(), "Chemistry")
+	mockCategoryRepo.Create(context.Background(), "Chemistry", nil)
 
 	// Create request body with duplicate name
 	reqBody := map[string]string{"name": "Chemistry"}

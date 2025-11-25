@@ -4,47 +4,165 @@
 </div>
 
 <!-- Search and Filter Section -->
-<form method="get" action="/browse" id="searchForm">
-    <div class="mb-3">
-      <input type="text" name="q" class="form-control" placeholder="Search by name, tags, ROR organizations, ORCID, or .eln content..." value="{{ .SearchQuery }}" />
-      <button class="btn btn-primary" type="submit">Search</button>
-    </div>
-
+<div id="browseContainer">
     <div class="row g-3 mb-3">
-      <div class="col-md-6">
-        <label for="category" class="form-label">Category</label>
-        <select name="category" id="category" class="form-select">
-          <option value="">All categories</option>
-          {{- range .Categories }}
-          <option value="{{ .Id }}" {{ if eq $.SelectedCategoryID .Id }}selected{{ end }}>{{ .Name }}</option>
-          {{- end }}
-        </select>
-      </div>
-      <div class="col-md-6">
-        <label for="ror" class="form-label">Organization (ROR)</label>
-        <input type="text" name="ror" id="ror" class="form-control" placeholder="Filter by ROR ID..." value="{{ .SelectedRorID }}" />
-      </div>
-    </div>
+      <!-- Left Column: Category Multi-Select -->
+      <div class="col-md-4 position-relative">
+        <label class="form-label">Categories</label>
+        
+        <!-- Multi-Select Input -->
+        <div class="category-multiselect" id="categoryMultiselect">
+          <div class="category-multiselect-input" id="categoryMultiselectInput">
+            <!-- Selected categories will appear here as badges -->
+            <div class="category-multiselect-tags" id="categoryMultiselectTags">
+              {{- if $.SelectedCategoryIDs }}
+              {{- range $selectedId := $.SelectedCategoryIDs }}
+                {{- range $.Categories }}
+                  {{- if eq .Id $selectedId }}
+                  <span class="category-tag" data-category-id="{{ .Id }}">
+                    <span class="category-tag-text">{{ .Name }}</span>
+                    <span class="category-tag-remove">×</span>
+                  </span>
+                  {{- end }}
+                  {{- range .Subcategories }}
+                    {{- if eq .Id $selectedId }}
+                    <span class="category-tag" data-category-id="{{ .Id }}">
+                      <span class="category-tag-text">{{ .Name }}</span>
+                      <span class="category-tag-remove">×</span>
+                    </span>
+                    {{- end }}
+                    {{- range .Subcategories }}
+                      {{- if eq .Id $selectedId }}
+                      <span class="category-tag" data-category-id="{{ .Id }}">
+                        <span class="category-tag-text">{{ .Name }}</span>
+                        <span class="category-tag-remove">×</span>
+                      </span>
+                      {{- end }}
+                    {{- end }}
+                  {{- end }}
+                {{- end }}
+              {{- end }}
+              {{- end }}
+            </div>
+            <span class="category-multiselect-placeholder" id="categoryMultiselectPlaceholder">Select categories...</span>
+            <span class="category-multiselect-arrow">▼</span>
+          </div>
 
-    <!-- Clear Filters -->
-    {{- if or .SelectedCategoryID .SearchQuery .SelectedRorID }}
-    <div>
-      <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear all filters</a>
+          <!-- Dropdown Panel -->
+          <div class="category-multiselect-dropdown d-none" id="categoryMultiselectDropdown">
+            <div class="category-multiselect-search">
+              <input type="text" class="form-control form-control-sm" id="browse-category-search" placeholder="Search categories..." />
+            </div>
+            <div class="category-multiselect-options" id="browse-category-tree">
+              <ul class="category-tree">
+                {{- range .Categories }}
+                <li class="category-tree-item">
+                  <div class="category-item {{ if contains $.SelectedCategoryIDs .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                    <input type="checkbox" class="category-checkbox" {{ if contains $.SelectedCategoryIDs .Id }}checked{{ end }} />
+                    {{- if .Subcategories }}
+                    <span class="category-toggle"></span>
+                    {{- else }}
+                    <span class="category-toggle no-children"></span>
+                    {{- end }}
+                    <span class="category-name">{{ .Name }}</span>
+                  </div>
+                  {{- if .Subcategories }}
+                  <ul class="category-children">
+                    {{- range .Subcategories }}
+                    <li class="category-tree-item">
+                      <div class="category-item {{ if contains $.SelectedCategoryIDs .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                        <input type="checkbox" class="category-checkbox" {{ if contains $.SelectedCategoryIDs .Id }}checked{{ end }} />
+                        {{- if .Subcategories }}
+                        <span class="category-toggle"></span>
+                        {{- else }}
+                        <span class="category-toggle no-children"></span>
+                        {{- end }}
+                        <span class="category-name">{{ .Name }}</span>
+                      </div>
+                      {{- if .Subcategories }}
+                      <ul class="category-children">
+                        {{- range .Subcategories }}
+                        <li class="category-tree-item">
+                          <div class="category-item {{ if contains $.SelectedCategoryIDs .Id }}active{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                            <input type="checkbox" class="category-checkbox" {{ if contains $.SelectedCategoryIDs .Id }}checked{{ end }} />
+                            <span class="category-toggle no-children"></span>
+                            <span class="category-name">{{ .Name }}</span>
+                          </div>
+                        </li>
+                        {{- end }}
+                      </ul>
+                      {{- end }}
+                    </li>
+                    {{- end }}
+                  </ul>
+                  {{- end }}
+                </li>
+                {{- end }}
+              </ul>
+            </div>
+            <div class="category-multiselect-footer">
+              <button type="button" class="btn btn-primary btn-sm" id="categoryApplyBtn">Apply Filters</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="categoryClearBtn">Clear All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Search and Filter -->
+      <div class="col-md-8">
+        <div class="browse-search-filter-container">
+          <label class="form-label">Search and Filter</label>
+          
+          <!-- Search Box -->
+          <div class="row">
+            <div CLASS="col-md-10">
+              <input type="text" id="searchInput" class="form-control" placeholder="Search by name, tags, ROR organizations, ORCID, or .eln content..." value="{{ .SearchQuery }}" />
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-primary" type="button" id="searchButton">Search</button>
+            </div>
+          </div>
+
+          <!-- ROR Filter -->
+          <div class="mb-3 row">
+            <div class="col-md-6">
+              <label for="rorInput" class="form-label">Organization (ROR)</label>
+              <input type="text" id="rorInput" class="form-control" placeholder="Filter by ROR ID..." value="{{ .SelectedRorID }}" />
+            </div>
+          </div>
+
+          <!-- Clear Filters -->
+          {{- if or .SelectedCategoryID .SearchQuery .SelectedRorID }}
+          <div class="mb-3">
+            <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear all filters</a>
+          </div>
+          {{- end }}
+        </div>
+      </div>
     </div>
-    {{- end }}
     
     <!-- Hidden fields to preserve pagination -->
-    <input type="hidden" name="page" value="{{ .Page }}" id="pageInput" />
-    <input type="hidden" name="pageSize" value="{{ .PageSize }}" id="pageSizeInput" />
-</form>
+    <input type="hidden" id="pageInput" value="{{ .Page }}" />
+    <input type="hidden" id="pageSizeInput" value="{{ .PageSize }}" />
+</div>
 
 <div class="mb-2">
   {{- if and .SearchQuery .SelectedCategoryID }}
   {{- $categoryName := "" }}
   {{- range .Categories }}
-  {{- if eq .Id $.SelectedCategoryID }}
-  {{- $categoryName = .Name }}
-  {{- end }}
+    {{- if eq .Id $.SelectedCategoryID }}
+      {{- $categoryName = .Name }}
+    {{- end }}
+    {{- range .Subcategories }}
+      {{- if eq .Id $.SelectedCategoryID }}
+        {{- $categoryName = .Name }}
+      {{- end }}
+      {{- range .Subcategories }}
+        {{- if eq .Id $.SelectedCategoryID }}
+          {{- $categoryName = .Name }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
   {{- end }}
   <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) for search "{{ .SearchQuery }}" in category "{{ $categoryName }}"</p>
   {{- else if .SearchQuery }}
@@ -52,9 +170,19 @@
   {{- else if .SelectedCategoryID }}
   {{- $categoryName := "" }}
   {{- range .Categories }}
-  {{- if eq .Id $.SelectedCategoryID }}
-  {{- $categoryName = .Name }}
-  {{- end }}
+    {{- if eq .Id $.SelectedCategoryID }}
+      {{- $categoryName = .Name }}
+    {{- end }}
+    {{- range .Subcategories }}
+      {{- if eq .Id $.SelectedCategoryID }}
+        {{- $categoryName = .Name }}
+      {{- end }}
+      {{- range .Subcategories }}
+        {{- if eq .Id $.SelectedCategoryID }}
+          {{- $categoryName = .Name }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
   {{- end }}
   <p class="text-muted mb-0">Showing {{ .TotalCount }} record(s) in category "{{ $categoryName }}"</p>
   {{- else if .SelectedRorID }}

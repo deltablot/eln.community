@@ -126,6 +126,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initialize pagination for browse page
   initializePagination();
 
+  // Initialize browse page search and filter
+  initializeBrowseSearch();
+
   // Format relative timestamps
   formatRelativeTimes();
 });
@@ -1021,13 +1024,7 @@ function initializePagination() {
     link.addEventListener('click', function(e) {
       e.preventDefault();
       const page = this.getAttribute('data-page');
-      const pageInput = document.getElementById('pageInput');
-      const searchForm = document.getElementById('searchForm');
-      
-      if (pageInput && searchForm) {
-        pageInput.value = page;
-        searchForm.submit();
-      }
+      navigateToBrowse({ page: page });
     });
   });
   
@@ -1035,15 +1032,518 @@ function initializePagination() {
   const pageSizeSelect = document.getElementById('pageSizeSelect');
   if (pageSizeSelect) {
     pageSizeSelect.addEventListener('change', function() {
-      const pageSizeInput = document.getElementById('pageSizeInput');
-      const pageInput = document.getElementById('pageInput');
-      const searchForm = document.getElementById('searchForm');
-      
-      if (pageSizeInput && pageInput && searchForm) {
-        pageSizeInput.value = this.value;
-        pageInput.value = '1'; // Reset to first page
-        searchForm.submit();
-      }
+      navigateToBrowse({ pageSize: this.value, page: '1' });
     });
   }
 }
+
+// Navigate to browse page with parameters
+function navigateToBrowse(params = {}) {
+  const url = new URL('/browse', window.location.origin);
+  
+  // Get current values from inputs
+  const searchInput = document.getElementById('searchInput');
+  const rorInput = document.getElementById('rorInput');
+  const pageInput = document.getElementById('pageInput');
+  const pageSizeInput = document.getElementById('pageSizeInput');
+  const selectedCategoryBadge = document.querySelector('#selected-categories-badges .category-badge');
+  
+  // Build query parameters
+  const queryParams = {};
+  
+  // Search query
+  const searchValue = params.q !== undefined ? params.q : (searchInput ? searchInput.value.trim() : '');
+  if (searchValue) {
+    queryParams.q = searchValue;
+  }
+  
+  // Category
+  const categoryId = params.category !== undefined ? params.category : (selectedCategoryBadge ? selectedCategoryBadge.getAttribute('data-category-id') : '');
+  if (categoryId) {
+    queryParams.category = categoryId;
+  }
+  
+  // ROR
+  const rorValue = params.ror !== undefined ? params.ror : (rorInput ? rorInput.value.trim() : '');
+  if (rorValue) {
+    queryParams.ror = rorValue;
+  }
+  
+  // Page
+  const pageValue = params.page !== undefined ? params.page : (pageInput ? pageInput.value : '1');
+  if (pageValue && pageValue !== '1') {
+    queryParams.page = pageValue;
+  }
+  
+  // Page size
+  const pageSizeValue = params.pageSize !== undefined ? params.pageSize : (pageSizeInput ? pageSizeInput.value : '10');
+  if (pageSizeValue && pageSizeValue !== '10') {
+    queryParams.pageSize = pageSizeValue;
+  }
+  
+  // Build URL with query parameters
+  Object.keys(queryParams).forEach(key => {
+    url.searchParams.append(key, queryParams[key]);
+  });
+  
+  // Navigate
+  window.location.href = url.toString();
+}
+
+// Initialize browse page search and filter
+function initializeBrowseSearch() {
+  const searchButton = document.getElementById('searchButton');
+  const searchInput = document.getElementById('searchInput');
+  const rorInput = document.getElementById('rorInput');
+  
+  if (!searchButton || !searchInput) {
+    return; // Not on browse page
+  }
+  
+  // Handle search button click
+  searchButton.addEventListener('click', function() {
+    navigateToBrowse({ page: '1' });
+  });
+  
+  // Handle Enter key in search input
+  searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      navigateToBrowse({ page: '1' });
+    }
+  });
+  
+  // Handle Enter key in ROR input
+  if (rorInput) {
+    rorInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        navigateToBrowse({ page: '1' });
+      }
+    });
+  }
+  
+  // Handle category multi-select
+  initializeCategoryMultiselect();
+}
+
+// Category search functionality
+function initializeCategorySearch() {
+  // Search in browse page
+  const browseSearch = document.getElementById('browse-category-search');
+  if (browseSearch) {
+    const browseTree = document.getElementById('browse-category-tree');
+    browseSearch.addEventListener('input', function() {
+      filterCategories(this.value, browseTree);
+    });
+  }
+
+  // Search in new page dropdown
+  const newSearch = document.getElementById('new-category-search');
+  if (newSearch) {
+    const newDropdown = document.getElementById('category-selector-dropdown');
+    newSearch.addEventListener('input', function() {
+      filterCategories(this.value, newDropdown);
+    });
+  }
+
+  // Search in edit page dropdown
+  const editSearch = document.getElementById('edit-category-search');
+  if (editSearch) {
+    const editDropdown = document.getElementById('category-selector-dropdown');
+    editSearch.addEventListener('input', function() {
+      filterCategories(this.value, editDropdown);
+    });
+  }
+}
+
+function filterCategories(searchTerm, container) {
+  if (!container) return;
+
+  const term = searchTerm.toLowerCase().trim();
+  const allItems = container.querySelectorAll('.category-tree-item');
+  const noResults = container.querySelector('.category-no-results');
+  let visibleCount = 0;
+
+  // Hide no results message if search is empty
+  if (term.length === 0) {
+    // Show all items, collapse all
+    allItems.forEach(item => {
+      item.classList.remove('search-hidden');
+      const categoryItem = item.querySelector('.category-item');
+      const children = item.querySelector(':scope > .category-children');
+      const toggle = item.querySelector('.category-toggle');
+      
+      if (children) {
+        children.classList.remove('expanded');
+        if (toggle) toggle.classList.remove('expanded');
+        if (categoryItem) categoryItem.classList.remove('expanded');
+      }
+    });
+    if (noResults) noResults.style.display = 'none';
+    return;
+  }
+
+  // Filter categories
+  allItems.forEach(item => {
+    const categoryName = item.querySelector('.category-name');
+    if (!categoryName) return;
+
+    const text = categoryName.textContent.toLowerCase();
+    const matches = text.includes(term);
+
+    if (matches) {
+      // Show matching item
+      item.classList.remove('search-hidden');
+      item.classList.add('search-match');
+      visibleCount++;
+
+      // Show all parent items
+      let parent = item.parentElement;
+      while (parent) {
+        if (parent.classList.contains('category-tree-item')) {
+          parent.classList.remove('search-hidden');
+          
+          // Expand parent
+          const parentChildren = parent.querySelector(':scope > .category-children');
+          const parentToggle = parent.querySelector(':scope > .category-item > .category-toggle');
+          const parentItem = parent.querySelector(':scope > .category-item');
+          
+          if (parentChildren) {
+            parentChildren.classList.add('expanded');
+            if (parentToggle) parentToggle.classList.add('expanded');
+            if (parentItem) parentItem.classList.add('expanded');
+          }
+        }
+        parent = parent.parentElement;
+      }
+
+      // Expand children if this item has any
+      const children = item.querySelector(':scope > .category-children');
+      const toggle = item.querySelector('.category-toggle');
+      const categoryItem = item.querySelector('.category-item');
+      
+      if (children) {
+        children.classList.add('expanded');
+        if (toggle) toggle.classList.add('expanded');
+        if (categoryItem) categoryItem.classList.add('expanded');
+      }
+    } else {
+      // Hide non-matching items (will be shown if they're parents of matches)
+      item.classList.add('search-hidden');
+      item.classList.remove('search-match');
+    }
+  });
+
+  // Show/hide no results message
+  if (noResults) {
+    noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+  }
+}
+
+// Initialize category multi-select
+function initializeCategoryMultiselect() {
+  const multiselectInput = document.getElementById('categoryMultiselectInput');
+  const multiselectDropdown = document.getElementById('categoryMultiselectDropdown');
+  const multiselectTags = document.getElementById('categoryMultiselectTags');
+  const multiselectPlaceholder = document.getElementById('categoryMultiselectPlaceholder');
+  
+  if (!multiselectInput || !multiselectDropdown || !multiselectTags) {
+    return; // Not on browse page
+  }
+  
+  // Track selected categories
+  const selectedCategories = new Set();
+  
+  // Initialize with existing selections
+  const existingTags = multiselectTags.querySelectorAll('.category-tag');
+  existingTags.forEach(tag => {
+    const categoryId = tag.getAttribute('data-category-id');
+    if (categoryId) {
+      selectedCategories.add(categoryId);
+    }
+  });
+  
+  // Update placeholder visibility
+  function updatePlaceholder() {
+    if (selectedCategories.size > 0) {
+      multiselectPlaceholder.classList.add('hidden');
+    } else {
+      multiselectPlaceholder.classList.remove('hidden');
+    }
+  }
+  
+  updatePlaceholder();
+  
+  // Toggle dropdown
+  multiselectInput.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const isOpen = !multiselectDropdown.classList.contains('d-none');
+    
+    if (isOpen) {
+      multiselectDropdown.classList.add('d-none');
+      multiselectInput.classList.remove('open');
+    } else {
+      multiselectDropdown.classList.remove('d-none');
+      multiselectInput.classList.add('open');
+    }
+  });
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!multiselectDropdown.contains(e.target) && !multiselectInput.contains(e.target)) {
+      multiselectDropdown.classList.add('d-none');
+      multiselectInput.classList.remove('open');
+    }
+  });
+  
+  // Handle checkbox changes
+  const checkboxes = multiselectDropdown.querySelectorAll('.category-checkbox');
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function(e) {
+      e.stopPropagation();
+      const categoryItem = this.closest('.category-item');
+      const categoryId = categoryItem.getAttribute('data-category-id');
+      const categoryName = categoryItem.getAttribute('data-category-name');
+      
+      if (this.checked) {
+        // Add category
+        selectedCategories.add(categoryId);
+        addCategoryTag(categoryId, categoryName);
+        categoryItem.classList.add('active');
+      } else {
+        // Remove category
+        selectedCategories.delete(categoryId);
+        removeCategoryTag(categoryId);
+        categoryItem.classList.remove('active');
+      }
+      
+      updatePlaceholder();
+    });
+  });
+  
+  // Handle tag removal
+  multiselectTags.addEventListener('click', function(e) {
+    if (e.target.classList.contains('category-tag-remove')) {
+      e.stopPropagation();
+      const tag = e.target.closest('.category-tag');
+      const categoryId = tag.getAttribute('data-category-id');
+      
+      // Remove from selected set
+      selectedCategories.delete(categoryId);
+      
+      // Remove tag
+      tag.remove();
+      
+      // Uncheck checkbox
+      const checkbox = multiselectDropdown.querySelector(`.category-item[data-category-id="${categoryId}"] .category-checkbox`);
+      if (checkbox) {
+        checkbox.checked = false;
+        checkbox.closest('.category-item').classList.remove('active');
+      }
+      
+      updatePlaceholder();
+    }
+  });
+  
+  // Add category tag
+  function addCategoryTag(categoryId, categoryName) {
+    // Check if already exists
+    if (multiselectTags.querySelector(`[data-category-id="${categoryId}"]`)) {
+      return;
+    }
+    
+    const tag = document.createElement('span');
+    tag.className = 'category-tag';
+    tag.setAttribute('data-category-id', categoryId);
+    tag.innerHTML = `
+      <span class="category-tag-text">${escapeHtml(categoryName)}</span>
+      <span class="category-tag-remove">×</span>
+    `;
+    
+    multiselectTags.appendChild(tag);
+  }
+  
+  // Remove category tag
+  function removeCategoryTag(categoryId) {
+    const tag = multiselectTags.querySelector(`[data-category-id="${categoryId}"]`);
+    if (tag) {
+      tag.remove();
+    }
+  }
+  
+  // Apply filters button
+  const applyBtn = document.getElementById('categoryApplyBtn');
+  if (applyBtn) {
+    applyBtn.addEventListener('click', function() {
+      const categoryIds = Array.from(selectedCategories);
+      if (categoryIds.length > 0) {
+        // Send multiple categories as comma-separated values
+        navigateToBrowse({ category: categoryIds.join(','), page: '1' });
+      } else {
+        navigateToBrowse({ category: '', page: '1' });
+      }
+    });
+  }
+  
+  // Clear all button
+  const clearBtn = document.getElementById('categoryClearBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      // Clear all selections
+      selectedCategories.clear();
+      
+      // Remove all tags
+      multiselectTags.innerHTML = '';
+      
+      // Uncheck all checkboxes
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        checkbox.closest('.category-item').classList.remove('active');
+      });
+      
+      updatePlaceholder();
+      
+      // Navigate to clear filters
+      navigateToBrowse({ category: '', page: '1' });
+    });
+  }
+}
+
+// Category Tree functionality
+function initializeCategoryTree() {
+  // Handle toggle clicks for expanding/collapsing
+  document.querySelectorAll('.category-toggle:not(.no-children)').forEach(toggle => {
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      const categoryItem = this.closest('.category-item');
+      const treeItem = this.closest('.category-tree-item');
+      const children = treeItem.querySelector(':scope > .category-children');
+      
+      if (children) {
+        // Toggle expanded state
+        const isExpanded = children.classList.contains('expanded');
+        
+        if (isExpanded) {
+          // Collapse
+          children.classList.remove('expanded');
+          this.classList.remove('expanded');
+          categoryItem.classList.remove('expanded');
+        } else {
+          // Expand
+          children.classList.add('expanded');
+          this.classList.add('expanded');
+          categoryItem.classList.add('expanded');
+        }
+      }
+    });
+  });
+
+  // Handle category selection for browse page (single select with badge UI)
+  const browseCategoryItems = document.querySelectorAll('.category-tree-container .category-item');
+  const selectedCategoriesBadges = document.getElementById('selected-categories-badges');
+  
+  browseCategoryItems.forEach(item => {
+    item.addEventListener('click', function(e) {
+      // Don't trigger if clicking on toggle
+      if (e.target.classList.contains('category-toggle')) {
+        return;
+      }
+      
+      const categoryId = this.getAttribute('data-category-id');
+      const categoryName = this.getAttribute('data-category-name');
+      
+      if (!categoryId || !categoryName) return;
+      
+      // Check if already selected
+      const existingBadge = selectedCategoriesBadges.querySelector(`[data-category-id="${categoryId}"]`);
+      if (existingBadge) {
+        // Remove if already selected (clear filter)
+        navigateToBrowse({ category: '', page: '1' });
+      } else {
+        // Navigate with selected category
+        navigateToBrowse({ category: categoryId, page: '1' });
+      }
+    });
+  });
+  
+  // Handle badge removal
+  if (selectedCategoriesBadges) {
+    selectedCategoriesBadges.addEventListener('click', function(e) {
+      const badge = e.target.closest('.category-badge');
+      if (badge) {
+        // Navigate without category filter
+        navigateToBrowse({ category: '', page: '1' });
+      }
+    });
+  }
+
+  // Handle category selector for forms (new/edit pages)
+  const selectorDisplay = document.getElementById('category-selector-display');
+  const selectorDropdown = document.getElementById('category-selector-dropdown');
+  const selectedCategoryInput = document.getElementById('selected-category-input');
+  const selectedCategoryText = document.getElementById('selected-category-text');
+  
+  if (selectorDisplay && selectorDropdown && selectedCategoryInput && selectedCategoryText) {
+    // Toggle dropdown on click
+    selectorDisplay.addEventListener('click', function(e) {
+      e.stopPropagation();
+      selectorDropdown.classList.toggle('show');
+      selectorDisplay.classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!selectorDropdown.contains(e.target) && e.target !== selectorDisplay) {
+        selectorDropdown.classList.remove('show');
+        selectorDisplay.classList.remove('open');
+      }
+    });
+
+    // Handle category selection in dropdown
+    selectorDropdown.querySelectorAll('.category-selectable').forEach(item => {
+      item.addEventListener('click', function(e) {
+        // Don't select if clicking on toggle
+        if (e.target.classList.contains('category-toggle')) {
+          return;
+        }
+        
+        const categoryId = this.getAttribute('data-category-id');
+        const categoryName = this.getAttribute('data-category-name');
+        
+        // Update hidden input
+        selectedCategoryInput.value = categoryId;
+        
+        // Update display text
+        if (categoryName && categoryName !== 'None') {
+          selectedCategoryText.textContent = categoryName;
+          selectedCategoryText.classList.remove('text-muted');
+        } else {
+          selectedCategoryText.textContent = 'None';
+          selectedCategoryText.classList.add('text-muted');
+        }
+        
+        // Remove active class from all items
+        selectorDropdown.querySelectorAll('.category-item').forEach(i => {
+          i.classList.remove('active');
+        });
+        
+        // Add active class to selected item
+        this.classList.add('active');
+        
+        // Close dropdown
+        selectorDropdown.classList.remove('show');
+        selectorDisplay.classList.remove('open');
+      });
+    });
+  }
+}
+
+// Initialize category tree when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initializeCategoryTree();
+  initializeCategorySearch();
+});

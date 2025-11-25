@@ -46,7 +46,18 @@ func (h *CategoryHandler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 // GetCategories handles GET /api/v1/categories - List all categories
 func (h *CategoryHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.categoryRepo.GetAll(r.Context())
+	// Check if hierarchical view is requested
+	hierarchical := r.URL.Query().Get("hierarchical") == "true"
+
+	var categories []Category
+	var err error
+
+	if hierarchical {
+		categories, err = h.categoryRepo.GetAllHierarchical(r.Context())
+	} else {
+		categories, err = h.categoryRepo.GetAll(r.Context())
+	}
+
 	if err != nil {
 		http.Error(w, "Error fetching categories", http.StatusInternalServerError)
 		return
@@ -88,7 +99,8 @@ func (h *CategoryHandler) GetCategory(w http.ResponseWriter, r *http.Request) {
 // CreateCategory handles POST /api/v1/categories - Create a new category
 func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		ParentId *int64 `json:"parent_id,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -101,7 +113,7 @@ func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	category, err := h.categoryRepo.Create(r.Context(), req.Name)
+	category, err := h.categoryRepo.Create(r.Context(), req.Name, req.ParentId)
 	if err != nil {
 		if errors.Is(err, ErrCategoryAlreadyExists) {
 			http.Error(w, "Category name already exists", http.StatusConflict)
@@ -130,7 +142,8 @@ func (h *CategoryHandler) UpdateCategory(w http.ResponseWriter, r *http.Request)
 	}
 
 	var req struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		ParentId *int64 `json:"parent_id,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -143,7 +156,7 @@ func (h *CategoryHandler) UpdateCategory(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	category, err := h.categoryRepo.Update(r.Context(), id, req.Name)
+	category, err := h.categoryRepo.Update(r.Context(), id, req.Name, req.ParentId)
 	if err != nil {
 		if errors.Is(err, ErrCategoryNotFound) {
 			http.Error(w, "Category not found", http.StatusNotFound)

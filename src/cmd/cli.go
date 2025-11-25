@@ -9,7 +9,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -126,6 +128,18 @@ var categoriesDeleteCmd = &cobra.Command{
 	},
 }
 
+var categoriesImportCmd = &cobra.Command{
+	Use:   "import <ttl-file>",
+	Short: "Import categories from Turtle (TTL) file",
+	Long: `Import categories from a Turtle format file (e.g., data/categories.ttl).
+This will parse the SKOS hierarchy and create categories with proper parent-child relationships.`,
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := NewPostgresCategoryRepository(db)
+		importCategories(ctx, repo, args[0])
+	},
+}
+
 // Admin command
 var adminCmd = &cobra.Command{
 	Use:   "admin",
@@ -220,6 +234,7 @@ func init() {
 	categoriesCmd.AddCommand(categoriesAddCmd)
 	categoriesCmd.AddCommand(categoriesUpdateCmd)
 	categoriesCmd.AddCommand(categoriesDeleteCmd)
+	categoriesCmd.AddCommand(categoriesImportCmd)
 
 	// Admin subcommands
 	adminCmd.AddCommand(adminListCmd)
@@ -261,7 +276,7 @@ func listCategories(ctx context.Context, repo CategoryRepository) {
 }
 
 func addCategory(ctx context.Context, repo CategoryRepository, name string) {
-	category, err := repo.Create(ctx, name)
+	category, err := repo.Create(ctx, name, nil)
 	if err != nil {
 		if err == ErrCategoryAlreadyExists {
 			fmt.Printf("Category '%s' already exists\n", name)
@@ -277,7 +292,17 @@ func addCategory(ctx context.Context, repo CategoryRepository, name string) {
 }
 
 func updateCategory(ctx context.Context, repo CategoryRepository, id int64, name string) {
-	category, err := repo.Update(ctx, id, name)
+	// Get existing category to preserve parent_id
+	existing, err := repo.GetByID(ctx, id)
+	if err != nil {
+		if err == ErrCategoryNotFound {
+			fmt.Printf("Category with ID %d not found\n", id)
+			os.Exit(1)
+		}
+		errorLogger.Fatalf("Failed to get category: %v", err)
+	}
+
+	category, err := repo.Update(ctx, id, name, existing.ParentId)
 	if err != nil {
 		if err == ErrCategoryNotFound {
 			fmt.Printf("Category with ID %d not found\n", id)
@@ -388,31 +413,15 @@ func seedDatabase(ctx context.Context, db *sql.DB) {
 	categoryRepo := NewPostgresCategoryRepository(db)
 	adminRepo := NewPostgresAdminRepository(db)
 
-	// Seed categories
-	sampleCategories := []string{
-		"Chemistry",
-		"Biology",
-		"Physics",
-		"Materials Science",
-		"Environmental Science",
-	}
+	// Import categories from URL
+	fmt.Println("Downloading categories from URL...")
+	categoriesURL := "https://gist.githubusercontent.com/NicolasCARPi/af0a30a26982b0b9464816edc3e30a6e/raw/2923002c17fc8b93c58768bc07bc7a39f726fa06/unesco6.ttl"
 
-	fmt.Println("Seeding categories...")
-	for _, name := range sampleCategories {
-		category, err := categoryRepo.Create(ctx, name)
-		if err != nil {
-			if err == ErrCategoryAlreadyExists {
-				fmt.Printf("Category '%s' already exists, skipping\n", name)
-				continue
-			}
-			errorLogger.Printf("Failed to create category '%s': %v", name, err)
-			continue
-		}
-		fmt.Printf("Created category: %s (ID: %d)\n", category.Name, category.Id)
-	}
+	importCategoriesFromURL(ctx, categoryRepo, categoriesURL)
 
+	// Add sample admin ORCID
 	sampleAdminOrcid := "0000-0000-0000-0000"
-	fmt.Printf("Adding sample admin ORCID: %s\n", sampleAdminOrcid)
+	fmt.Printf("\nAdding sample admin ORCID: %s\n", sampleAdminOrcid)
 	_, err := adminRepo.Add(ctx, sampleAdminOrcid)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate") {
@@ -424,7 +433,7 @@ func seedDatabase(ctx context.Context, db *sql.DB) {
 		fmt.Printf("Added admin ORCID: %s\n", sampleAdminOrcid)
 	}
 
-	fmt.Println("Database seeding completed")
+	fmt.Println("\nDatabase seeding completed")
 }
 
 func createMigrator(db *sql.DB) (*migrate.Migrate, error) {
@@ -509,4 +518,318 @@ func handleMigrateVersion(db *sql.DB) {
 	if dirty {
 		fmt.Println("WARNING: Database is in dirty state")
 	}
+}
+
+// TurtleCategory represents a category parsed from Turtle format
+type TurtleCategory struct {
+	URI       string
+	PrefLabel string
+	Notation  string
+	Broader   string
+	Narrower  []string
+}
+
+// importCategoriesFromURL imports categories from a URL
+func importCategoriesFromURL(ctx context.Context, repo CategoryRepository, url string) {
+	fmt.Printf("Downloading categories from %s...\n", url)
+
+	// Download the file
+	resp, err := http.Get(url)
+	if err != nil {
+		errorLogger.Fatalf("Failed to download file: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errorLogger.Fatalf("Failed to download file: HTTP %d", resp.StatusCode)
+	}
+
+	// Read the content
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		errorLogger.Fatalf("Failed to read response: %v", err)
+	}
+
+	// Parse Turtle format
+	categories := parseTurtleCategories(string(content))
+	fmt.Printf("Parsed %d categories from URL\n", len(categories))
+
+	// Create a map to track created categories by notation
+	createdCategories := make(map[string]int64)
+
+	// First pass: Create all categories without parent relationships
+	fmt.Println("Creating categories...")
+	for _, cat := range categories {
+		if cat.PrefLabel == "" {
+			continue
+		}
+
+		// Use English label if available
+		name := cat.PrefLabel
+
+		// Check if category already exists
+		existing, err := repo.GetByName(ctx, name)
+		if err == nil && existing != nil {
+			fmt.Printf("Category '%s' already exists (ID: %d), skipping\n", name, existing.Id)
+			createdCategories[cat.Notation] = existing.Id
+			continue
+		}
+
+		// Create category without parent first
+		created, err := repo.Create(ctx, name, nil)
+		if err != nil {
+			if err == ErrCategoryAlreadyExists {
+				fmt.Printf("Category '%s' already exists, skipping\n", name)
+				continue
+			}
+			errorLogger.Printf("Failed to create category '%s': %v", name, err)
+			continue
+		}
+
+		createdCategories[cat.Notation] = created.Id
+		fmt.Printf("Created category: %s (ID: %d, Notation: %s)\n", name, created.Id, cat.Notation)
+	}
+
+	// Second pass: Set parent relationships
+	fmt.Println("\nSetting parent relationships...")
+	for _, cat := range categories {
+		if cat.Broader == "" {
+			continue
+		}
+
+		childID, ok := createdCategories[cat.Notation]
+		if !ok {
+			continue
+		}
+
+		// Extract notation from broader URI
+		broaderNotation := extractNotation(cat.Broader)
+		parentID, ok := createdCategories[broaderNotation]
+		if !ok {
+			continue
+		}
+
+		// Update category with parent
+		child, err := repo.GetByID(ctx, childID)
+		if err != nil {
+			errorLogger.Printf("Failed to get category %d: %v", childID, err)
+			continue
+		}
+
+		_, err = repo.Update(ctx, childID, child.Name, &parentID)
+		if err != nil {
+			errorLogger.Printf("Failed to set parent for category %d: %v", childID, err)
+			continue
+		}
+
+		fmt.Printf("Set parent relationship: %s -> %s\n", cat.Notation, broaderNotation)
+	}
+
+	fmt.Printf("\nImport completed. Created/updated %d categories\n", len(createdCategories))
+}
+
+// importCategories imports categories from a Turtle file
+func importCategories(ctx context.Context, repo CategoryRepository, filePath string) {
+	fmt.Printf("Importing categories from %s...\n", filePath)
+
+	// Read the file
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		errorLogger.Fatalf("Failed to read file: %v", err)
+	}
+
+	// Parse Turtle format
+	categories := parseTurtleCategories(string(content))
+	fmt.Printf("Parsed %d categories from file\n", len(categories))
+
+	// Create a map to track created categories by notation
+	createdCategories := make(map[string]int64)
+
+	// First pass: Create all categories without parent relationships
+	fmt.Println("Creating categories...")
+	for _, cat := range categories {
+		if cat.PrefLabel == "" {
+			continue
+		}
+
+		// Use English label if available
+		name := cat.PrefLabel
+
+		// Check if category already exists
+		existing, err := repo.GetByName(ctx, name)
+		if err == nil && existing != nil {
+			fmt.Printf("Category '%s' already exists (ID: %d), skipping\n", name, existing.Id)
+			createdCategories[cat.Notation] = existing.Id
+			continue
+		}
+
+		// Create category without parent first
+		created, err := repo.Create(ctx, name, nil)
+		if err != nil {
+			if err == ErrCategoryAlreadyExists {
+				fmt.Printf("Category '%s' already exists, skipping\n", name)
+				continue
+			}
+			errorLogger.Printf("Failed to create category '%s': %v", name, err)
+			continue
+		}
+
+		createdCategories[cat.Notation] = created.Id
+		fmt.Printf("Created category: %s (ID: %d, Notation: %s)\n", name, created.Id, cat.Notation)
+	}
+
+	// Second pass: Set parent relationships
+	fmt.Println("\nSetting parent relationships...")
+	for _, cat := range categories {
+		if cat.Broader == "" {
+			continue
+		}
+
+		childID, ok := createdCategories[cat.Notation]
+		if !ok {
+			continue
+		}
+
+		// Extract notation from broader URI
+		broaderNotation := extractNotation(cat.Broader)
+		parentID, ok := createdCategories[broaderNotation]
+		if !ok {
+			continue
+		}
+
+		// Update category with parent
+		child, err := repo.GetByID(ctx, childID)
+		if err != nil {
+			errorLogger.Printf("Failed to get category %d: %v", childID, err)
+			continue
+		}
+
+		_, err = repo.Update(ctx, childID, child.Name, &parentID)
+		if err != nil {
+			errorLogger.Printf("Failed to set parent for category %d: %v", childID, err)
+			continue
+		}
+
+		fmt.Printf("Set parent relationship: %s -> %s\n", cat.Notation, broaderNotation)
+	}
+
+	fmt.Printf("\nImport completed. Created/updated %d categories\n", len(createdCategories))
+}
+
+// parseTurtleCategories parses categories from Turtle format content
+func parseTurtleCategories(content string) []TurtleCategory {
+	var categories []TurtleCategory
+	var currentCategory *TurtleCategory
+
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "@prefix") {
+			continue
+		}
+
+		// New concept starts
+		if strings.Contains(line, "a skos:Concept") {
+			if currentCategory != nil {
+				categories = append(categories, *currentCategory)
+			}
+			currentCategory = &TurtleCategory{
+				URI:      extractURI(line),
+				Narrower: []string{},
+			}
+			continue
+		}
+
+		if currentCategory == nil {
+			continue
+		}
+
+		// Parse prefLabel (English)
+		if strings.Contains(line, "skos:prefLabel") && strings.Contains(line, "@en") {
+			currentCategory.PrefLabel = extractLabel(line)
+		}
+
+		// Parse notation
+		if strings.Contains(line, "skos:notation") {
+			currentCategory.Notation = extractNotation(line)
+		}
+
+		// Parse broader (parent)
+		if strings.Contains(line, "skos:broader") {
+			currentCategory.Broader = extractURI(line)
+		}
+
+		// Parse narrower (children)
+		if strings.Contains(line, "skos:narrower") {
+			currentCategory.Narrower = append(currentCategory.Narrower, extractURI(line))
+		}
+
+		// End of concept
+		if strings.HasSuffix(line, ".") && currentCategory != nil {
+			categories = append(categories, *currentCategory)
+			currentCategory = nil
+		}
+	}
+
+	// Add last category if exists
+	if currentCategory != nil {
+		categories = append(categories, *currentCategory)
+	}
+
+	return categories
+}
+
+// extractURI extracts URI from a Turtle line
+func extractURI(line string) string {
+	// Extract unesco6:XXXX format
+	parts := strings.Fields(line)
+	for _, part := range parts {
+		if strings.HasPrefix(part, "unesco6:") {
+			return strings.TrimSuffix(strings.TrimSuffix(part, ";"), ".")
+		}
+	}
+	return ""
+}
+
+// extractLabel extracts label from a prefLabel line
+func extractLabel(line string) string {
+	// Extract text between quotes
+	start := strings.Index(line, "\"")
+	if start == -1 {
+		return ""
+	}
+	end := strings.Index(line[start+1:], "\"")
+	if end == -1 {
+		return ""
+	}
+	return line[start+1 : start+1+end]
+}
+
+// extractNotation extracts notation value from a line or URI
+func extractNotation(input string) string {
+	// If it's a URI like unesco6:1102, extract the number part
+	if strings.Contains(input, "unesco6:") {
+		parts := strings.Split(input, "unesco6:")
+		if len(parts) > 1 {
+			return strings.TrimSuffix(strings.TrimSuffix(parts[1], ";"), ".")
+		}
+	}
+
+	// If it's a notation line like: skos:notation "1102" .
+	if strings.Contains(input, "\"") {
+		start := strings.Index(input, "\"")
+		if start == -1 {
+			return ""
+		}
+		end := strings.Index(input[start+1:], "\"")
+		if end == -1 {
+			return ""
+		}
+		return input[start+1 : start+1+end]
+	}
+
+	return input
 }
