@@ -61,9 +61,9 @@
         <div class="mb-3">
           <label class="form-label fw-bold">Categories</label>
           <input type="hidden" name="categories" id="selected-categories-input" value="{{ range $i, $cat := $.Record.Categories }}{{ if $i }},{{ end }}{{ $cat.Id }}{{ end }}" />
-          <div class="category-multiselect" id="categoryMultiselectEdit">
-            <div class="category-multiselect-input" id="categoryMultiselectInputEdit">
-              <div class="category-multiselect-tags" id="categoryMultiselectTagsEdit">
+          <div class="category-multiselect" id="categoryMultiselect">
+            <div class="category-multiselect-input" id="categoryMultiselectInput">
+              <div class="category-multiselect-tags" id="categoryMultiselectTags">
                 {{- range $.Record.Categories }}
                 <span class="category-tag" data-category-id="{{ .Id }}">
                   <span class="category-tag-text">{{ .Name }}</span>
@@ -71,10 +71,10 @@
                 </span>
                 {{- end }}
               </div>
-              <span class="category-multiselect-placeholder {{ if $.Record.Categories }}hidden{{ end }}" id="categoryMultiselectPlaceholderEdit">Select categories...</span>
+              <span class="category-multiselect-placeholder {{ if $.Record.Categories }}hidden{{ end }}" id="categoryMultiselectPlaceholder">Select categories...</span>
               <span class="category-multiselect-arrow">▼</span>
             </div>
-            <div class="category-multiselect-dropdown d-none" id="categoryMultiselectDropdownEdit">
+            <div class="category-multiselect-dropdown d-none" id="categoryMultiselectDropdown">
               <div class="category-multiselect-search">
                 <input type="text" class="form-control form-control-sm" id="edit-category-search" placeholder="Search categories..." />
               </div>

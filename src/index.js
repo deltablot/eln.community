@@ -1122,9 +1122,6 @@ function initializeBrowseSearch() {
       }
     });
   }
-  
-  // Handle category multi-select
-  initializeCategoryMultiselect();
 }
 
 // Category search functionality
@@ -1273,7 +1270,17 @@ function initializeCategoryMultiselect() {
     }
   }
   
+  // Update hidden input with selected category IDs
+  function updateHiddenCategoryInput() {
+    const hiddenInput = document.getElementById('selected-categories-input');
+    if (hiddenInput) {
+      const categoryIds = Array.from(selectedCategories);
+      hiddenInput.value = categoryIds.join(',');
+    }
+  }
+  
   updatePlaceholder();
+  updateHiddenCategoryInput();
   
   // Toggle dropdown
   multiselectInput.addEventListener('click', function(e) {
@@ -1319,6 +1326,7 @@ function initializeCategoryMultiselect() {
       }
       
       updatePlaceholder();
+      updateHiddenCategoryInput();
     });
   });
   
@@ -1343,6 +1351,7 @@ function initializeCategoryMultiselect() {
       }
       
       updatePlaceholder();
+      updateHiddenCategoryInput();
     }
   });
   
@@ -1371,7 +1380,7 @@ function initializeCategoryMultiselect() {
       tag.remove();
     }
   }
-  
+
   // Apply filters button
   const applyBtn = document.getElementById('categoryApplyBtn');
   if (applyBtn) {
@@ -1388,6 +1397,8 @@ function initializeCategoryMultiselect() {
   
   // Clear all button
   const clearBtn = document.getElementById('categoryClearBtn');
+  const clearBtnEdit = document.getElementById('categoryClearBtnEdit');
+  
   if (clearBtn) {
     clearBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -1405,59 +1416,87 @@ function initializeCategoryMultiselect() {
       });
       
       updatePlaceholder();
+      updateHiddenCategoryInput();
       
-      // Navigate to clear filters
-      navigateToBrowse({ category: '', page: '1' });
+      // Only navigate if on browse page (has Apply button)
+      const applyBtn = document.getElementById('categoryApplyBtn');
+      if (applyBtn) {
+        navigateToBrowse({ category: '', page: '1' });
+      }
+    });
+  }
+  
+  if (clearBtnEdit) {
+    clearBtnEdit.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      // Clear all selections
+      selectedCategories.clear();
+      
+      // Remove all tags
+      multiselectTags.innerHTML = '';
+      
+      // Uncheck all checkboxes
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        checkbox.closest('.category-item').classList.remove('active');
+      });
+      
+      updatePlaceholder();
+      updateHiddenCategoryInput();
     });
   }
 }
 
 // Category Tree functionality
 function initializeCategoryTree() {
-  // Handle toggle clicks for expanding/collapsing
-  document.querySelectorAll('.category-toggle:not(.no-children)').forEach(toggle => {
-    toggle.addEventListener('click', function(e) {
+  // Handle toggle clicks for expanding/collapsing - use event delegation for better compatibility
+  document.addEventListener('click', function(e) {
+    // Check if clicked element is a category toggle
+    if (e.target.classList.contains('category-toggle') && !e.target.classList.contains('no-children')) {
       e.stopPropagation();
+      e.preventDefault();
       
-      const categoryItem = this.closest('.category-item');
-      const treeItem = this.closest('.category-tree-item');
-      const children = treeItem.querySelector(':scope > .category-children');
+      const toggle = e.target;
+      const categoryItem = toggle.closest('.category-item');
+      const treeItem = toggle.closest('.category-tree-item');
+      const children = treeItem ? treeItem.querySelector(':scope > .category-children') : null;
       
       if (children) {
         // Toggle expanded state
         const isExpanded = children.classList.contains('expanded');
-        
+
         if (isExpanded) {
           // Collapse
           children.classList.remove('expanded');
-          this.classList.remove('expanded');
-          categoryItem.classList.remove('expanded');
+          toggle.classList.remove('expanded');
+          if (categoryItem) categoryItem.classList.remove('expanded');
         } else {
           // Expand
           children.classList.add('expanded');
-          this.classList.add('expanded');
-          categoryItem.classList.add('expanded');
+          toggle.classList.add('expanded');
+          if (categoryItem) categoryItem.classList.add('expanded');
         }
       }
-    });
+    }
   });
 
   // Handle category selection for browse page (single select with badge UI)
   const browseCategoryItems = document.querySelectorAll('.category-tree-container .category-item');
   const selectedCategoriesBadges = document.getElementById('selected-categories-badges');
-  
+
   browseCategoryItems.forEach(item => {
     item.addEventListener('click', function(e) {
       // Don't trigger if clicking on toggle
       if (e.target.classList.contains('category-toggle')) {
         return;
       }
-      
+
       const categoryId = this.getAttribute('data-category-id');
       const categoryName = this.getAttribute('data-category-name');
-      
+
       if (!categoryId || !categoryName) return;
-      
+
       // Check if already selected
       const existingBadge = selectedCategoriesBadges.querySelector(`[data-category-id="${categoryId}"]`);
       if (existingBadge) {
@@ -1469,7 +1508,7 @@ function initializeCategoryTree() {
       }
     });
   });
-  
+
   // Handle badge removal
   if (selectedCategoriesBadges) {
     selectedCategoriesBadges.addEventListener('click', function(e) {
@@ -1486,7 +1525,7 @@ function initializeCategoryTree() {
   const selectorDropdown = document.getElementById('category-selector-dropdown');
   const selectedCategoryInput = document.getElementById('selected-category-input');
   const selectedCategoryText = document.getElementById('selected-category-text');
-  
+
   if (selectorDisplay && selectorDropdown && selectedCategoryInput && selectedCategoryText) {
     // Toggle dropdown on click
     selectorDisplay.addEventListener('click', function(e) {
@@ -1510,13 +1549,13 @@ function initializeCategoryTree() {
         if (e.target.classList.contains('category-toggle')) {
           return;
         }
-        
+
         const categoryId = this.getAttribute('data-category-id');
         const categoryName = this.getAttribute('data-category-name');
-        
+
         // Update hidden input
         selectedCategoryInput.value = categoryId;
-        
+
         // Update display text
         if (categoryName && categoryName !== 'None') {
           selectedCategoryText.textContent = categoryName;
@@ -1525,15 +1564,15 @@ function initializeCategoryTree() {
           selectedCategoryText.textContent = 'None';
           selectedCategoryText.classList.add('text-muted');
         }
-        
+
         // Remove active class from all items
         selectorDropdown.querySelectorAll('.category-item').forEach(i => {
           i.classList.remove('active');
         });
-        
+
         // Add active class to selected item
         this.classList.add('active');
-        
+
         // Close dropdown
         selectorDropdown.classList.remove('show');
         selectorDisplay.classList.remove('open');
@@ -1542,213 +1581,9 @@ function initializeCategoryTree() {
   }
 }
 
-// Initialize category multi-select for forms (new/edit pages)
-function initializeCategoryMultiselectForm(suffix) {
-  const multiselectInput = document.getElementById(`categoryMultiselectInput${suffix}`);
-  const multiselectDropdown = document.getElementById(`categoryMultiselectDropdown${suffix}`);
-  const multiselectTags = document.getElementById(`categoryMultiselectTags${suffix}`);
-  const multiselectPlaceholder = document.getElementById(`categoryMultiselectPlaceholder${suffix}`);
-  const hiddenInput = document.getElementById('selected-categories-input');
-  
-  if (!multiselectInput || !multiselectDropdown || !multiselectTags || !hiddenInput) {
-    return; // Not on a form page with multi-select
-  }
-  
-  // Track selected categories
-  const selectedCategories = new Set();
-  
-  // Initialize with existing selections
-  const existingTags = multiselectTags.querySelectorAll('.category-tag');
-  existingTags.forEach(tag => {
-    const categoryId = tag.getAttribute('data-category-id');
-    if (categoryId) {
-      selectedCategories.add(categoryId);
-    }
-  });
-  
-  // Update hidden input
-  function updateHiddenInput() {
-    hiddenInput.value = Array.from(selectedCategories).join(',');
-  }
-  
-  // Update placeholder visibility
-  function updatePlaceholder() {
-    if (selectedCategories.size > 0) {
-      multiselectPlaceholder.classList.add('hidden');
-    } else {
-      multiselectPlaceholder.classList.remove('hidden');
-    }
-  }
-  
-  updateHiddenInput();
-  updatePlaceholder();
-  
-  // Toggle dropdown
-  multiselectInput.addEventListener('click', function(e) {
-    e.stopPropagation();
-    const isOpen = !multiselectDropdown.classList.contains('d-none');
-    
-    if (isOpen) {
-      multiselectDropdown.classList.add('d-none');
-      multiselectInput.classList.remove('open');
-    } else {
-      multiselectDropdown.classList.remove('d-none');
-      multiselectInput.classList.add('open');
-    }
-  });
-  
-  // Close dropdown when clicking outside
-  document.addEventListener('click', function(e) {
-    if (!multiselectDropdown.contains(e.target) && !multiselectInput.contains(e.target)) {
-      multiselectDropdown.classList.add('d-none');
-      multiselectInput.classList.remove('open');
-    }
-  });
-  
-  // Handle checkbox changes
-  const checkboxes = multiselectDropdown.querySelectorAll('.category-checkbox');
-  checkboxes.forEach(checkbox => {
-    checkbox.addEventListener('change', function(e) {
-      e.stopPropagation();
-      const categoryItem = this.closest('.category-item');
-      const categoryId = categoryItem.getAttribute('data-category-id');
-      const categoryName = categoryItem.getAttribute('data-category-name');
-      
-      if (this.checked) {
-        // Add category
-        selectedCategories.add(categoryId);
-        addCategoryTag(categoryId, categoryName);
-        categoryItem.classList.add('active');
-      } else {
-        // Remove category
-        selectedCategories.delete(categoryId);
-        removeCategoryTag(categoryId);
-        categoryItem.classList.remove('active');
-      }
-      
-      updateHiddenInput();
-      updatePlaceholder();
-    });
-  });
-  
-  // Handle tag removal
-  multiselectTags.addEventListener('click', function(e) {
-    if (e.target.classList.contains('category-tag-remove')) {
-      e.stopPropagation();
-      const tag = e.target.closest('.category-tag');
-      const categoryId = tag.getAttribute('data-category-id');
-      
-      // Remove from selected set
-      selectedCategories.delete(categoryId);
-      
-      // Remove tag
-      tag.remove();
-      
-      // Uncheck checkbox
-      const checkbox = multiselectDropdown.querySelector(`.category-item[data-category-id="${categoryId}"] .category-checkbox`);
-      if (checkbox) {
-        checkbox.checked = false;
-        checkbox.closest('.category-item').classList.remove('active');
-      }
-      
-      updateHiddenInput();
-      updatePlaceholder();
-    }
-  });
-  
-  // Add category tag
-  function addCategoryTag(categoryId, categoryName) {
-    // Check if already exists
-    if (multiselectTags.querySelector(`[data-category-id="${categoryId}"]`)) {
-      return;
-    }
-    
-    const tag = document.createElement('span');
-    tag.className = 'category-tag';
-    tag.setAttribute('data-category-id', categoryId);
-    tag.innerHTML = `
-      <span class="category-tag-text">${escapeHtml(categoryName)}</span>
-      <span class="category-tag-remove">×</span>
-    `;
-    
-    multiselectTags.appendChild(tag);
-  }
-  
-  // Remove category tag
-  function removeCategoryTag(categoryId) {
-    const tag = multiselectTags.querySelector(`[data-category-id="${categoryId}"]`);
-    if (tag) {
-      tag.remove();
-    }
-  }
-  
-  // Clear all button
-  const clearBtn = document.getElementById(`categoryClearBtn${suffix}`);
-  if (clearBtn) {
-    clearBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      
-      // Clear all selections
-      selectedCategories.clear();
-      
-      // Remove all tags
-      multiselectTags.innerHTML = '';
-      
-      // Uncheck all checkboxes
-      checkboxes.forEach(checkbox => {
-        checkbox.checked = false;
-        checkbox.closest('.category-item').classList.remove('active');
-      });
-      
-      updateHiddenInput();
-      updatePlaceholder();
-    });
-  }
-  
-  // Handle category tree toggles
-  const toggles = multiselectDropdown.querySelectorAll('.category-toggle:not(.no-children)');
-  toggles.forEach(toggle => {
-    toggle.addEventListener('click', function(e) {
-      e.stopPropagation();
-      
-      const categoryItem = this.closest('.category-item');
-      const treeItem = this.closest('.category-tree-item');
-      const children = treeItem.querySelector(':scope > .category-children');
-      
-      if (children) {
-        const isExpanded = children.classList.contains('expanded');
-        
-        if (isExpanded) {
-          children.classList.remove('expanded');
-          this.classList.remove('expanded');
-          categoryItem.classList.remove('expanded');
-        } else {
-          children.classList.add('expanded');
-          this.classList.add('expanded');
-          categoryItem.classList.add('expanded');
-        }
-      }
-    });
-  });
-  
-  // Handle category search
-  const searchInput = document.getElementById(`${suffix.toLowerCase()}-category-search`);
-  const categoryTree = document.getElementById(`${suffix.toLowerCase()}-category-tree`);
-  if (searchInput && categoryTree) {
-    searchInput.addEventListener('input', function() {
-      filterCategories(this.value, categoryTree);
-    });
-  }
-}
-
 // Initialize category tree when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
   initializeCategoryTree();
   initializeCategorySearch();
-  
-  // Initialize multi-select for new page
-  initializeCategoryMultiselectForm('New');
-  
-  // Initialize multi-select for edit page
-  initializeCategoryMultiselectForm('Edit');
+  initializeCategoryMultiselect();
 });

@@ -25,13 +25,13 @@
     {{ if .Categories }}
     <label class="form-label fw-bold">Select categories
       <input type="hidden" name="categories" id="selected-categories-input" />
-      <div class="category-multiselect mt-2" id="categoryMultiselectNew">
-        <div class="category-multiselect-input" id="categoryMultiselectInputNew">
-          <div class="category-multiselect-tags" id="categoryMultiselectTagsNew"></div>
-          <span class="category-multiselect-placeholder" id="categoryMultiselectPlaceholderNew">Select categories...</span>
+      <div class="category-multiselect mt-2" id="categoryMultiselect">
+        <div class="category-multiselect-input" id="categoryMultiselectInput">
+          <div class="category-multiselect-tags" id="categoryMultiselectTags"></div>
+          <span class="category-multiselect-placeholder" id="categoryMultiselectPlaceholder">Select categories...</span>
           <span class="category-multiselect-arrow">▼</span>
         </div>
-        <div class="category-multiselect-dropdown d-none" id="categoryMultiselectDropdownNew">
+        <div class="category-multiselect-dropdown d-none" id="categoryMultiselectDropdown">
           <div class="category-multiselect-search">
             <input type="text" class="form-control form-control-sm" id="new-category-search" placeholder="Search categories..." />
           </div>
@@ -83,7 +83,7 @@
             </ul>
           </div>
           <div class="category-multiselect-footer">
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="categoryClearBtnNew">Clear All</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="categoryClearBtn">Clear All</button>
           </div>
         </div>
       </div>
