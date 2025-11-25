@@ -24,6 +24,7 @@ type CategoryRepository interface {
 	// Record-category association methods
 	AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error
 	GetRecordCategories(ctx context.Context, recordID string) ([]Category, error)
+	ClearRecordCategories(ctx context.Context, tx *sql.Tx, recordID string) error
 }
 
 // AdminRepository defines the interface for admin operations
@@ -288,4 +289,13 @@ func (r *PostgresCategoryRepository) GetRecordCategories(ctx context.Context, re
 		categories = append(categories, cat)
 	}
 	return categories, rows.Err()
+}
+
+// ClearRecordCategories removes all category associations for a specific record
+func (r *PostgresCategoryRepository) ClearRecordCategories(ctx context.Context, tx *sql.Tx, recordID string) error {
+	_, err := tx.ExecContext(ctx,
+		`DELETE FROM records_categories WHERE record_id = $1`,
+		recordID,
+	)
+	return err
 }

@@ -23,58 +23,68 @@
   <p>Share your ELN archives: experiments, protocols, templates, resources...</p>
   <form method='post' action='/api/v1/records' enctype='multipart/form-data'>
     {{ if .Categories }}
-    <label class="form-label fw-bold">Select a category
-      <input type="hidden" name="category" id="selected-category-input" required />
-      <div class="category-selector mt-2">
-        <div class="category-selector-display" id="category-selector-display">
-          <span id="selected-category-text" class="text-muted">Choose a category...</span>
+    <label class="form-label fw-bold">Select categories
+      <input type="hidden" name="categories" id="selected-categories-input" />
+      <div class="category-multiselect mt-2" id="categoryMultiselectNew">
+        <div class="category-multiselect-input" id="categoryMultiselectInputNew">
+          <div class="category-multiselect-tags" id="categoryMultiselectTagsNew"></div>
+          <span class="category-multiselect-placeholder" id="categoryMultiselectPlaceholderNew">Select categories...</span>
+          <span class="category-multiselect-arrow">▼</span>
         </div>
-        <div class="category-selector-dropdown" id="category-selector-dropdown">
-          <div class="category-search-wrapper">
-            <input type="text" class="form-control form-control-sm category-search" id="new-category-search" placeholder="Search categories..." />
+        <div class="category-multiselect-dropdown d-none" id="categoryMultiselectDropdownNew">
+          <div class="category-multiselect-search">
+            <input type="text" class="form-control form-control-sm" id="new-category-search" placeholder="Search categories..." />
           </div>
-          <ul class="category-tree">
-            {{ range .Categories }}
-            <li class="category-tree-item">
-              <div class="category-item category-selectable" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                {{- if .Subcategories }}
-                <span class="category-toggle"></span>
-                {{- else }}
-                <span class="category-toggle no-children"></span>
-                {{- end }}
-                <span class="category-name">{{ .Name }}</span>
-              </div>
-              {{- if .Subcategories }}
-              <ul class="category-children">
-                {{- range .Subcategories }}
-                <li class="category-tree-item">
-                  <div class="category-item category-selectable" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                    {{- if .Subcategories }}
-                    <span class="category-toggle"></span>
-                    {{- else }}
-                    <span class="category-toggle no-children"></span>
-                    {{- end }}
-                    <span class="category-name">{{ .Name }}</span>
-                  </div>
+          <div class="category-multiselect-options" id="new-category-tree">
+            <ul class="category-tree">
+              {{ range .Categories }}
+              <li class="category-tree-item">
+                <div class="category-item" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                  <input type="checkbox" class="category-checkbox" />
                   {{- if .Subcategories }}
-                  <ul class="category-children">
-                    {{- range .Subcategories }}
-                    <li class="category-tree-item">
-                      <div class="category-item category-selectable" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                        <span class="category-toggle no-children"></span>
-                        <span class="category-name">{{ .Name }}</span>
-                      </div>
-                    </li>
-                    {{- end }}
-                  </ul>
+                  <span class="category-toggle"></span>
+                  {{- else }}
+                  <span class="category-toggle no-children"></span>
                   {{- end }}
-                </li>
+                  <span class="category-name">{{ .Name }}</span>
+                </div>
+                {{- if .Subcategories }}
+                <ul class="category-children">
+                  {{- range .Subcategories }}
+                  <li class="category-tree-item">
+                    <div class="category-item" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                      <input type="checkbox" class="category-checkbox" />
+                      {{- if .Subcategories }}
+                      <span class="category-toggle"></span>
+                      {{- else }}
+                      <span class="category-toggle no-children"></span>
+                      {{- end }}
+                      <span class="category-name">{{ .Name }}</span>
+                    </div>
+                    {{- if .Subcategories }}
+                    <ul class="category-children">
+                      {{- range .Subcategories }}
+                      <li class="category-tree-item">
+                        <div class="category-item" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                          <input type="checkbox" class="category-checkbox" />
+                          <span class="category-toggle no-children"></span>
+                          <span class="category-name">{{ .Name }}</span>
+                        </div>
+                      </li>
+                      {{- end }}
+                    </ul>
+                    {{- end }}
+                  </li>
+                  {{- end }}
+                </ul>
                 {{- end }}
-              </ul>
-              {{- end }}
-            </li>
-            {{ end }}
-          </ul>
+              </li>
+              {{ end }}
+            </ul>
+          </div>
+          <div class="category-multiselect-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="categoryClearBtnNew">Clear All</button>
+          </div>
         </div>
       </div>
     </label>
