@@ -9,7 +9,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -411,22 +413,11 @@ func seedDatabase(ctx context.Context, db *sql.DB) {
 	categoryRepo := NewPostgresCategoryRepository(db)
 	adminRepo := NewPostgresAdminRepository(db)
 
-	// Import categories from Turtle file
-	fmt.Println("Importing categories from Turtle file...")
-	categoriesFilePath := "/seed/categories.ttl"
+	// Import categories from URL
+	fmt.Println("Downloading categories from URL...")
+	categoriesURL := "https://gist.githubusercontent.com/NicolasCARPi/af0a30a26982b0b9464816edc3e30a6e/raw/2923002c17fc8b93c58768bc07bc7a39f726fa06/unesco6.ttl"
 
-	// Check if file exists, if not try local path for development
-	if _, err := os.Stat(categoriesFilePath); os.IsNotExist(err) {
-		categoriesFilePath = "src/seed/categories.ttl"
-		if _, err := os.Stat(categoriesFilePath); os.IsNotExist(err) {
-			fmt.Printf("Warning: Categories file not found at /seed/categories.ttl or src/seed/categories.ttl\n")
-			fmt.Println("Skipping category import...")
-		} else {
-			importCategories(ctx, categoryRepo, categoriesFilePath)
-		}
-	} else {
-		importCategories(ctx, categoryRepo, categoriesFilePath)
-	}
+	importCategoriesFromURL(ctx, categoryRepo, categoriesURL)
 
 	// Add sample admin ORCID
 	sampleAdminOrcid := "0000-0000-0000-0000"
@@ -536,6 +527,105 @@ type TurtleCategory struct {
 	Notation  string
 	Broader   string
 	Narrower  []string
+}
+
+// importCategoriesFromURL imports categories from a URL
+func importCategoriesFromURL(ctx context.Context, repo CategoryRepository, url string) {
+	fmt.Printf("Downloading categories from %s...\n", url)
+
+	// Download the file
+	resp, err := http.Get(url)
+	if err != nil {
+		errorLogger.Fatalf("Failed to download file: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errorLogger.Fatalf("Failed to download file: HTTP %d", resp.StatusCode)
+	}
+
+	// Read the content
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		errorLogger.Fatalf("Failed to read response: %v", err)
+	}
+
+	// Parse Turtle format
+	categories := parseTurtleCategories(string(content))
+	fmt.Printf("Parsed %d categories from URL\n", len(categories))
+
+	// Create a map to track created categories by notation
+	createdCategories := make(map[string]int64)
+
+	// First pass: Create all categories without parent relationships
+	fmt.Println("Creating categories...")
+	for _, cat := range categories {
+		if cat.PrefLabel == "" {
+			continue
+		}
+
+		// Use English label if available
+		name := cat.PrefLabel
+
+		// Check if category already exists
+		existing, err := repo.GetByName(ctx, name)
+		if err == nil && existing != nil {
+			fmt.Printf("Category '%s' already exists (ID: %d), skipping\n", name, existing.Id)
+			createdCategories[cat.Notation] = existing.Id
+			continue
+		}
+
+		// Create category without parent first
+		created, err := repo.Create(ctx, name, nil)
+		if err != nil {
+			if err == ErrCategoryAlreadyExists {
+				fmt.Printf("Category '%s' already exists, skipping\n", name)
+				continue
+			}
+			errorLogger.Printf("Failed to create category '%s': %v", name, err)
+			continue
+		}
+
+		createdCategories[cat.Notation] = created.Id
+		fmt.Printf("Created category: %s (ID: %d, Notation: %s)\n", name, created.Id, cat.Notation)
+	}
+
+	// Second pass: Set parent relationships
+	fmt.Println("\nSetting parent relationships...")
+	for _, cat := range categories {
+		if cat.Broader == "" {
+			continue
+		}
+
+		childID, ok := createdCategories[cat.Notation]
+		if !ok {
+			continue
+		}
+
+		// Extract notation from broader URI
+		broaderNotation := extractNotation(cat.Broader)
+		parentID, ok := createdCategories[broaderNotation]
+		if !ok {
+			continue
+		}
+
+		// Update category with parent
+		child, err := repo.GetByID(ctx, childID)
+		if err != nil {
+			errorLogger.Printf("Failed to get category %d: %v", childID, err)
+			continue
+		}
+
+		_, err = repo.Update(ctx, childID, child.Name, &parentID)
+		if err != nil {
+			errorLogger.Printf("Failed to set parent for category %d: %v", childID, err)
+			continue
+		}
+
+		fmt.Printf("Set parent relationship: %s -> %s\n", cat.Notation, broaderNotation)
+	}
+
+	fmt.Printf("\nImport completed. Created/updated %d categories\n", len(createdCategories))
 }
 
 // importCategories imports categories from a Turtle file

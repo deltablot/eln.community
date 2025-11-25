@@ -61,11 +61,11 @@ docker exec -it eln-community-dev cli admin add "0000-0002-1825-0097"
 # Run database migrations
 docker exec -it eln-community-dev cli db migrate up
 
-# Seed the database (imports UNESCO categories + sample admin)
+# Seed the database (downloads and imports UNESCO categories + sample admin)
 docker exec -it eln-community-dev cli db seed
 
 # Or import categories manually from a Turtle file
-docker exec -it eln-community-dev cli categories import /seed/categories.ttl
+docker exec -it eln-community-dev cli categories import /path/to/categories.ttl
 ```
 
 ### Using Makefile shortcuts:
@@ -118,7 +118,7 @@ To create new migrations, add files following the naming convention:
    make cli-migrate
    ```
 
-3. Seed with data (imports 2,500+ UNESCO scientific categories):
+3. Seed with data (downloads and imports 2,500+ UNESCO scientific categories):
    ```bash
    make cli-seed
    ```
@@ -137,11 +137,12 @@ The `db seed` command automatically imports the UNESCO nomenclature for fields o
 - Medical Sciences (61-63)
 - Agricultural Sciences (71-72)
 
-The categories are imported from a Turtle (TTL) format file using the SKOS (Simple Knowledge Organization System) vocabulary. The import process:
-1. Parses the hierarchical structure from the TTL file
-2. Creates all categories in the database
-3. Establishes parent-child relationships (up to 3 levels deep)
-4. Skips duplicates automatically
+The categories are downloaded from a remote URL and imported using the SKOS (Simple Knowledge Organization System) vocabulary in Turtle (TTL) format. The import process:
+1. Downloads the TTL file from the remote URL
+2. Parses the hierarchical structure from the TTL content
+3. Creates all categories in the database
+4. Establishes parent-child relationships (up to 3 levels deep)
+5. Skips duplicates automatically
 
 You can also manually import categories from a custom Turtle file:
 ```bash
