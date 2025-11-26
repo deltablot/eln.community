@@ -133,18 +133,24 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Parse category ID (optional)
-	categoryIDStr := r.FormValue("category")
-	var categoryID int64
-	var hasCategory bool
-	if categoryIDStr != "" {
-		var err error
-		categoryID, err = strconv.ParseInt(categoryIDStr, 10, 64)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Invalid category ID: %s", categoryIDStr), http.StatusBadRequest)
-			return
+	// Parse category IDs (optional, can be multiple)
+	categoriesParam := r.FormValue("categories")
+	var categoryIDs []int64
+	if categoriesParam != "" {
+		// Split by comma and parse each category ID
+		categoryIDStrs := strings.Split(categoriesParam, ",")
+		for _, categoryIDStr := range categoryIDStrs {
+			categoryIDStr = strings.TrimSpace(categoryIDStr)
+			if categoryIDStr == "" {
+				continue
+			}
+			categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Invalid category ID: %s", categoryIDStr), http.StatusBadRequest)
+				return
+			}
+			categoryIDs = append(categoryIDs, categoryID)
 		}
-		hasCategory = true
 	}
 
 	record := Record{
@@ -172,8 +178,8 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insert category association if a category was selected
-	if hasCategory {
+	// Insert category associations if categories were selected
+	for _, categoryID := range categoryIDs {
 		err = h.categoryRepo.AssociateCategoryWithRecord(ctx, tx, record.Id, categoryID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error associating category %d with record: %v", categoryID, err), http.StatusInternalServerError)
@@ -906,18 +912,24 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		}
 	}
 
-	// Parse category ID (optional)
-	categoryIDStr := r.FormValue("category")
-	var categoryID int64
-	var hasCategory bool
-	if categoryIDStr != "" {
-		var err error
-		categoryID, err = strconv.ParseInt(categoryIDStr, 10, 64)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Invalid category ID: %s", categoryIDStr), http.StatusBadRequest)
-			return
+	// Parse category IDs (optional, can be multiple)
+	categoriesParam := r.FormValue("categories")
+	var categoryIDs []int64
+	if categoriesParam != "" {
+		// Split by comma and parse each category ID
+		categoryIDStrs := strings.Split(categoriesParam, ",")
+		for _, categoryIDStr := range categoryIDStrs {
+			categoryIDStr = strings.TrimSpace(categoryIDStr)
+			if categoryIDStr == "" {
+				continue
+			}
+			categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Invalid category ID: %s", categoryIDStr), http.StatusBadRequest)
+				return
+			}
+			categoryIDs = append(categoryIDs, categoryID)
 		}
-		hasCategory = true
 	}
 
 	// Update the record
@@ -940,8 +952,16 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	// Insert category association if a category was selected
-	if hasCategory {
+	// Clear existing category associations and insert new ones
+	// First, we need to clear existing associations
+	err = h.categoryRepo.ClearRecordCategories(ctx, tx, updatedRecord.Id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error clearing existing categories: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Insert new category associations
+	for _, categoryID := range categoryIDs {
 		err = h.categoryRepo.AssociateCategoryWithRecord(ctx, tx, updatedRecord.Id, categoryID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error associating category %d with record: %v", categoryID, err), http.StatusInternalServerError)
