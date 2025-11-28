@@ -162,9 +162,9 @@
           <input type='hidden' name='rors' id='rors-hidden-input' value="{{ range $i, $rorId := .Record.RorIds }}{{ if $i }}, {{ end }}{{ $rorId }}{{ end }}" />
         </div>
 
-        <div class="d-flex flex-row gap-2">
+        <div class="d-flex flex-row gap-2 mt-3">
           <button type='submit' class='btn btn-primary'>Update Entry</button>
-          <a href='/record/{{ .Record.Id }}' class='btn btn-secondary'>Cancel</a>
+          <a href='/record/{{ .Record.Id }}' class='btn btn-secondary' role="button">Cancel</a>
           <button type='button' class='btn btn-danger ms-auto' id='deleteBtn'>Delete Entry</button>
         </div>
       </form>
