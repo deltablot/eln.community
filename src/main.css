@@ -111,22 +111,6 @@ form {
     }
 }
 
-button:not(.btn):not(.btn-close) {
-    background-color: var(--black);
-    margin-top: 10px;
-    padding: 6px 23px;
-    cursor: pointer;
-    font-weight: bold;
-    color: var(--white);
-    font-size: 1.2rem;
-    border-radius: 5px;
-    border: 1px solid var(--black);
-
-    &:hover {
-        background-color: var(--black-highlight);
-    }
-}
-
 hr {
     color: var(--black);
     width: 20%;
