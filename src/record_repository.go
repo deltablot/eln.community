@@ -25,6 +25,7 @@ type RecordRepository interface {
 	Update(ctx context.Context, tx *sql.Tx, record *Record) error
 	Delete(ctx context.Context, tx *sql.Tx, id string) error
 	GetS3Key(ctx context.Context, id string) (string, error)
+	IncrementDownloadCount(ctx context.Context, id string) (int, error)
 }
 
 // PostgresRecordRepository implements RecordRepository using PostgreSQL
@@ -53,7 +54,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
 		FROM records
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -75,6 +76,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 			&record.ModifiedAt,
 			&record.UploaderName,
 			&record.UploaderOrcid,
+			&record.DownloadCount,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -107,7 +109,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Record, error) {
 	var record Record
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
 		FROM records
 		WHERE id = $1
 	`, id).Scan(
@@ -119,6 +121,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 		&record.ModifiedAt,
 		&record.UploaderName,
 		&record.UploaderOrcid,
+		&record.DownloadCount,
 	)
 
 	if err == sql.ErrNoRows {
@@ -200,7 +203,7 @@ func (r *PostgresRecordRepository) GetAllByCategoryPaginated(ctx context.Context
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
 		WHERE rc.category_id = $1
@@ -224,6 +227,7 @@ func (r *PostgresRecordRepository) GetAllByCategoryPaginated(ctx context.Context
 			&record.ModifiedAt,
 			&record.UploaderName,
 			&record.UploaderOrcid,
+			&record.DownloadCount,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -283,7 +287,7 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 
 	// Get records
 	selectQuery := fmt.Sprintf(`
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
 		WHERE rc.category_id IN (%s)
@@ -310,6 +314,7 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 			&record.ModifiedAt,
 			&record.UploaderName,
 			&record.UploaderOrcid,
+			&record.DownloadCount,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -353,7 +358,7 @@ func (r *PostgresRecordRepository) GetAllByRorIDPaginated(ctx context.Context, r
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
+		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
 		WHERE rr.ror = $1
@@ -377,6 +382,7 @@ func (r *PostgresRecordRepository) GetAllByRorIDPaginated(ctx context.Context, r
 			&record.ModifiedAt,
 			&record.UploaderName,
 			&record.UploaderOrcid,
+			&record.DownloadCount,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -433,7 +439,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 
 		// Search within a specific category
 		sqlQuery = `
-			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 			FROM records r
 			JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
@@ -471,7 +477,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 
 		// Search across all records
 		sqlQuery = `
-			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 			FROM records r
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN records_categories rc ON r.id = rc.record_id
@@ -515,6 +521,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			&record.ModifiedAt,
 			&record.UploaderName,
 			&record.UploaderOrcid,
+			&record.DownloadCount,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -616,7 +623,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 
 	// Get paginated records
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid
+		SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
 		FROM records
 		WHERE uploader_orcid = $1
 		ORDER BY created_at DESC
@@ -639,6 +646,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 			&rec.ModifiedAt,
 			&rec.UploaderName,
 			&rec.UploaderOrcid,
+			&rec.DownloadCount,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -666,4 +674,24 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 	}
 
 	return records, totalCount, nil
+}
+
+// IncrementDownloadCount increments the download count for a record and returns the new count
+func (r *PostgresRecordRepository) IncrementDownloadCount(ctx context.Context, id string) (int, error) {
+	var newCount int
+	err := r.db.QueryRowContext(ctx, `
+		UPDATE records 
+		SET download_count = download_count + 1 
+		WHERE id = $1 
+		RETURNING download_count
+	`, id).Scan(&newCount)
+
+	if err == sql.ErrNoRows {
+		return 0, ErrRecordNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	return newCount, nil
 }

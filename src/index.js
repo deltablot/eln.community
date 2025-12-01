@@ -129,6 +129,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initialize browse page search and filter
   initializeBrowseSearch();
 
+  // Initialize download tracking
+  initializeDownloadTracking();
+
   // Format relative timestamps
   formatRelativeTimes();
 });
@@ -249,7 +252,11 @@ function renderHtmlContent(htmlContent, entityId) {
       <div class="d-flex align-items-center gap-2 mb-2">
         <span class="badge bg-info">HTML Content</span>
         <button class="btn btn-sm btn-outline-primary html-open-btn" data-html-content="${base64Content}" data-entity-id="${safeEntityId}">
-          <i class="fas fa-external-link-alt"></i> Open in New Tab
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
+            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+          </svg>
+          Download HTML
         </button>
       </div>
       <div class="html-preview bg-light p-2 rounded small">
@@ -264,19 +271,23 @@ function openHtmlInNewTab(base64Content, entityId) {
     const htmlContent = decodeURIComponent(escape(atob(base64Content)));
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    const newWindow = window.open(url, '_blank');
+    
+    // Create a temporary link and trigger download instead of popup
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${entityId.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
     // Clean up the blob URL after a short delay
     setTimeout(() => {
       URL.revokeObjectURL(url);
     }, 1000);
-
-    if (!newWindow) {
-      alert('Please allow popups to view HTML content in a new tab.');
-    }
   } catch (error) {
-    console.error('Error opening HTML content:', error);
-    alert('Error opening HTML content: ' + error.message);
+    console.error('Error downloading HTML content:', error);
+    alert('Error downloading HTML content: ' + error.message);
   }
 }
 
@@ -1587,3 +1598,46 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeCategorySearch();
   initializeCategoryMultiselect();
 });
+
+
+// Download tracking functionality
+function initializeDownloadTracking() {
+  // Track download button on record page
+  const downloadBtn = document.getElementById('download-eln-btn');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', function(e) {
+      const recordId = this.getAttribute('data-record-id');
+      if (recordId) {
+        // Update the download count display after a short delay
+        // The actual increment happens server-side when the file is downloaded
+        setTimeout(() => {
+          const countElement = document.getElementById('download-count');
+          if (countElement) {
+            const currentCount = parseInt(countElement.textContent) || 0;
+            countElement.textContent = currentCount + 1;
+          }
+        }, 500);
+      }
+    });
+  }
+
+  // Track download buttons on browse page
+  document.querySelectorAll('a[href*=".eln"]').forEach(link => {
+    link.addEventListener('click', function(e) {
+      // Extract record ID from the href
+      const href = this.getAttribute('href');
+      const match = href.match(/\/api\/v1\/record\/([^.]+)\.eln/);
+      if (match) {
+        const recordId = match[1];
+        // Update the download count display after a short delay
+        setTimeout(() => {
+          const countElement = document.querySelector(`.download-count[data-record-id="${recordId}"]`);
+          if (countElement) {
+            const currentCount = parseInt(countElement.textContent) || 0;
+            countElement.textContent = currentCount + 1;
+          }
+        }, 500);
+      }
+    });
+  });
+}

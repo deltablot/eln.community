@@ -308,6 +308,12 @@ func (h *RecordHandler) GetRecordZIP(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
+	// Increment download count
+	if _, err := h.recordRepo.IncrementDownloadCount(ctx, id); err != nil {
+		log.Printf("warning: failed to increment download count for %s: %v", id, err)
+		// Don't fail the download if count increment fails
+	}
+
 	// Fetch the object from S3
 	s3Client, err := newS3Client()
 	if err != nil {
@@ -343,6 +349,25 @@ func (h *RecordHandler) GetRecordZIP(w http.ResponseWriter, r *http.Request, id 
 	}
 }
 
+// IncrementDownloadCount handles POST requests to increment download count
+func (h *RecordHandler) IncrementDownloadCount(w http.ResponseWriter, r *http.Request, id string) {
+	ctx := r.Context()
+
+	newCount, err := h.recordRepo.IncrementDownloadCount(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrRecordNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			log.Printf("error incrementing download count for %s: %v", id, err)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{"download_count": newCount})
+}
+
 // Router handles routing for record endpoints
 func (h *RecordHandler) Router(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
@@ -350,6 +375,8 @@ func (h *RecordHandler) Router(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "/api/v1/records" && r.Method == "POST":
 		h.CreateRecord(w, r)
+	case strings.HasPrefix(path, "/api/v1/record/") && strings.HasSuffix(path, "/download") && r.Method == "POST":
+		h.handleIncrementDownload(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && r.Method == "GET":
 		h.handleGetRecord(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && (r.Method == "PUT" || r.Method == "PATCH" || r.Method == "POST"):
@@ -359,6 +386,26 @@ func (h *RecordHandler) Router(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// handleIncrementDownload processes POST requests to increment download count
+func (h *RecordHandler) handleIncrementDownload(w http.ResponseWriter, r *http.Request) {
+	const prefix = "/api/v1/record/"
+	const suffix = "/download"
+	if !strings.HasPrefix(r.URL.Path, prefix) || !strings.HasSuffix(r.URL.Path, suffix) {
+		http.NotFound(w, r)
+		return
+	}
+
+	raw := strings.TrimPrefix(r.URL.Path, prefix)
+	id := strings.TrimSuffix(raw, suffix)
+
+	if !uuidv7Regex.MatchString(id) {
+		http.Error(w, "Invalid id format", http.StatusBadRequest)
+		return
+	}
+
+	h.IncrementDownloadCount(w, r, id)
 }
 
 // handleGetRecord processes GET requests for individual records
