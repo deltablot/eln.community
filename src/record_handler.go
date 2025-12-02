@@ -28,15 +28,18 @@ type RecordHandler struct {
 	recordRepo   RecordRepository
 	categoryRepo CategoryRepository
 	adminRepo    AdminRepository
-	rorHandler   *RorHandler
+	rorNameCache *RorNameCache
+	rorClient    *RorClient
 }
 
-func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, rorHandler *RorHandler) *RecordHandler {
+func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository,
+	rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
 	return &RecordHandler{
 		recordRepo:   recordRepo,
 		categoryRepo: categoryRepo,
 		adminRepo:    adminRepo,
-		rorHandler:   rorHandler,
+		rorNameCache: rorNameCache,
+		rorClient:    rorClient,
 	}
 }
 
@@ -800,8 +803,8 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// It's not a valid ROR ID, treat it as organization name search
 			// Use ROR name cache to find matching organizations
-			if h.rorHandler != nil && h.rorHandler.nameCache != nil {
-				matchingOrgs := h.rorHandler.nameCache.Search(rorInput)
+			if h.rorNameCache != nil {
+				matchingOrgs := h.rorNameCache.Search(rorInput)
 				if len(matchingOrgs) > 0 {
 					// Collect all matching organization ROR IDs
 					rorIDs = make([]string, len(matchingOrgs))
@@ -859,8 +862,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 
 		// Fetch ROR organization name if not already set
 		if rorOrgName == "" && len(rorIDs) == 1 {
-			rorClient := NewRorClient()
-			if org, err := rorClient.GetOrganization(rorIDs[0]); err == nil {
+			if org, err := h.rorClient.GetOrganization(rorIDs[0]); err == nil {
 				rorOrgName = org.Name
 			} else {
 				log.Printf("Error fetching ROR organization name for %s: %v", rorIDs[0], err)

@@ -481,14 +481,14 @@ func main() {
 	adminRepo := NewPostgresAdminRepository(db)
 	rorRepo := NewPostgresRorRepository(db)
 	recordRepo := NewPostgresRecordRepository(db, categoryRepo, rorRepo)
-
-	// Initialize ROR handler with name cache
 	rorClient := NewRorClient()
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
-	rorHandler := NewRorHandlerWithCache(rorNameCache)
+
+	// Initialize ROR handler with name cache
+	rorHandler := NewRorHandler()
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
-	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorHandler)
+	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorNameCache, rorClient)
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)

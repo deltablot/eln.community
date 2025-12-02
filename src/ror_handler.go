@@ -41,8 +41,7 @@ type RorDetailResponse struct {
 
 // RorHandler handles ROR-related HTTP requests
 type RorHandler struct {
-	client    *RorClient
-	nameCache *RorNameCache
+	client *RorClient
 }
 
 // NewRorHandler creates a new ROR handler
@@ -52,17 +51,7 @@ func NewRorHandler() *RorHandler {
 	}
 }
 
-// NewRorHandlerWithCache creates a new ROR handler with name cache
-func NewRorHandlerWithCache(nameCache *RorNameCache) *RorHandler {
-	return &RorHandler{
-		client:    NewRorClient(),
-		nameCache: nameCache,
-	}
-}
-
 // SearchRorOrganizations searches for ROR organizations by query
-// If nameCache is available, it searches the cached names first
-// Otherwise, it falls back to the ROR API search
 func (h *RorHandler) SearchRorOrganizations(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	if query == "" {
@@ -70,22 +59,11 @@ func (h *RorHandler) SearchRorOrganizations(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var organizations []RorOrganization
-	var err error
-
-	// Try cache search first if available
-	if h.nameCache != nil {
-		organizations = h.nameCache.Search(query)
-		w.Header().Set("X-Cache-Source", "local")
-	} else {
-		// Fallback to ROR API search
-		organizations, err = h.client.SearchOrganizations(query)
-		if err != nil {
-			log.Printf("Error searching ROR organizations: %v", err)
-			http.Error(w, "Error searching ROR organizations", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("X-Cache-Source", "api")
+	organizations, err := h.client.SearchOrganizations(query)
+	if err != nil {
+		log.Printf("Error searching ROR organizations: %v", err)
+		http.Error(w, "Error searching ROR organizations", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -135,22 +113,6 @@ func (h *RorHandler) GetRorOrganizations(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(organizations)
 }
 
-// GetCacheStats returns statistics about the ROR name cache
-func (h *RorHandler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
-	if h.nameCache == nil {
-		http.Error(w, "Name cache not available", http.StatusNotImplemented)
-		return
-	}
-
-	stats := map[string]interface{}{
-		"size":         h.nameCache.Size(),
-		"last_refresh": h.nameCache.LastRefresh(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
-}
-
 // Router handles routing for ROR endpoints
 func (h *RorHandler) Router(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
@@ -160,8 +122,6 @@ func (h *RorHandler) Router(w http.ResponseWriter, r *http.Request) {
 		h.SearchRorOrganizations(w, r)
 	case path == "/api/v1/ror/organizations" && r.Method == "GET":
 		h.GetRorOrganizations(w, r)
-	case path == "/api/v1/ror/cache/stats" && r.Method == "GET":
-		h.GetCacheStats(w, r)
 	case strings.HasPrefix(path, "/api/v1/ror/organization/") && r.Method == "GET":
 		rorID := strings.TrimPrefix(path, "/api/v1/ror/organization/")
 		h.GetRorOrganization(w, r, rorID)
