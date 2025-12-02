@@ -31,14 +31,6 @@ type RecordHandler struct {
 	rorHandler   *RorHandler
 }
 
-func NewRecordHandler(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository) *RecordHandler {
-	return &RecordHandler{
-		recordRepo:   recordRepo,
-		categoryRepo: categoryRepo,
-		adminRepo:    adminRepo,
-	}
-}
-
 func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, rorHandler *RorHandler) *RecordHandler {
 	return &RecordHandler{
 		recordRepo:   recordRepo,
@@ -793,6 +785,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 
 	// Process ROR input - can be either a ROR ID or organization name
 	var rorID string
+	var rorIDs []string // Multiple ROR IDs when searching by name
 	var rorOrgName string
 	var rorSearchInput string // Store the original input for display
 	var noRorMatch bool       // Flag to indicate no matching organizations found
@@ -803,15 +796,29 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		if isValid && normalizedRorId != "" {
 			// It's a valid ROR ID
 			rorID = normalizedRorId
+			rorIDs = []string{normalizedRorId}
 		} else {
 			// It's not a valid ROR ID, treat it as organization name search
 			// Use ROR name cache to find matching organizations
 			if h.rorHandler != nil && h.rorHandler.nameCache != nil {
 				matchingOrgs := h.rorHandler.nameCache.Search(rorInput)
 				if len(matchingOrgs) > 0 {
-					// Use the first matching organization's ROR ID
+					// Collect all matching organization ROR IDs
+					rorIDs = make([]string, len(matchingOrgs))
+					orgNames := make([]string, 0, len(matchingOrgs))
+					for i, org := range matchingOrgs {
+						rorIDs[i] = org.ID
+						orgNames = append(orgNames, org.Name)
+					}
+					// Use the first matching organization for display
 					rorID = matchingOrgs[0].ID
-					rorOrgName = matchingOrgs[0].Name
+					if len(matchingOrgs) == 1 {
+						rorOrgName = matchingOrgs[0].Name
+					} else {
+						// Multiple matches - show count
+						rorOrgName = fmt.Sprintf("%d organizations matching '%s'", len(matchingOrgs), rorInput)
+					}
+					log.Printf("Found %d ROR organizations matching '%s': %v", len(matchingOrgs), rorInput, orgNames)
 				} else {
 					// No matching organizations found
 					log.Printf("No ROR organizations found matching name: %s", rorInput)
@@ -840,23 +847,24 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error searching records", http.StatusInternalServerError)
 			return
 		}
-	} else if rorID != "" {
-		// Filter by ROR ID (either directly provided or found via name search)
-		records, totalCount, err = h.recordRepo.GetAllByRorIDPaginated(r.Context(), rorID, pageSize, offset)
+	} else if len(rorIDs) > 0 {
+		// Filter by ROR ID(s) (either directly provided or found via name search)
+		// Multiple ROR IDs - use the multi-ID query
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(r.Context(), rorIDs, pageSize, offset)
 		if err != nil {
-			log.Printf("Error in GetBrowsePage filtering by ROR %s: %v", rorID, err)
-			http.Error(w, fmt.Sprintf("Error fetching records for ROR %s", rorID), http.StatusInternalServerError)
+			log.Printf("Error in GetBrowsePage filtering by ROR IDs %v: %v", rorIDs, err)
+			http.Error(w, "Error fetching records for ROR organizations", http.StatusInternalServerError)
 			return
 		}
 
 		// Fetch ROR organization name if not already set
-		if rorOrgName == "" {
+		if rorOrgName == "" && len(rorIDs) == 1 {
 			rorClient := NewRorClient()
-			if org, err := rorClient.GetOrganization(rorID); err == nil {
+			if org, err := rorClient.GetOrganization(rorIDs[0]); err == nil {
 				rorOrgName = org.Name
 			} else {
-				log.Printf("Error fetching ROR organization name for %s: %v", rorID, err)
-				rorOrgName = rorID // Fallback to ID if fetch fails
+				log.Printf("Error fetching ROR organization name for %s: %v", rorIDs[0], err)
+				rorOrgName = rorIDs[0] // Fallback to ID if fetch fails
 			}
 		}
 	} else if len(selectedCategoryIDs) > 0 {

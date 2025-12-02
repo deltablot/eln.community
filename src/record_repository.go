@@ -15,9 +15,8 @@ var (
 // RecordRepository defines the interface for record data operations
 type RecordRepository interface {
 	GetAllPaginated(ctx context.Context, limit, offset int) ([]Record, int, error)
-	GetAllByCategoryPaginated(ctx context.Context, categoryID int64, limit, offset int) ([]Record, int, error)
 	GetAllByCategoriesPaginated(ctx context.Context, categoryIDs []int64, limit, offset int) ([]Record, int, error)
-	GetAllByRorIDPaginated(ctx context.Context, rorID string, limit, offset int) ([]Record, int, error)
+	GetAllByRorIDsPaginated(ctx context.Context, rorIDs []string, limit, offset int) ([]Record, int, error)
 	GetAllByOrcidPaginated(ctx context.Context, orcid string, limit, offset int) ([]Record, int, error)
 	SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int) ([]Record, int, error)
 	GetByID(ctx context.Context, id string) (*Record, error)
@@ -188,74 +187,6 @@ func (r *PostgresRecordRepository) GetS3Key(ctx context.Context, id string) (str
 	return s3Key, nil
 }
 
-// GetAllByCategoryPaginated retrieves records filtered by category with pagination
-func (r *PostgresRecordRepository) GetAllByCategoryPaginated(ctx context.Context, categoryID int64, limit, offset int) ([]Record, int, error) {
-	// Get total count
-	var totalCount int
-	err := r.db.QueryRowContext(ctx, `
-		SELECT COUNT(DISTINCT r.id)
-		FROM records r
-		JOIN records_categories rc ON r.id = rc.record_id
-		WHERE rc.category_id = $1
-	`, categoryID).Scan(&totalCount)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
-		FROM records r
-		JOIN records_categories rc ON r.id = rc.record_id
-		WHERE rc.category_id = $1
-		ORDER BY r.created_at DESC
-		LIMIT $2 OFFSET $3
-	`, categoryID, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	var records []Record
-	for rows.Next() {
-		var record Record
-		if err := rows.Scan(
-			&record.Id,
-			&record.Sha256,
-			&record.Name,
-			&record.Metadata,
-			&record.CreatedAt,
-			&record.ModifiedAt,
-			&record.UploaderName,
-			&record.UploaderOrcid,
-			&record.DownloadCount,
-		); err != nil {
-			return nil, 0, err
-		}
-
-		// Get categories for this record
-		categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
-		if err != nil {
-			return nil, 0, err
-		}
-		record.Categories = categories
-
-		// Get ROR IDs for this record
-		rorIds, err := r.rorRepo.GetRecordRorIds(ctx, record.Id)
-		if err != nil {
-			return nil, 0, err
-		}
-		record.RorIds = rorIds
-
-		records = append(records, record)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
-	}
-
-	return records, totalCount, nil
-}
-
 // GetAllByCategoriesPaginated retrieves records filtered by multiple categories with pagination
 func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Context, categoryIDs []int64, limit, offset int) ([]Record, int, error) {
 	if len(categoryIDs) == 0 {
@@ -343,28 +274,47 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 	return records, totalCount, nil
 }
 
-// GetAllByRorIDPaginated retrieves records filtered by ROR ID with pagination
-func (r *PostgresRecordRepository) GetAllByRorIDPaginated(ctx context.Context, rorID string, limit, offset int) ([]Record, int, error) {
+// GetAllByRorIDsPaginated retrieves records filtered by multiple ROR IDs with pagination
+func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, rorIDs []string, limit, offset int) ([]Record, int, error) {
+	if len(rorIDs) == 0 {
+		return []Record{}, 0, nil
+	}
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(rorIDs))
+	args := make([]interface{}, len(rorIDs))
+	for i, rorID := range rorIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = rorID
+	}
+	inClause := strings.Join(placeholders, ",")
+
 	// Get total count
 	var totalCount int
-	err := r.db.QueryRowContext(ctx, `
+	countQuery := fmt.Sprintf(`
 		SELECT COUNT(DISTINCT r.id)
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
-		WHERE rr.ror = $1
-	`, rorID).Scan(&totalCount)
+		WHERE rr.ror IN (%s)
+	`, inClause)
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	rows, err := r.db.QueryContext(ctx, `
+	// Get records
+	// Add limit and offset to args
+	args = append(args, limit, offset)
+	selectQuery := fmt.Sprintf(`
 		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
-		WHERE rr.ror = $1
+		WHERE rr.ror IN (%s)
 		ORDER BY r.created_at DESC
-		LIMIT $2 OFFSET $3
-	`, rorID, limit, offset)
+		LIMIT $%d OFFSET $%d
+	`, inClause, len(rorIDs)+1, len(rorIDs)+2)
+
+	rows, err := r.db.QueryContext(ctx, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -395,11 +345,11 @@ func (r *PostgresRecordRepository) GetAllByRorIDPaginated(ctx context.Context, r
 		record.Categories = categories
 
 		// Get ROR IDs for this record
-		rorIds, err := r.rorRepo.GetRecordRorIds(ctx, record.Id)
+		recordRorIds, err := r.rorRepo.GetRecordRorIds(ctx, record.Id)
 		if err != nil {
 			return nil, 0, err
 		}
-		record.RorIds = rorIds
+		record.RorIds = recordRorIds
 
 		records = append(records, record)
 	}
