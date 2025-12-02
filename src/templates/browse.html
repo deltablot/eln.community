@@ -202,6 +202,7 @@
         <th scope="col">Author</th>
         <th scope="col">Categories</th>
         <th scope="col">Organizations</th>
+        <th scope="col">Downloads</th>
         <th scope="col">Created</th>
         <th scope="col" class="text-end">Actions</th>
       </tr>
@@ -229,6 +230,9 @@
           {{- else }}
           <span class="text-muted">-</span>
           {{- end }}
+        </td>
+        <td>
+          <span class="download-count" data-record-id="{{ .Id }}">{{ .DownloadCount }}</span>
         </td>
         <td>
           <div class="record-card-date" data-timestamp="{{ .CreatedAt.Unix }}">

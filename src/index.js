@@ -249,7 +249,8 @@ function renderHtmlContent(htmlContent, entityId) {
       <div class="d-flex align-items-center gap-2 mb-2">
         <span class="badge bg-info">HTML Content</span>
         <button class="btn btn-sm btn-outline-primary html-open-btn" data-html-content="${base64Content}" data-entity-id="${safeEntityId}">
-          <i class="fas fa-external-link-alt"></i> Open in New Tab
+          <i class="bi bi-download"></i>
+          Download HTML
         </button>
       </div>
       <div class="html-preview bg-light p-2 rounded small">
@@ -264,19 +265,23 @@ function openHtmlInNewTab(base64Content, entityId) {
     const htmlContent = decodeURIComponent(escape(atob(base64Content)));
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    const newWindow = window.open(url, '_blank');
+    
+    // Create a temporary link and trigger download instead of popup
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${entityId.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
     // Clean up the blob URL after a short delay
     setTimeout(() => {
       URL.revokeObjectURL(url);
     }, 1000);
-
-    if (!newWindow) {
-      alert('Please allow popups to view HTML content in a new tab.');
-    }
   } catch (error) {
-    console.error('Error opening HTML content:', error);
-    alert('Error opening HTML content: ' + error.message);
+    console.error('Error downloading HTML content:', error);
+    alert('Error downloading HTML content: ' + error.message);
   }
 }
 
@@ -1587,3 +1592,4 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeCategorySearch();
   initializeCategoryMultiselect();
 });
+

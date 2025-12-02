@@ -56,6 +56,7 @@ type Record struct {
 	UploaderOrcid  string     `json:"uploader_orcid"`
 	RorIds         []string   `json:"rors,omitempty"`
 	Categories     []Category `json:"categories,omitempty"`
+	DownloadCount  int        `json:"download_count"`
 }
 
 type Category struct {
