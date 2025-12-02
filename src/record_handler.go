@@ -794,7 +794,10 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	// Process ROR input - can be either a ROR ID or organization name
 	var rorID string
 	var rorOrgName string
+	var rorSearchInput string // Store the original input for display
+	var noRorMatch bool       // Flag to indicate no matching organizations found
 	if rorInput != "" {
+		rorSearchInput = rorInput // Store original input for display
 		// Try to validate as ROR ID first
 		normalizedRorId, isValid := validateAndNormalizeRorId(rorInput)
 		if isValid && normalizedRorId != "" {
@@ -812,9 +815,8 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 				} else {
 					// No matching organizations found
 					log.Printf("No ROR organizations found matching name: %s", rorInput)
-					// Set empty results
-					records = []Record{}
-					totalCount = 0
+					// Set flag to skip query execution and return empty results
+					noRorMatch = true
 				}
 			} else {
 				// Name cache not available, treat as invalid input
@@ -826,7 +828,11 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine which query to execute based on search, category, and ROR parameters
-	if searchQuery != "" {
+	if noRorMatch {
+		// No matching ROR organizations found, return empty results
+		records = []Record{}
+		totalCount = 0
+	} else if searchQuery != "" {
 		// Search with optional category filter
 		records, totalCount, err = h.recordRepo.SearchPaginated(r.Context(), searchQuery, selectedCategoryID, pageSize, offset)
 		if err != nil {
@@ -907,6 +913,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		SelectedCategoryIDs []int64
 		SelectedRorID       string
 		SelectedRorName     string
+		SelectedRorInput    string
 		SearchQuery         string
 		User                *User
 		IsAdmin             bool
@@ -923,6 +930,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		SelectedCategoryIDs: selectedCategoryIDs,
 		SelectedRorID:       rorID,
 		SelectedRorName:     rorOrgName,
+		SelectedRorInput:    rorSearchInput,
 		SearchQuery:         searchQuery,
 		User:                user,
 		IsAdmin:             isAdmin,

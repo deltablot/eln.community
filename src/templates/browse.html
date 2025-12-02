@@ -127,12 +127,12 @@
           <div class="mb-3 row">
             <div class="col-md-6">
               <label for="rorInput" class="form-label">Organization (ROR)</label>
-              <input type="text" id="rorInput" class="form-control" placeholder="Filter by ROR ID..." value="{{ .SelectedRorID }}" />
+              <input type="text" id="rorInput" class="form-control" placeholder="Filter by ROR ID or organization name..." value="{{ .SelectedRorInput }}" />
             </div>
           </div>
 
           <!-- Clear Filters -->
-          {{- if or .SelectedCategoryID .SearchQuery .SelectedRorID }}
+          {{- if or .SelectedCategoryID .SearchQuery .SelectedRorInput }}
           <div class="mb-3">
             <a href="/browse" class="btn btn-outline-secondary btn-sm">Clear all filters</a>
           </div>
