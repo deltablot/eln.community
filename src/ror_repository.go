@@ -8,6 +8,7 @@ import (
 // RorRepository defines the interface for ROR data operations
 type RorRepository interface {
 	GetRecordRorIds(ctx context.Context, recordId string) ([]string, error)
+	GetAllUniqueRorIds(ctx context.Context) ([]string, error)
 	AssociateRorWithRecord(ctx context.Context, tx *sql.Tx, recordId string, rorId string) error
 	RemoveAllRorAssociations(ctx context.Context, tx *sql.Tx, recordId string) error
 }
@@ -30,6 +31,34 @@ func (r *PostgresRorRepository) GetRecordRorIds(ctx context.Context, recordId st
 		WHERE record_id = $1
 		ORDER BY created_at ASC
 	`, recordId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rorIds []string
+	for rows.Next() {
+		var rorId string
+		if err := rows.Scan(&rorId); err != nil {
+			return nil, err
+		}
+		rorIds = append(rorIds, rorId)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return rorIds, nil
+}
+
+// GetAllUniqueRorIds retrieves all unique ROR IDs from the database
+func (r *PostgresRorRepository) GetAllUniqueRorIds(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT ror 
+		FROM records_ror 
+		ORDER BY ror
+	`)
 	if err != nil {
 		return nil, err
 	}
