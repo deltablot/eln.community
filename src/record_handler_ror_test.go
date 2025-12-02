@@ -6,12 +6,12 @@ import (
 
 // Test the logic for determining if input is ROR ID or organization name
 func TestRorInputProcessing(t *testing.T) {
-	// Create a mock name cache
+	// Create a mock name cache with French and Vietnamese institutions
 	mockCache := &RorNameCache{
 		cache: map[string]string{
-			"01an7q238": "University of California, Berkeley",
-			"02jbv0t02": "Stanford University",
-			"03vek6s52": "Harvard University",
+			"02feahw73": "Centre National de la Recherche Scientifique",
+			"051escj72": "Université Paris Cité",
+			"03rnk6m14": "Vietnam National University, Hanoi",
 		},
 	}
 
@@ -24,23 +24,23 @@ func TestRorInputProcessing(t *testing.T) {
 	}{
 		{
 			name:           "Valid ROR ID",
-			input:          "01an7q238",
-			wantRorID:      "01an7q238",
+			input:          "02feahw73",
+			wantRorID:      "02feahw73",
 			wantOrgName:    "",
 			wantEmptyMatch: false,
 		},
 		{
-			name:           "Organization name - exact match",
-			input:          "Stanford University",
-			wantRorID:      "02jbv0t02",
-			wantOrgName:    "Stanford University",
+			name:           "Organization name - exact match (French)",
+			input:          "Université Paris Cité",
+			wantRorID:      "051escj72",
+			wantOrgName:    "Université Paris Cité",
 			wantEmptyMatch: false,
 		},
 		{
-			name:           "Organization name - partial match",
-			input:          "Harvard",
-			wantRorID:      "03vek6s52",
-			wantOrgName:    "Harvard University",
+			name:           "Organization name - partial match (Vietnamese)",
+			input:          "Vietnam National",
+			wantRorID:      "03rnk6m14",
+			wantOrgName:    "Vietnam National University, Hanoi",
 			wantEmptyMatch: false,
 		},
 		{
@@ -91,18 +91,19 @@ func TestRorInputProcessing(t *testing.T) {
 
 // Test multiple matching organizations
 func TestRorInputProcessing_MultipleMatches(t *testing.T) {
-	// Create a mock name cache with organizations containing "de"
+	// Create a mock name cache with French and Vietnamese institutions
+	// Both contain "de" in their names
 	mockCache := &RorNameCache{
 		cache: map[string]string{
-			"01an7q238": "University of California, Berkeley",
-			"02jbv0t02": "Stanford University",
-			"03vek6s52": "Harvard University",
-			"04abc1234": "Technical University of Denmark",
-			"05def5678": "University of Delaware",
+			"02feahw73": "Centre National de la Recherche Scientifique",
+			"051escj72": "Université Paris Cité",
+			"03rnk6m14": "Vietnam National University, Hanoi",
+			"05qghxh33": "Vietnam National University, Ho Chi Minh City",
+			"01ggx4157": "École Polytechnique",
 		},
 	}
 
-	// Search for "de" should match both Denmark and Delaware
+	// Search for "de" should match French institutions with "de"
 	matchingOrgs := mockCache.Search("de")
 
 	if len(matchingOrgs) < 2 {
@@ -117,22 +118,46 @@ func TestRorInputProcessing_MultipleMatches(t *testing.T) {
 
 	t.Logf("Found %d organizations matching 'de': %v", len(matchingOrgs), rorIDs)
 
-	// Verify both expected IDs are in the results
-	foundDenmark := false
-	foundDelaware := false
+	// Verify expected IDs are in the results
+	foundCNRS := false
+	foundEcole := false
 	for _, org := range matchingOrgs {
-		if org.ID == "04abc1234" {
-			foundDenmark = true
+		if org.ID == "02feahw73" {
+			foundCNRS = true
 		}
-		if org.ID == "05def5678" {
-			foundDelaware = true
+		if org.ID == "01ggx4157" {
+			foundEcole = true
 		}
 	}
 
-	if !foundDenmark {
-		t.Error("Expected to find Technical University of Denmark in results")
+	if !foundCNRS {
+		t.Error("Expected to find Centre National de la Recherche Scientifique in results")
 	}
-	if !foundDelaware {
-		t.Error("Expected to find University of Delaware in results")
+	if !foundEcole {
+		t.Error("Expected to find École Polytechnique in results")
+	}
+
+	// Test Vietnamese institutions - search for "Vietnam"
+	vietnamOrgs := mockCache.Search("Vietnam")
+	if len(vietnamOrgs) != 2 {
+		t.Errorf("Expected 2 matches for 'Vietnam', got %d", len(vietnamOrgs))
+	}
+
+	foundHanoi := false
+	foundHCMC := false
+	for _, org := range vietnamOrgs {
+		if org.ID == "03rnk6m14" {
+			foundHanoi = true
+		}
+		if org.ID == "05qghxh33" {
+			foundHCMC = true
+		}
+	}
+
+	if !foundHanoi {
+		t.Error("Expected to find Vietnam National University, Hanoi in results")
+	}
+	if !foundHCMC {
+		t.Error("Expected to find Vietnam National University, Ho Chi Minh City in results")
 	}
 }

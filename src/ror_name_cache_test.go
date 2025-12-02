@@ -10,13 +10,14 @@ import (
 )
 
 func TestRorNameCache_Search(t *testing.T) {
-	// Create a mock cache with test data
+	// Create a mock cache with test data - French and Vietnamese institutions
 	cache := &RorNameCache{
 		cache: map[string]string{
-			"01an7q238": "University of California, Berkeley",
-			"02jbv0t02": "Stanford University",
-			"03vek6s52": "Harvard University",
-			"04xm1d337": "Massachusetts Institute of Technology",
+			"02feahw73": "Centre National de la Recherche Scientifique",
+			"051escj72": "Université Paris Cité",
+			"03xjwb503": "Sorbonne Université",
+			"03rnk6m14": "Vietnam National University, Hanoi",
+			"05qghxh33": "Vietnam National University, Ho Chi Minh City",
 		},
 		lastRefresh: time.Now(),
 	}
@@ -29,21 +30,21 @@ func TestRorNameCache_Search(t *testing.T) {
 	}{
 		{
 			name:          "Search by full name",
-			query:         "Stanford University",
+			query:         "Sorbonne Université",
 			expectedCount: 1,
-			shouldContain: "02jbv0t02",
+			shouldContain: "03xjwb503",
 		},
 		{
-			name:          "Search by partial name",
-			query:         "University",
-			expectedCount: 3,
-			shouldContain: "01an7q238",
+			name:          "Search by partial name - multiple matches",
+			query:         "Vietnam National University",
+			expectedCount: 2,
+			shouldContain: "03rnk6m14",
 		},
 		{
 			name:          "Search case insensitive",
-			query:         "HARVARD",
+			query:         "PARIS",
 			expectedCount: 1,
-			shouldContain: "03vek6s52",
+			shouldContain: "051escj72",
 		},
 		{
 			name:          "Search with no results",
@@ -58,10 +59,16 @@ func TestRorNameCache_Search(t *testing.T) {
 			shouldContain: "",
 		},
 		{
-			name:          "Search by partial word",
-			query:         "Massachusetts",
+			name:          "Search by partial word - French",
+			query:         "Recherche",
 			expectedCount: 1,
-			shouldContain: "04xm1d337",
+			shouldContain: "02feahw73",
+		},
+		{
+			name:          "Search by partial word - Vietnamese city",
+			query:         "Hanoi",
+			expectedCount: 1,
+			shouldContain: "03rnk6m14",
 		},
 	}
 
@@ -92,8 +99,8 @@ func TestRorNameCache_Search(t *testing.T) {
 func TestRorNameCache_Get(t *testing.T) {
 	cache := &RorNameCache{
 		cache: map[string]string{
-			"01an7q238": "University of California, Berkeley",
-			"02jbv0t02": "Stanford University",
+			"02feahw73": "Centre National de la Recherche Scientifique",
+			"03rnk6m14": "Vietnam National University, Hanoi",
 		},
 		lastRefresh: time.Now(),
 	}
@@ -105,9 +112,15 @@ func TestRorNameCache_Get(t *testing.T) {
 		shouldFind   bool
 	}{
 		{
-			name:         "Get existing organization",
-			rorID:        "01an7q238",
-			expectedName: "University of California, Berkeley",
+			name:         "Get existing organization - French",
+			rorID:        "02feahw73",
+			expectedName: "Centre National de la Recherche Scientifique",
+			shouldFind:   true,
+		},
+		{
+			name:         "Get existing organization - Vietnamese",
+			rorID:        "03rnk6m14",
+			expectedName: "Vietnam National University, Hanoi",
 			shouldFind:   true,
 		},
 		{
@@ -136,9 +149,9 @@ func TestRorNameCache_Get(t *testing.T) {
 func TestRorNameCache_Size(t *testing.T) {
 	cache := &RorNameCache{
 		cache: map[string]string{
-			"01an7q238": "University of California, Berkeley",
-			"02jbv0t02": "Stanford University",
-			"03vek6s52": "Harvard University",
+			"02feahw73": "Centre National de la Recherche Scientifique",
+			"051escj72": "Université Paris Cité",
+			"03rnk6m14": "Vietnam National University, Hanoi",
 		},
 		lastRefresh: time.Now(),
 	}
@@ -187,13 +200,13 @@ func TestRorNameCache_Integration(t *testing.T) {
 
 	// Create cache with mock ROR client
 	mockCache := NewInMemoryCache[RorOrganization](24 * time.Hour)
-	mockCache.Set("01an7q238", RorOrganization{
-		ID:   "01an7q238",
-		Name: "University of California, Berkeley",
+	mockCache.Set("02feahw73", RorOrganization{
+		ID:   "02feahw73",
+		Name: "Centre National de la Recherche Scientifique",
 	})
-	mockCache.Set("02jbv0t02", RorOrganization{
-		ID:   "02jbv0t02",
-		Name: "Stanford University",
+	mockCache.Set("03rnk6m14", RorOrganization{
+		ID:   "03rnk6m14",
+		Name: "Vietnam National University, Hanoi",
 	})
 
 	rorClient := NewRorClientWithCache(mockCache)
