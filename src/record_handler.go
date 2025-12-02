@@ -28,6 +28,7 @@ type RecordHandler struct {
 	recordRepo   RecordRepository
 	categoryRepo CategoryRepository
 	adminRepo    AdminRepository
+	rorHandler   *RorHandler
 }
 
 func NewRecordHandler(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository) *RecordHandler {
@@ -35,6 +36,15 @@ func NewRecordHandler(recordRepo RecordRepository, categoryRepo CategoryReposito
 		recordRepo:   recordRepo,
 		categoryRepo: categoryRepo,
 		adminRepo:    adminRepo,
+	}
+}
+
+func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, rorHandler *RorHandler) *RecordHandler {
+	return &RecordHandler{
+		recordRepo:   recordRepo,
+		categoryRepo: categoryRepo,
+		adminRepo:    adminRepo,
+		rorHandler:   rorHandler,
 	}
 }
 
@@ -733,7 +743,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	categoryIDStr := r.URL.Query().Get("category")
 	searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
-	rorID := strings.TrimSpace(r.URL.Query().Get("ror"))
+	rorInput := strings.TrimSpace(r.URL.Query().Get("ror"))
 
 	// Parse pagination parameters
 	pageStr := r.URL.Query().Get("page")
@@ -781,6 +791,40 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Process ROR input - can be either a ROR ID or organization name
+	var rorID string
+	var rorOrgName string
+	if rorInput != "" {
+		// Try to validate as ROR ID first
+		normalizedRorId, isValid := validateAndNormalizeRorId(rorInput)
+		if isValid && normalizedRorId != "" {
+			// It's a valid ROR ID
+			rorID = normalizedRorId
+		} else {
+			// It's not a valid ROR ID, treat it as organization name search
+			// Use ROR name cache to find matching organizations
+			if h.rorHandler != nil && h.rorHandler.nameCache != nil {
+				matchingOrgs := h.rorHandler.nameCache.Search(rorInput)
+				if len(matchingOrgs) > 0 {
+					// Use the first matching organization's ROR ID
+					rorID = matchingOrgs[0].ID
+					rorOrgName = matchingOrgs[0].Name
+				} else {
+					// No matching organizations found
+					log.Printf("No ROR organizations found matching name: %s", rorInput)
+					// Set empty results
+					records = []Record{}
+					totalCount = 0
+				}
+			} else {
+				// Name cache not available, treat as invalid input
+				log.Printf("ROR name cache not available, cannot search by organization name")
+				http.Error(w, "Invalid ROR ID format and name search not available", http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
 	// Determine which query to execute based on search, category, and ROR parameters
 	if searchQuery != "" {
 		// Search with optional category filter
@@ -791,12 +835,23 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if rorID != "" {
-		// Filter by ROR ID
+		// Filter by ROR ID (either directly provided or found via name search)
 		records, totalCount, err = h.recordRepo.GetAllByRorIDPaginated(r.Context(), rorID, pageSize, offset)
 		if err != nil {
 			log.Printf("Error in GetBrowsePage filtering by ROR %s: %v", rorID, err)
 			http.Error(w, fmt.Sprintf("Error fetching records for ROR %s", rorID), http.StatusInternalServerError)
 			return
+		}
+
+		// Fetch ROR organization name if not already set
+		if rorOrgName == "" {
+			rorClient := NewRorClient()
+			if org, err := rorClient.GetOrganization(rorID); err == nil {
+				rorOrgName = org.Name
+			} else {
+				log.Printf("Error fetching ROR organization name for %s: %v", rorID, err)
+				rorOrgName = rorID // Fallback to ID if fetch fails
+			}
 		}
 	} else if len(selectedCategoryIDs) > 0 {
 		// Filter by categories (single or multiple)
@@ -841,18 +896,6 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		// Check if user is admin
 		if adminStatus, err := h.adminRepo.IsAdmin(ctx, orcid); err == nil {
 			isAdmin = adminStatus
-		}
-	}
-
-	// Fetch ROR organization name if filtering by ROR
-	var rorOrgName string
-	if rorID != "" {
-		rorClient := NewRorClient()
-		if org, err := rorClient.GetOrganization(rorID); err == nil {
-			rorOrgName = org.Name
-		} else {
-			log.Printf("Error fetching ROR organization name for %s: %v", rorID, err)
-			rorOrgName = rorID // Fallback to ID if fetch fails
 		}
 	}
 

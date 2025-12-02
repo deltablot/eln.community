@@ -58,8 +58,8 @@ func TestRorNameCache_Search(t *testing.T) {
 			shouldContain: "",
 		},
 		{
-			name:          "Search by abbreviation",
-			query:         "MIT",
+			name:          "Search by partial word",
+			query:         "Massachusetts",
 			expectedCount: 1,
 			shouldContain: "04xm1d337",
 		},
