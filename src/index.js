@@ -1593,3 +1593,94 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeCategoryMultiselect();
 });
 
+
+// Version History functionality
+function initializeVersionHistory() {
+  const recordIdElement = document.getElementById('record-id-data');
+  if (!recordIdElement) {
+    return; // Not on a record page
+  }
+
+  const recordId = JSON.parse(recordIdElement.textContent);
+  const versionCount = document.getElementById('version-count');
+  const versionSelector = document.getElementById('version-selector');
+
+  if (!versionSelector) {
+    return; // Version selector not found
+  }
+
+  // Fetch version history
+  fetch(`/api/v1/records/${recordId}/history`)
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to fetch');
+      return response.json();
+    })
+    .then(data => {
+      const historyCount = data.history ? data.history.length : 0;
+      
+      if (historyCount > 0) {
+        versionCount.textContent = `${historyCount + 1} total`;
+        
+        // Populate dropdown with historical versions
+        data.history.forEach(version => {
+          const option = document.createElement('option');
+          option.value = version.version;
+          option.textContent = `Version ${version.version} - ${version.name} (${new Date(version.archived_at).toLocaleDateString()})`;
+          versionSelector.appendChild(option);
+        });
+      } else {
+        versionCount.textContent = '1 version';
+      }
+      
+      // Handle dropdown selection
+      versionSelector.addEventListener('change', (e) => {
+        if (e.target.value && e.target.value !== 'current') {
+          showVersionModal(recordId, e.target.value);
+        }
+      });
+    })
+    .catch(err => {
+      console.error('Error loading version history:', err);
+      versionCount.textContent = 'Error loading';
+    });
+}
+
+function showVersionModal(recordId, version) {
+  const modal = new bootstrap.Modal(document.getElementById('versionModal'));
+  const loading = document.getElementById('version-detail-loading');
+  const content = document.getElementById('version-detail-content');
+  
+  loading.classList.remove('d-none');
+  content.classList.add('d-none');
+  modal.show();
+  
+  fetch(`/api/v1/records/${recordId}/history/${version}`)
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('modal-version').textContent = data.version;
+      document.getElementById('modal-name').textContent = data.name;
+      document.getElementById('modal-archived-at').textContent = new Date(data.archived_at).toLocaleString();
+      document.getElementById('modal-change-type').innerHTML = `<span class="badge ${data.change_type === 'DELETE' ? 'bg-danger' : 'bg-info'}">${data.change_type}</span>`;
+      document.getElementById('modal-sha256').textContent = data.sha256;
+      document.getElementById('modal-downloads').textContent = data.download_count;
+      
+      try {
+        const metadata = JSON.parse(data.metadata);
+        document.getElementById('modal-metadata').textContent = JSON.stringify(metadata, null, 2);
+      } catch {
+        document.getElementById('modal-metadata').textContent = data.metadata || 'N/A';
+      }
+      
+      loading.classList.add('d-none');
+      content.classList.remove('d-none');
+    })
+    .catch(err => {
+      console.error('Error loading version details:', err);
+      loading.innerHTML = '<div class="alert alert-danger">Failed to load version details</div>';
+    });
+}
+
+// Initialize version history when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initializeVersionHistory();
+});

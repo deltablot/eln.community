@@ -14,6 +14,66 @@
     {{ end }}
   </div>
 </div>
+
+<!-- Version Selector -->
+<div class="mb-3" id="version-selector-container">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <label for="version-selector" class="col-form-label">
+        Version:
+      </label>
+    </div>
+    <div class="col-auto">
+      <select class="form-select" id="version-selector" style="min-width: 300px;">
+        <option value="current" selected>Current ({{ .Record.ModifiedAt.Format "Jan 02, 2006 15:04" }})</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <span class="badge bg-secondary" id="version-count"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Version Detail Modal -->
+<div class="modal fade" id="versionModal" tabindex="-1" aria-labelledby="versionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="versionModalLabel">Version Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="version-detail-loading" class="text-center py-4">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        <div id="version-detail-content" class="d-none">
+          <dl class="row">
+            <dt class="col-sm-3">Version</dt>
+            <dd class="col-sm-9" id="modal-version"></dd>
+            <dt class="col-sm-3">Name</dt>
+            <dd class="col-sm-9" id="modal-name"></dd>
+            <dt class="col-sm-3">Archived At</dt>
+            <dd class="col-sm-9" id="modal-archived-at"></dd>
+            <dt class="col-sm-3">Change Type</dt>
+            <dd class="col-sm-9" id="modal-change-type"></dd>
+            <dt class="col-sm-3">SHA256</dt>
+            <dd class="col-sm-9"><code id="modal-sha256"></code></dd>
+            <dt class="col-sm-3">Downloads</dt>
+            <dd class="col-sm-9" id="modal-downloads"></dd>
+          </dl>
+          <h6>Metadata at this version:</h6>
+          <pre class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"><code id="modal-metadata"></code></pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {{- if .Record.RorIds }}
 <h4>Research Organizations:
   <span id="ror-organizations-loading">Loading...</span>
@@ -56,8 +116,9 @@
 
 <!-- Pass JSON data safely to JavaScript -->
 <script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
+<script type="application/json" id="record-id-data">"{{ .Record.Id }}"</script>
 {{- if .Record.RorIds }}
-<script type="application/json" id="ror-ids-data">{{ .Record.RorIds }}</script>
+<script type="application/json" id="ror-ids-data">{{ toJson .Record.RorIds }}</script>
 {{- end }}
 
 <!-- Load JavaScript file -->
