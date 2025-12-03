@@ -28,13 +28,18 @@ type RecordHandler struct {
 	recordRepo   RecordRepository
 	categoryRepo CategoryRepository
 	adminRepo    AdminRepository
+	rorNameCache *RorNameCache
+	rorClient    *RorClient
 }
 
-func NewRecordHandler(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository) *RecordHandler {
+func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository,
+	rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
 	return &RecordHandler{
 		recordRepo:   recordRepo,
 		categoryRepo: categoryRepo,
 		adminRepo:    adminRepo,
+		rorNameCache: rorNameCache,
+		rorClient:    rorClient,
 	}
 }
 
@@ -733,7 +738,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	categoryIDStr := r.URL.Query().Get("category")
 	searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
-	rorID := strings.TrimSpace(r.URL.Query().Get("ror"))
+	rorInput := strings.TrimSpace(r.URL.Query().Get("ror"))
 
 	// Parse pagination parameters
 	pageStr := r.URL.Query().Get("page")
@@ -781,8 +786,63 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Process ROR input - can be either a ROR ID or organization name
+	var rorID string
+	var rorIDs []string // Multiple ROR IDs when searching by name
+	var rorOrgName string
+	var rorSearchInput string // Store the original input for display
+	var noRorMatch bool       // Flag to indicate no matching organizations found
+	if rorInput != "" {
+		rorSearchInput = rorInput // Store original input for display
+		// Try to validate as ROR ID first
+		normalizedRorId, isValid := validateAndNormalizeRorId(rorInput)
+		if isValid && normalizedRorId != "" {
+			// It's a valid ROR ID
+			rorID = normalizedRorId
+			rorIDs = []string{normalizedRorId}
+		} else {
+			// It's not a valid ROR ID, treat it as organization name search
+			// Use ROR name cache to find matching organizations
+			if h.rorNameCache != nil {
+				matchingOrgs := h.rorNameCache.Search(rorInput)
+				if len(matchingOrgs) > 0 {
+					// Collect all matching organization ROR IDs
+					rorIDs = make([]string, len(matchingOrgs))
+					orgNames := make([]string, 0, len(matchingOrgs))
+					for i, org := range matchingOrgs {
+						rorIDs[i] = org.ID
+						orgNames = append(orgNames, org.Name)
+					}
+					// Use the first matching organization for display
+					rorID = matchingOrgs[0].ID
+					if len(matchingOrgs) == 1 {
+						rorOrgName = matchingOrgs[0].Name
+					} else {
+						// Multiple matches - show count
+						rorOrgName = fmt.Sprintf("%d organizations matching '%s'", len(matchingOrgs), rorInput)
+					}
+					log.Printf("Found %d ROR organizations matching '%s': %v", len(matchingOrgs), rorInput, orgNames)
+				} else {
+					// No matching organizations found
+					log.Printf("No ROR organizations found matching name: %s", rorInput)
+					// Set flag to skip query execution and return empty results
+					noRorMatch = true
+				}
+			} else {
+				// Name cache not available, treat as invalid input
+				log.Printf("ROR name cache not available, cannot search by organization name")
+				http.Error(w, "Invalid ROR ID format and name search not available", http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
 	// Determine which query to execute based on search, category, and ROR parameters
-	if searchQuery != "" {
+	if noRorMatch {
+		// No matching ROR organizations found, return empty results
+		records = []Record{}
+		totalCount = 0
+	} else if searchQuery != "" {
 		// Search with optional category filter
 		records, totalCount, err = h.recordRepo.SearchPaginated(r.Context(), searchQuery, selectedCategoryID, pageSize, offset)
 		if err != nil {
@@ -790,13 +850,24 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error searching records", http.StatusInternalServerError)
 			return
 		}
-	} else if rorID != "" {
-		// Filter by ROR ID
-		records, totalCount, err = h.recordRepo.GetAllByRorIDPaginated(r.Context(), rorID, pageSize, offset)
+	} else if len(rorIDs) > 0 {
+		// Filter by ROR ID(s) (either directly provided or found via name search)
+		// Multiple ROR IDs - use the multi-ID query
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(r.Context(), rorIDs, pageSize, offset)
 		if err != nil {
-			log.Printf("Error in GetBrowsePage filtering by ROR %s: %v", rorID, err)
-			http.Error(w, fmt.Sprintf("Error fetching records for ROR %s", rorID), http.StatusInternalServerError)
+			log.Printf("Error in GetBrowsePage filtering by ROR IDs %v: %v", rorIDs, err)
+			http.Error(w, "Error fetching records for ROR organizations", http.StatusInternalServerError)
 			return
+		}
+
+		// Fetch ROR organization name if not already set
+		if rorOrgName == "" && len(rorIDs) == 1 {
+			if org, err := h.rorClient.GetOrganization(rorIDs[0]); err == nil {
+				rorOrgName = org.Name
+			} else {
+				log.Printf("Error fetching ROR organization name for %s: %v", rorIDs[0], err)
+				rorOrgName = rorIDs[0] // Fallback to ID if fetch fails
+			}
 		}
 	} else if len(selectedCategoryIDs) > 0 {
 		// Filter by categories (single or multiple)
@@ -844,18 +915,6 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch ROR organization name if filtering by ROR
-	var rorOrgName string
-	if rorID != "" {
-		rorClient := NewRorClient()
-		if org, err := rorClient.GetOrganization(rorID); err == nil {
-			rorOrgName = org.Name
-		} else {
-			log.Printf("Error fetching ROR organization name for %s: %v", rorID, err)
-			rorOrgName = rorID // Fallback to ID if fetch fails
-		}
-	}
-
 	data := struct {
 		App                 App
 		Categories          []Category
@@ -864,6 +923,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		SelectedCategoryIDs []int64
 		SelectedRorID       string
 		SelectedRorName     string
+		SelectedRorInput    string
 		SearchQuery         string
 		User                *User
 		IsAdmin             bool
@@ -880,6 +940,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		SelectedCategoryIDs: selectedCategoryIDs,
 		SelectedRorID:       rorID,
 		SelectedRorName:     rorOrgName,
+		SelectedRorInput:    rorSearchInput,
 		SearchQuery:         searchQuery,
 		User:                user,
 		IsAdmin:             isAdmin,

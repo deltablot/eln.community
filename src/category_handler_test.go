@@ -25,6 +25,10 @@ func (m *MockCategoryRepository) GetRecordCategories(ctx context.Context, record
 	return []Category{}, nil
 }
 
+func (m *MockCategoryRepository) ClearRecordCategories(ctx context.Context, tx *sql.Tx, recordID string) error {
+	return nil
+}
+
 func NewMockCategoryRepository() *MockCategoryRepository {
 	return &MockCategoryRepository{
 		categories: make(map[int64]*Category),
