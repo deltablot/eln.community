@@ -1,4 +1,12 @@
 {{ define "content" }}
+{{ if .IsHistorical }}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+  <strong>Historical Version {{ .HistoryVersion }}</strong> - You are viewing an archived version of this record. 
+  <a href="/record/{{ .Record.Id }}" class="alert-link">View current version</a>
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{{ end }}
+
 <div class="d-flex justify-content-between align-items-start mb-3">
   <div>
     <h1>{{ .Record.Name }}</h1>
@@ -20,56 +28,22 @@
   <div class="row align-items-center">
     <div class="col-auto">
       <label for="version-selector" class="col-form-label">
+        <img src="/clock-history.svg" width="16" height="16" class="me-1" alt="" />
         Version:
       </label>
     </div>
     <div class="col-auto">
       <select class="form-select" id="version-selector" style="min-width: 300px;">
+        {{ if .IsHistorical }}
+        <option value="current">Current (latest)</option>
+        <option value="{{ .HistoryVersion }}" selected>Version {{ .HistoryVersion }} ({{ .Record.ModifiedAt.Format "Jan 02, 2006 15:04" }})</option>
+        {{ else }}
         <option value="current" selected>Current ({{ .Record.ModifiedAt.Format "Jan 02, 2006 15:04" }})</option>
+        {{ end }}
       </select>
     </div>
     <div class="col-auto">
       <span class="badge bg-secondary" id="version-count"></span>
-    </div>
-  </div>
-</div>
-
-<!-- Version Detail Modal -->
-<div class="modal fade" id="versionModal" tabindex="-1" aria-labelledby="versionModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="versionModalLabel">Version Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div id="version-detail-loading" class="text-center py-4">
-          <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-        </div>
-        <div id="version-detail-content" class="d-none">
-          <dl class="row">
-            <dt class="col-sm-3">Version</dt>
-            <dd class="col-sm-9" id="modal-version"></dd>
-            <dt class="col-sm-3">Name</dt>
-            <dd class="col-sm-9" id="modal-name"></dd>
-            <dt class="col-sm-3">Archived At</dt>
-            <dd class="col-sm-9" id="modal-archived-at"></dd>
-            <dt class="col-sm-3">Change Type</dt>
-            <dd class="col-sm-9" id="modal-change-type"></dd>
-            <dt class="col-sm-3">SHA256</dt>
-            <dd class="col-sm-9"><code id="modal-sha256"></code></dd>
-            <dt class="col-sm-3">Downloads</dt>
-            <dd class="col-sm-9" id="modal-downloads"></dd>
-          </dl>
-          <h6>Metadata at this version:</h6>
-          <pre class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"><code id="modal-metadata"></code></pre>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
     </div>
   </div>
 </div>

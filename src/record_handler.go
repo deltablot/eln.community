@@ -657,22 +657,67 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get record
-	record, err := h.recordRepo.GetByID(r.Context(), id)
-	if err != nil {
-		if err == ErrRecordNotFound {
-			http.NotFound(w, r)
-		} else {
-			http.Error(w, "Error fetching record", http.StatusInternalServerError)
+	ctx := r.Context()
+
+	// Check if version query parameter is provided
+	versionParam := r.URL.Query().Get("version")
+	isHistorical := false
+	historyVersion := 0
+	var record *Record
+	var err error
+
+	if versionParam != "" {
+		// Parse version number
+		version, parseErr := strconv.Atoi(versionParam)
+		if parseErr != nil || version < 1 {
+			http.Error(w, "Invalid version number", http.StatusBadRequest)
+			return
 		}
-		return
+
+		// Get historical version
+		historyRepo := NewPostgresHistoryRepository(db)
+		historyRecord, histErr := historyRepo.GetVersion(ctx, id, version)
+		if histErr != nil {
+			if histErr == ErrRecordNotFound {
+				http.NotFound(w, r)
+			} else {
+				http.Error(w, "Error fetching historical version", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// Convert RecordHistory to Record for display
+		record = &Record{
+			Id:            historyRecord.RecordId,
+			Name:          historyRecord.Name,
+			Sha256:        historyRecord.Sha256,
+			Metadata:      historyRecord.Metadata,
+			CreatedAt:     historyRecord.CreatedAt,
+			ModifiedAt:    historyRecord.ModifiedAt,
+			UploaderName:  historyRecord.UploaderName,
+			UploaderOrcid: historyRecord.UploaderOrcid,
+			DownloadCount: historyRecord.DownloadCount,
+		}
+		isHistorical = true
+		historyVersion = version
+	} else {
+		// Get current record
+		record, err = h.recordRepo.GetByID(ctx, id)
+		if err != nil {
+			if errors.Is(err, ErrRecordNotFound) {
+				http.NotFound(w, r)
+			} else {
+				http.Error(w, "Error fetching record", http.StatusInternalServerError)
+			}
+			return
+		}
 	}
 
 	// prettify JSON
 	record.MetadataPretty = prettyJSON(record.Metadata)
 
 	// Check if current user can edit this record
-	ctx := r.Context()
+	ctx = r.Context()
 	canEdit := false
 	var user *User
 	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
@@ -693,11 +738,13 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := RecordPageData{
-		App:         app,
-		Record:      *record,
-		CanEdit:     canEdit,
-		User:        user,
-		CurrentPage: "",
+		App:            app,
+		Record:         *record,
+		CanEdit:        canEdit && !isHistorical, // Can't edit historical versions
+		User:           user,
+		CurrentPage:    "",
+		IsHistorical:   isHistorical,
+		HistoryVersion: historyVersion,
 	}
 
 	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {

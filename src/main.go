@@ -105,10 +105,12 @@ type RootPageData struct {
 
 type RecordPageData struct {
 	App
-	Record      Record
-	CanEdit     bool
-	User        *User
-	CurrentPage string
+	Record         Record
+	CanEdit        bool
+	User           *User
+	CurrentPage    string
+	IsHistorical   bool
+	HistoryVersion int
 }
 
 type RecordsPageData struct {

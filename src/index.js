@@ -1632,51 +1632,21 @@ function initializeVersionHistory() {
         versionCount.textContent = '1 version';
       }
       
-      // Handle dropdown selection
+      // Handle dropdown selection - reload page with version query parameter
       versionSelector.addEventListener('change', (e) => {
-        if (e.target.value && e.target.value !== 'current') {
-          showVersionModal(recordId, e.target.value);
+        const selectedValue = e.target.value;
+        if (selectedValue === 'current') {
+          // Reload without version parameter
+          window.location.href = `/record/${recordId}`;
+        } else if (selectedValue) {
+          // Reload with version parameter
+          window.location.href = `/record/${recordId}?version=${selectedValue}`;
         }
       });
     })
     .catch(err => {
       console.error('Error loading version history:', err);
       versionCount.textContent = 'Error loading';
-    });
-}
-
-function showVersionModal(recordId, version) {
-  const modal = new bootstrap.Modal(document.getElementById('versionModal'));
-  const loading = document.getElementById('version-detail-loading');
-  const content = document.getElementById('version-detail-content');
-  
-  loading.classList.remove('d-none');
-  content.classList.add('d-none');
-  modal.show();
-  
-  fetch(`/api/v1/records/${recordId}/history/${version}`)
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById('modal-version').textContent = data.version;
-      document.getElementById('modal-name').textContent = data.name;
-      document.getElementById('modal-archived-at').textContent = new Date(data.archived_at).toLocaleString();
-      document.getElementById('modal-change-type').innerHTML = `<span class="badge ${data.change_type === 'DELETE' ? 'bg-danger' : 'bg-info'}">${data.change_type}</span>`;
-      document.getElementById('modal-sha256').textContent = data.sha256;
-      document.getElementById('modal-downloads').textContent = data.download_count;
-      
-      try {
-        const metadata = JSON.parse(data.metadata);
-        document.getElementById('modal-metadata').textContent = JSON.stringify(metadata, null, 2);
-      } catch {
-        document.getElementById('modal-metadata').textContent = data.metadata || 'N/A';
-      }
-      
-      loading.classList.add('d-none');
-      content.classList.remove('d-none');
-    })
-    .catch(err => {
-      console.error('Error loading version details:', err);
-      loading.innerHTML = '<div class="alert alert-danger">Failed to load version details</div>';
     });
 }
 
