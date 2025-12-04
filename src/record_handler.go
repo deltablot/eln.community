@@ -1042,11 +1042,39 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	// Parse form data
-	if err := r.ParseForm(); err != nil {
+	// Parse multipart form (for file upload support)
+	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB
 		log.Printf("DEBUG: Form parsing error: %v", err)
 		http.Error(w, "Error parsing form", http.StatusBadRequest)
 		return
+	}
+
+	// Check if a new file was uploaded
+	file, header, fileErr := r.FormFile("file")
+	hasNewFile := fileErr == nil
+	if hasNewFile {
+		defer file.Close()
+
+		// Validate file size
+		maxBytes := app.MaxFileSize * 1024 * 1024
+		if header.Size > maxBytes {
+			http.Error(w, fmt.Sprintf("File too large. Maximum allowed is %d MB", app.MaxFileSize), http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		// Validate ZIP magic
+		sig := make([]byte, 4)
+		if _, err := file.Read(sig); err != nil {
+			http.Error(w, "could not read file header", http.StatusBadRequest)
+			return
+		}
+		if seeker, ok := file.(io.Seeker); ok {
+			seeker.Seek(0, io.SeekStart)
+		}
+		if !bytes.Equal(sig, []byte{'P', 'K', 0x03, 0x04}) {
+			http.Error(w, "uploaded file is not an ELN archive", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Get updated values
@@ -1098,6 +1126,34 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	updatedRecord.Name = name
 	updatedRecord.RorIds = rorIds
 
+	// If new file uploaded, process it
+	var newS3Key string
+	if hasNewFile {
+		// Calculate hash and S3 key
+		hashHex, key, err := hashAndKey(file)
+		if err != nil {
+			http.Error(w, "failed to process file", http.StatusInternalServerError)
+			return
+		}
+		newS3Key = key
+		updatedRecord.Sha256 = hashHex
+
+		// Extract metadata
+		meta, err := extractRoCrateMetadata(file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		updatedRecord.Metadata = meta
+
+		// Upload to S3
+		if err := h.uploadToS3(file, key); err != nil {
+			log.Printf("upload error: %v", err)
+			http.Error(w, "failed to upload", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	// Start transaction
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1106,11 +1162,37 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 	defer tx.Rollback()
 
-	// Update record
-	err = h.recordRepo.Update(ctx, tx, &updatedRecord)
+	// Update record (this will trigger the history table via database trigger)
+	if hasNewFile {
+		// Update with new file info
+		_, err = tx.ExecContext(ctx,
+			`UPDATE records SET name = $2, sha256 = $3, metadata = $4, s3_key = $5, modified_at = now() WHERE id = $1`,
+			updatedRecord.Id, updatedRecord.Name, updatedRecord.Sha256, updatedRecord.Metadata, newS3Key,
+		)
+	} else {
+		// Update only name
+		_, err = tx.ExecContext(ctx,
+			`UPDATE records SET name = $2, modified_at = now() WHERE id = $1`,
+			updatedRecord.Id, updatedRecord.Name,
+		)
+	}
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error updating record: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Update ROR associations
+	_, err = tx.ExecContext(ctx, `DELETE FROM records_ror WHERE record_id = $1`, updatedRecord.Id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error clearing ROR associations: %v", err), http.StatusInternalServerError)
+		return
+	}
+	rorRepo := NewPostgresRorRepository(db)
+	for _, rorId := range updatedRecord.RorIds {
+		if err := rorRepo.AssociateRorWithRecord(ctx, tx, updatedRecord.Id, rorId); err != nil {
+			http.Error(w, fmt.Sprintf("Error associating ROR: %v", err), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Clear existing category associations and insert new ones

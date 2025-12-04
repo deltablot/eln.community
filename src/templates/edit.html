@@ -56,7 +56,7 @@
         </div>
       </div>
 
-      <form method='post' action='/api/v1/record/{{ .Record.Id }}' class="edit-record-form col-md-12" enctype="application/x-www-form-urlencoded">
+      <form method='post' action='/api/v1/record/{{ .Record.Id }}' class="edit-record-form col-md-12" enctype="multipart/form-data">
         {{ if .Categories }}
         <div class="mb-3">
           <label class="form-label fw-bold">Categories</label>
@@ -132,6 +132,13 @@
           </div>
         </div>
         {{ end }}
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Upload New Version (Optional)</label>
+          <small class="form-text text-muted d-block mb-2">Upload a new .eln file to create a new version. The current version will be preserved in history.</small>
+          <input type='file' name='file' class='form-control' accept='.eln' id='file-input' />
+          <div class="form-text">Current file: {{ .Record.Sha256 }}</div>
+        </div>
 
         <div class="mb-2">
           <label class="form-label fw-bold">Name</label>

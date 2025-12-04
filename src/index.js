@@ -458,23 +458,21 @@ function initializeEditForm() {
 
     const submitBtn = this.querySelector('button[type="submit"]');
     const originalText = submitBtn?.textContent;
+    const fileInput = document.getElementById('file-input');
+    const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
 
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Updating...';
+      submitBtn.textContent = hasFile ? 'Uploading new version...' : 'Updating...';
     }
 
-    // Convert form data to URL-encoded format
+    // Use FormData to support file uploads
     const formData = new FormData(this);
-    const urlEncodedData = new URLSearchParams(formData).toString();
 
     try {
       const response = await fetch(this.action, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: urlEncodedData
+        body: formData // Send as multipart/form-data
       });
 
       if (response.ok) {
@@ -1609,6 +1607,12 @@ function initializeVersionHistory() {
     return; // Version selector not found
   }
 
+  // Check if already initialized to prevent duplicates
+  if (versionSelector.dataset.initialized === 'true') {
+    return;
+  }
+  versionSelector.dataset.initialized = 'true';
+
   // Get current version from data attribute
   const currentVersion = versionSelector.getAttribute('data-current-version');
 
@@ -1624,6 +1628,11 @@ function initializeVersionHistory() {
       
       if (versions.length > 0) {
         versionCount.textContent = `${totalVersions} total`;
+        
+        // Clear any existing options except "Current"
+        while (versionSelector.options.length > 1) {
+          versionSelector.remove(1);
+        }
         
         // Populate dropdown with historical versions
         versions.forEach(version => {
