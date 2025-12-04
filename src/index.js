@@ -458,23 +458,21 @@ function initializeEditForm() {
 
     const submitBtn = this.querySelector('button[type="submit"]');
     const originalText = submitBtn?.textContent;
+    const fileInput = document.getElementById('file-input');
+    const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
 
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Updating...';
+      submitBtn.textContent = hasFile ? 'Uploading new version...' : 'Updating...';
     }
 
-    // Convert form data to URL-encoded format
+    // Use FormData to support file uploads
     const formData = new FormData(this);
-    const urlEncodedData = new URLSearchParams(formData).toString();
 
     try {
       const response = await fetch(this.action, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: urlEncodedData
+        body: formData // Send as multipart/form-data
       });
 
       if (response.ok) {
@@ -1593,3 +1591,86 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeCategoryMultiselect();
 });
 
+
+// Version History functionality
+function initializeVersionHistory() {
+  const recordIdElement = document.getElementById('record-id-data');
+  if (!recordIdElement) {
+    return; // Not on a record page
+  }
+
+  const recordId = JSON.parse(recordIdElement.textContent);
+  const versionCount = document.getElementById('version-count');
+  const versionSelector = document.getElementById('version-selector');
+
+  if (!versionSelector) {
+    return; // Version selector not found
+  }
+
+  // Check if already initialized to prevent duplicates
+  if (versionSelector.dataset.initialized === 'true') {
+    return;
+  }
+  versionSelector.dataset.initialized = 'true';
+
+  // Get current version from data attribute
+  const currentVersion = versionSelector.getAttribute('data-current-version');
+
+  // Fetch lightweight version list
+  fetch(`/api/v1/records/${recordId}/versions`)
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to fetch');
+      return response.json();
+    })
+    .then(data => {
+      const versions = data.versions || [];
+      const totalVersions = versions.length + 1; // +1 for current
+      
+      if (versions.length > 0) {
+        versionCount.textContent = `${totalVersions} total`;
+        
+        // Clear any existing options except "Current"
+        while (versionSelector.options.length > 1) {
+          versionSelector.remove(1);
+        }
+        
+        // Populate dropdown with historical versions
+        versions.forEach(version => {
+          const option = document.createElement('option');
+          option.value = version.version;
+          const date = new Date(version.archived_at);
+          option.textContent = `Version ${version.version} - ${version.name} (${date.toLocaleDateString()})`;
+          
+          // Select this option if it matches current version
+          if (currentVersion === version.version.toString()) {
+            option.selected = true;
+          }
+          
+          versionSelector.appendChild(option);
+        });
+      } else {
+        versionCount.textContent = '1 version';
+      }
+      
+      // Handle dropdown selection - reload page with version query parameter
+      versionSelector.addEventListener('change', (e) => {
+        const selectedValue = e.target.value;
+        if (selectedValue === 'current') {
+          // Reload without version parameter
+          window.location.href = `/record/${recordId}`;
+        } else if (selectedValue) {
+          // Reload with version parameter
+          window.location.href = `/record/${recordId}?version=${selectedValue}`;
+        }
+      });
+    })
+    .catch(err => {
+      console.error('Error loading version history:', err);
+      versionCount.textContent = 'Error loading';
+    });
+}
+
+// Initialize version history when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initializeVersionHistory();
+});

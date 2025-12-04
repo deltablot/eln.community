@@ -1,4 +1,12 @@
 {{ define "content" }}
+{{ if .IsHistorical }}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+  <strong>Historical Version {{ .HistoryVersion }}</strong> - You are viewing an archived version of this record. 
+  <a href="/record/{{ .Record.Id }}" class="alert-link">View current version</a>
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{{ end }}
+
 <div class="d-flex justify-content-between align-items-start mb-3">
   <div>
     <h1>{{ .Record.Name }}</h1>
@@ -14,6 +22,26 @@
     {{ end }}
   </div>
 </div>
+
+<!-- Version Selector -->
+<div class="mb-3" id="version-selector-container">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <label for="version-selector" class="col-form-label">
+        Version:
+      </label>
+    </div>
+    <div class="col-auto">
+      <select class="form-select" id="version-selector" style="min-width: 300px;" data-current-version="{{ if .IsHistorical }}{{ .HistoryVersion }}{{ else }}current{{ end }}">
+        <option value="current" {{ if not .IsHistorical }}selected{{ end }}>Current ({{ .Record.ModifiedAt.Format "Jan 02, 2006 15:04" }})</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <span class="badge bg-secondary" id="version-count"></span>
+    </div>
+  </div>
+</div>
+
 {{- if .Record.RorIds }}
 <h4>Research Organizations:
   <span id="ror-organizations-loading">Loading...</span>
@@ -56,8 +84,9 @@
 
 <!-- Pass JSON data safely to JavaScript -->
 <script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
+<script type="application/json" id="record-id-data">"{{ .Record.Id }}"</script>
 {{- if .Record.RorIds }}
-<script type="application/json" id="ror-ids-data">{{ .Record.RorIds }}</script>
+<script type="application/json" id="ror-ids-data">{{ toJson .Record.RorIds }}</script>
 {{- end }}
 
 <!-- Load JavaScript file -->

@@ -59,6 +59,24 @@ type Record struct {
 	DownloadCount  int        `json:"download_count"`
 }
 
+// RecordHistory represents a historical version of a record
+type RecordHistory struct {
+	HistoryId     int64           `json:"history_id"`
+	RecordId      string          `json:"record_id"`
+	Version       int             `json:"version"`
+	S3Key         string          `json:"-"`
+	Name          string          `json:"name"`
+	Sha256        string          `json:"sha256"`
+	Metadata      json.RawMessage `json:"metadata"`
+	UploaderName  string          `json:"uploader_name"`
+	UploaderOrcid string          `json:"uploader_orcid"`
+	DownloadCount int             `json:"download_count"`
+	CreatedAt     time.Time       `json:"created_at"`
+	ModifiedAt    time.Time       `json:"modified_at"`
+	ArchivedAt    time.Time       `json:"archived_at"`
+	ChangeType    string          `json:"change_type"`
+}
+
 type Category struct {
 	Id            int64      `json:"id"`
 	Name          string     `json:"name"`
@@ -87,10 +105,12 @@ type RootPageData struct {
 
 type RecordPageData struct {
 	App
-	Record      Record
-	CanEdit     bool
-	User        *User
-	CurrentPage string
+	Record         Record
+	CanEdit        bool
+	User           *User
+	CurrentPage    string
+	IsHistorical   bool
+	HistoryVersion int
 }
 
 type RecordsPageData struct {
@@ -489,6 +509,8 @@ func main() {
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
 	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorNameCache, rorClient)
+	historyRepo := NewPostgresHistoryRepository(db)
+	historyHandler := NewHistoryHandler(historyRepo)
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
@@ -497,6 +519,9 @@ func main() {
 	mux.HandleFunc("PUT /api/v1/record/", recordHandler.Router)
 	mux.HandleFunc("PATCH /api/v1/record/", recordHandler.Router)
 	mux.HandleFunc("DELETE /api/v1/record/", recordHandler.Router)
+
+	// History API routes - lightweight version list
+	mux.HandleFunc("GET /api/v1/records/{id}/versions", historyHandler.Router)
 
 	// Category API routes
 	mux.HandleFunc("/api/v1/categories", categoryHandler.Router)

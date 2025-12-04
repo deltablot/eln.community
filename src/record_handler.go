@@ -633,7 +633,13 @@ func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
 
 // GetRecordPage handles HTML page rendering for individual records
 func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+	funcMap := template.FuncMap{
+		"toJson": func(v interface{}) template.JS {
+			b, _ := json.Marshal(v)
+			return template.JS(b)
+		},
+	}
+	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
 		"templates/layout.html",
 		"templates/record.html",
 	))
@@ -651,22 +657,67 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get record
-	record, err := h.recordRepo.GetByID(r.Context(), id)
-	if err != nil {
-		if err == ErrRecordNotFound {
-			http.NotFound(w, r)
-		} else {
-			http.Error(w, "Error fetching record", http.StatusInternalServerError)
+	ctx := r.Context()
+
+	// Check if version query parameter is provided
+	versionParam := r.URL.Query().Get("version")
+	isHistorical := false
+	historyVersion := 0
+	var record *Record
+	var err error
+
+	if versionParam != "" {
+		// Parse version number
+		version, parseErr := strconv.Atoi(versionParam)
+		if parseErr != nil || version < 1 {
+			http.Error(w, "Invalid version number", http.StatusBadRequest)
+			return
 		}
-		return
+
+		// Get historical version
+		historyRepo := NewPostgresHistoryRepository(db)
+		historyRecord, histErr := historyRepo.GetVersion(ctx, id, version)
+		if histErr != nil {
+			if histErr == ErrRecordNotFound {
+				http.NotFound(w, r)
+			} else {
+				http.Error(w, "Error fetching historical version", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// Convert RecordHistory to Record for display
+		record = &Record{
+			Id:            historyRecord.RecordId,
+			Name:          historyRecord.Name,
+			Sha256:        historyRecord.Sha256,
+			Metadata:      historyRecord.Metadata,
+			CreatedAt:     historyRecord.CreatedAt,
+			ModifiedAt:    historyRecord.ModifiedAt,
+			UploaderName:  historyRecord.UploaderName,
+			UploaderOrcid: historyRecord.UploaderOrcid,
+			DownloadCount: historyRecord.DownloadCount,
+		}
+		isHistorical = true
+		historyVersion = version
+	} else {
+		// Get current record
+		record, err = h.recordRepo.GetByID(ctx, id)
+		if err != nil {
+			if errors.Is(err, ErrRecordNotFound) {
+				http.NotFound(w, r)
+			} else {
+				http.Error(w, "Error fetching record", http.StatusInternalServerError)
+			}
+			return
+		}
 	}
 
 	// prettify JSON
 	record.MetadataPretty = prettyJSON(record.Metadata)
 
 	// Check if current user can edit this record
-	ctx := r.Context()
+	ctx = r.Context()
 	canEdit := false
 	var user *User
 	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
@@ -687,11 +738,13 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := RecordPageData{
-		App:         app,
-		Record:      *record,
-		CanEdit:     canEdit,
-		User:        user,
-		CurrentPage: "",
+		App:            app,
+		Record:         *record,
+		CanEdit:        canEdit && !isHistorical, // Can't edit historical versions
+		User:           user,
+		CurrentPage:    "",
+		IsHistorical:   isHistorical,
+		HistoryVersion: historyVersion,
 	}
 
 	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {
@@ -989,11 +1042,39 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	// Parse form data
-	if err := r.ParseForm(); err != nil {
+	// Parse multipart form (for file upload support)
+	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB
 		log.Printf("DEBUG: Form parsing error: %v", err)
 		http.Error(w, "Error parsing form", http.StatusBadRequest)
 		return
+	}
+
+	// Check if a new file was uploaded
+	file, header, fileErr := r.FormFile("file")
+	hasNewFile := fileErr == nil
+	if hasNewFile {
+		defer file.Close()
+
+		// Validate file size
+		maxBytes := app.MaxFileSize * 1024 * 1024
+		if header.Size > maxBytes {
+			http.Error(w, fmt.Sprintf("File too large. Maximum allowed is %d MB", app.MaxFileSize), http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		// Validate ZIP magic
+		sig := make([]byte, 4)
+		if _, err := file.Read(sig); err != nil {
+			http.Error(w, "could not read file header", http.StatusBadRequest)
+			return
+		}
+		if seeker, ok := file.(io.Seeker); ok {
+			seeker.Seek(0, io.SeekStart)
+		}
+		if !bytes.Equal(sig, []byte{'P', 'K', 0x03, 0x04}) {
+			http.Error(w, "uploaded file is not an ELN archive", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Get updated values
@@ -1045,6 +1126,34 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	updatedRecord.Name = name
 	updatedRecord.RorIds = rorIds
 
+	// If new file uploaded, process it
+	var newS3Key string
+	if hasNewFile {
+		// Calculate hash and S3 key
+		hashHex, key, err := hashAndKey(file)
+		if err != nil {
+			http.Error(w, "failed to process file", http.StatusInternalServerError)
+			return
+		}
+		newS3Key = key
+		updatedRecord.Sha256 = hashHex
+
+		// Extract metadata
+		meta, err := extractRoCrateMetadata(file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		updatedRecord.Metadata = meta
+
+		// Upload to S3
+		if err := h.uploadToS3(file, key); err != nil {
+			log.Printf("upload error: %v", err)
+			http.Error(w, "failed to upload", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	// Start transaction
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1053,11 +1162,37 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 	defer tx.Rollback()
 
-	// Update record
-	err = h.recordRepo.Update(ctx, tx, &updatedRecord)
+	// Update record (this will trigger the history table via database trigger)
+	if hasNewFile {
+		// Update with new file info
+		_, err = tx.ExecContext(ctx,
+			`UPDATE records SET name = $2, sha256 = $3, metadata = $4, s3_key = $5, modified_at = now() WHERE id = $1`,
+			updatedRecord.Id, updatedRecord.Name, updatedRecord.Sha256, updatedRecord.Metadata, newS3Key,
+		)
+	} else {
+		// Update only name
+		_, err = tx.ExecContext(ctx,
+			`UPDATE records SET name = $2, modified_at = now() WHERE id = $1`,
+			updatedRecord.Id, updatedRecord.Name,
+		)
+	}
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error updating record: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Update ROR associations
+	_, err = tx.ExecContext(ctx, `DELETE FROM records_ror WHERE record_id = $1`, updatedRecord.Id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error clearing ROR associations: %v", err), http.StatusInternalServerError)
+		return
+	}
+	rorRepo := NewPostgresRorRepository(db)
+	for _, rorId := range updatedRecord.RorIds {
+		if err := rorRepo.AssociateRorWithRecord(ctx, tx, updatedRecord.Id, rorId); err != nil {
+			http.Error(w, fmt.Sprintf("Error associating ROR: %v", err), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Clear existing category associations and insert new ones
