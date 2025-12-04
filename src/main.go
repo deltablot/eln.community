@@ -510,7 +510,7 @@ func main() {
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
 	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorNameCache, rorClient)
 	historyRepo := NewPostgresHistoryRepository(db)
-	historyHandler := NewHistoryHandler(historyRepo, recordRepo)
+	historyHandler := NewHistoryHandler(historyRepo)
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
@@ -520,9 +520,8 @@ func main() {
 	mux.HandleFunc("PATCH /api/v1/record/", recordHandler.Router)
 	mux.HandleFunc("DELETE /api/v1/record/", recordHandler.Router)
 
-	// History API routes (nested under records for REST best practice)
-	mux.HandleFunc("GET /api/v1/records/{id}/history", historyHandler.Router)
-	mux.HandleFunc("GET /api/v1/records/{id}/history/{version}", historyHandler.Router)
+	// History API routes - lightweight version list
+	mux.HandleFunc("GET /api/v1/records/{id}/versions", historyHandler.Router)
 
 	// Category API routes
 	mux.HandleFunc("/api/v1/categories", categoryHandler.Router)

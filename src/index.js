@@ -1609,23 +1609,34 @@ function initializeVersionHistory() {
     return; // Version selector not found
   }
 
-  // Fetch version history
-  fetch(`/api/v1/records/${recordId}/history`)
+  // Get current version from data attribute
+  const currentVersion = versionSelector.getAttribute('data-current-version');
+
+  // Fetch lightweight version list
+  fetch(`/api/v1/records/${recordId}/versions`)
     .then(response => {
       if (!response.ok) throw new Error('Failed to fetch');
       return response.json();
     })
     .then(data => {
-      const historyCount = data.history ? data.history.length : 0;
+      const versions = data.versions || [];
+      const totalVersions = versions.length + 1; // +1 for current
       
-      if (historyCount > 0) {
-        versionCount.textContent = `${historyCount + 1} total`;
+      if (versions.length > 0) {
+        versionCount.textContent = `${totalVersions} total`;
         
         // Populate dropdown with historical versions
-        data.history.forEach(version => {
+        versions.forEach(version => {
           const option = document.createElement('option');
           option.value = version.version;
-          option.textContent = `Version ${version.version} - ${version.name} (${new Date(version.archived_at).toLocaleDateString()})`;
+          const date = new Date(version.archived_at);
+          option.textContent = `Version ${version.version} - ${version.name} (${date.toLocaleDateString()})`;
+          
+          // Select this option if it matches current version
+          if (currentVersion === version.version.toString()) {
+            option.selected = true;
+          }
+          
           versionSelector.appendChild(option);
         });
       } else {

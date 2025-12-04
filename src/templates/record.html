@@ -28,18 +28,12 @@
   <div class="row align-items-center">
     <div class="col-auto">
       <label for="version-selector" class="col-form-label">
-        <img src="/clock-history.svg" width="16" height="16" class="me-1" alt="" />
         Version:
       </label>
     </div>
     <div class="col-auto">
-      <select class="form-select" id="version-selector" style="min-width: 300px;">
-        {{ if .IsHistorical }}
-        <option value="current">Current (latest)</option>
-        <option value="{{ .HistoryVersion }}" selected>Version {{ .HistoryVersion }} ({{ .Record.ModifiedAt.Format "Jan 02, 2006 15:04" }})</option>
-        {{ else }}
-        <option value="current" selected>Current ({{ .Record.ModifiedAt.Format "Jan 02, 2006 15:04" }})</option>
-        {{ end }}
+      <select class="form-select" id="version-selector" style="min-width: 300px;" data-current-version="{{ if .IsHistorical }}{{ .HistoryVersion }}{{ else }}current{{ end }}">
+        <option value="current" {{ if not .IsHistorical }}selected{{ end }}>Current ({{ .Record.ModifiedAt.Format "Jan 02, 2006 15:04" }})</option>
       </select>
     </div>
     <div class="col-auto">
