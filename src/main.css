@@ -1108,3 +1108,23 @@ footer {
 .category-selector-dropdown::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* Organizations page styles */
+.organization-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.organization-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.organization-card .card-title {
+    color: var(--black);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.organization-card .card-text {
+    margin-bottom: 1rem;
+}

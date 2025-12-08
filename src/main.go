@@ -511,6 +511,7 @@ func main() {
 	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorNameCache, rorClient)
 	historyRepo := NewPostgresHistoryRepository(db)
 	historyHandler := NewHistoryHandler(historyRepo)
+	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
@@ -534,6 +535,7 @@ func main() {
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
+	mux.Handle("/organizations", securityHeaders(http.HandlerFunc(organizationHandler.GetOrganizationsPage)))
 	mux.Handle("/profile", securityHeaders(http.HandlerFunc(getProfile)))
 	mux.Handle("/record/", securityHeaders(http.HandlerFunc(recordHandler.GetRecordPage)))
 	mux.Handle("/entry", securityHeaders(http.HandlerFunc(newEntry)))
