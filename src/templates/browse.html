@@ -192,119 +192,45 @@
   {{- end }}
 </div>
 
-<!-- Records Table -->
+<!-- Records AG Grid -->
 {{- if .Records}}
-<div class="table-responsive">
-  <table class="table table-hover align-middle">
-    <thead class="table-light">
-      <tr>
-        <th scope="col">Name</th>
-        <th scope="col">Author</th>
-        <th scope="col">Categories</th>
-        <th scope="col">Organizations</th>
-        <th scope="col">Downloads</th>
-        <th scope="col">Created</th>
-        <th scope="col" class="text-end">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{- range .Records}}
-      <tr>
-        <td>
-          <a href="/record/{{ .Id }}">{{ .Name }}</a>
-        </td>
-        <td>{{ .UploaderName }}</td>
-        <td>
-          {{- if .Categories }}
-          {{- range .Categories }}
-          <a href="/browse?category={{ .Id }}" class="badge bg-primary category-badge">{{ .Name }}</a>
-          {{- end }}
-          {{- else }}
-          <span class="text-muted">-</span>
-          {{- end }}
-        </td>
-        <td>
-          {{- if .RorIds }}
-          <span class="ror-organizations-loading" data-record-id="{{ .Id }}">Loading...</span>
-          <span class="ror-organizations ror-hidden" data-record-id="{{ .Id }}" data-ror-ids="{{ range $i, $rorId := .RorIds }}{{ if $i }},{{ end }}{{ $rorId }}{{ end }}"></span>
-          {{- else }}
-          <span class="text-muted">-</span>
-          {{- end }}
-        </td>
-        <td>
-          <span class="download-count" data-record-id="{{ .Id }}">{{ .DownloadCount }}</span>
-        </td>
-        <td>
-          <div class="record-card-date" data-timestamp="{{ .CreatedAt.Unix }}">
-            <span class="relative-time">{{ .CreatedAt.Format "2006-01-02" }}</span>
-          </div>
-        </td>
-        <td class="text-end">
-          <a class="btn btn-sm btn-primary me-1" href="/record/{{ .Id }}">View</a>
-          <a class="btn btn-sm btn-outline-secondary me-1" href="/api/v1/record/{{ .Id }}.eln">Download</a>
-          {{ if or (and $.User (eq $.User.Orcid .UploaderOrcid)) $.IsAdmin }}
-          <a class="btn btn-sm btn-outline-primary" href="/api/v1/record/{{ .Id }}/edit">Edit</a>
-          {{ end }}
-        </td>
-      </tr>
-      {{- end}}
-    </tbody>
-  </table>
-</div>
+<div id="browseGrid" class="ag-theme-alpine" style="height: 500px; width: 100%;"></div>
 
-<!-- Pagination -->
-<div class="d-flex flex-row justify-content-between">
-  <div>
-    <label for="pageSizeSelect" class="form-label me-2 mb-0">Items per page:</label>
-    <select id="pageSizeSelect" class="form-select form-select-sm d-inline-block w-auto">
-      <option value="10" {{ if eq .PageSize 10 }}selected{{ end }}>10</option>
-      <option value="20" {{ if eq .PageSize 20 }}selected{{ end }}>20</option>
-      <option value="30" {{ if eq .PageSize 30 }}selected{{ end }}>30</option>
-      <option value="50" {{ if eq .PageSize 50 }}selected{{ end }}>50</option>
-    </select>
-  </div>
-  <nav>
-    <ul class="pagination">
-      {{- if gt .Page 1 }}
-      <li class="page-item">
-        <a class="page-link" href="#" data-page="{{ sub .Page 1 }}">Previous</a>
-      </li>
-      {{- else }}
-      <li class="page-item disabled">
-        <a class="page-link" href="#">Previous</a>
-      </li>
-      {{- end }}
-
-      {{- range $i := iterate .TotalPages }}
-      {{- $pageNum := add $i 1 }}
-      {{- if eq $pageNum $.Page }}
-      <li class="page-item active">
-        <a class="page-link" href="#">{{ $pageNum }}</a>
-      </li>
-      {{- else if or (le $pageNum 2) (ge $pageNum (sub $.TotalPages 1)) (and (ge $pageNum (sub $.Page 1)) (le $pageNum (add $.Page 1))) }}
-      <li class="page-item">
-        <a class="page-link" href="#" data-page="{{ $pageNum }}">{{ $pageNum }}</a>
-      </li>
-      {{- else if or (eq $pageNum 3) (eq $pageNum (sub $.TotalPages 2)) }}
-      <li class="page-item disabled">
-        <span class="page-link">...</span>
-      </li>
-      {{- end }}
-      {{- end }}
-
-      {{- if lt .Page .TotalPages }}
-      <li class="page-item">
-        <a class="page-link" href="#" data-page="{{ add .Page 1 }}">Next</a>
-      </li>
-      {{- else }}
-      <li class="page-item disabled">
-        <a class="page-link" href="#">Next</a>
-      </li>
-      {{- end }}
-    </ul>
-  </nav>
-</div>
-
+<!-- Hidden data for AG Grid -->
+<script id="browse-records-data" type="application/json">
+{
+  "records": [
+    {{- range $i, $record := .Records }}
+    {{ if $i }},{{ end }}{
+      "id": "{{ $record.Id }}",
+      "name": {{ printf "%q" $record.Name }},
+      "uploaderName": {{ printf "%q" $record.UploaderName }},
+      "uploaderOrcid": "{{ $record.UploaderOrcid }}",
+      "categories": [
+        {{- range $j, $cat := $record.Categories }}
+        {{ if $j }},{{ end }}{"id": "{{ $cat.Id }}", "name": {{ printf "%q" $cat.Name }}}
+        {{- end }}
+      ],
+      "rorIds": [
+        {{- range $k, $rorId := $record.RorIds }}
+        {{ if $k }},{{ end }}"{{ $rorId }}"
+        {{- end }}
+      ],
+      "downloadCount": {{ $record.DownloadCount }},
+      "createdAt": {{ $record.CreatedAt.Unix }}
+    }
+    {{- end }}
+  ],
+  "pagination": {
+    "page": {{ .Page }},
+    "pageSize": {{ .PageSize }},
+    "totalCount": {{ .TotalCount }},
+    "totalPages": {{ .TotalPages }}
+  },
+  "user": {{ if .User }}{"orcid": "{{ .User.Orcid }}"}{{ else }}null{{ end }},
+  "isAdmin": {{ if .IsAdmin }}true{{ else }}false{{ end }}
+}
+</script>
 {{- else}}
 <p class="text-center text-muted"><em>No records found.</em></p>
 {{- end}}

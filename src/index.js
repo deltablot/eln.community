@@ -129,6 +129,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initialize browse page search and filter
   initializeBrowseSearch();
 
+  // Initialize AG Grid for browse page
+  initializeBrowseGrid();
+
   // Format relative timestamps
   formatRelativeTimes();
 });
@@ -1674,3 +1677,264 @@ function initializeVersionHistory() {
 document.addEventListener('DOMContentLoaded', function() {
   initializeVersionHistory();
 });
+
+// AG Grid initialization for browse page
+function initializeBrowseGrid() {
+  const gridDiv = document.getElementById('browseGrid');
+  const dataElement = document.getElementById('browse-records-data');
+  
+  if (!gridDiv || !dataElement) {
+    return; // Not on browse page with AG Grid
+  }
+
+  try {
+    const data = JSON.parse(dataElement.textContent);
+    const records = data.records || [];
+    const pagination = data.pagination || {};
+    const user = data.user;
+    const isAdmin = data.isAdmin;
+
+    // Helper to format relative time
+    function formatRelativeTime(timestamp) {
+      const now = Date.now();
+      const date = new Date(timestamp * 1000);
+      const diff = now - date.getTime();
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+
+      if (days > 30) {
+        return date.toLocaleDateString();
+      } else if (days > 0) {
+        return `${days} day${days > 1 ? 's' : ''} ago`;
+      } else if (hours > 0) {
+        return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+      } else if (minutes > 0) {
+        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+      } else {
+        return 'Just now';
+      }
+    }
+
+    // Custom cell renderer for Name column with link
+    function nameCellRenderer(params) {
+      const link = document.createElement('a');
+      link.href = `/record/${params.data.id}`;
+      link.textContent = params.value;
+      return link;
+    }
+
+    // Custom cell renderer for Categories column
+    function categoriesCellRenderer(params) {
+      const categories = params.value || [];
+      if (categories.length === 0) {
+        const span = document.createElement('span');
+        span.className = 'text-muted';
+        span.textContent = '-';
+        return span;
+      }
+      
+      const container = document.createElement('span');
+      categories.forEach((cat, index) => {
+        if (index > 0) {
+          container.appendChild(document.createTextNode(', '));
+        }
+        const link = document.createElement('a');
+        link.href = `/browse?category=${cat.id}`;
+        link.textContent = cat.name;
+        container.appendChild(link);
+      });
+      return container;
+    }
+
+    // Custom cell renderer for Organizations column
+    function organizationsCellRenderer(params) {
+      const rorIds = params.value || [];
+      if (rorIds.length === 0) {
+        const span = document.createElement('span');
+        span.className = 'text-muted';
+        span.textContent = '-';
+        return span;
+      }
+      
+      const container = document.createElement('span');
+      container.className = 'ror-organizations';
+      container.setAttribute('data-record-id', params.data.id);
+      container.setAttribute('data-ror-ids', rorIds.join(','));
+      container.textContent = 'Loading...';
+      
+      // Load ROR names asynchronously
+      loadRorNamesForCell(container, rorIds);
+      
+      return container;
+    }
+
+    // Custom cell renderer for Created column
+    function createdCellRenderer(params) {
+      const div = document.createElement('div');
+      div.className = 'record-card-date';
+      const span = document.createElement('span');
+      span.className = 'relative-time';
+      span.textContent = formatRelativeTime(params.value);
+      div.appendChild(span);
+      return div;
+    }
+
+    // Custom cell renderer for Actions column
+    function actionsCellRenderer(params) {
+      const container = document.createElement('div');
+      container.className = 'text-end';
+      
+      // View button
+      const viewBtn = document.createElement('a');
+      viewBtn.className = 'btn btn-sm btn-outline-primary me-1';
+      viewBtn.href = `/record/${params.data.id}`;
+      viewBtn.textContent = 'View';
+      container.appendChild(viewBtn);
+      
+      // Download button
+      const downloadBtn = document.createElement('a');
+      downloadBtn.className = 'btn btn-sm btn-outline-secondary me-1';
+      downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
+      downloadBtn.textContent = 'Download';
+      container.appendChild(downloadBtn);
+      
+      // Edit button (only for owner or admin)
+      const canEdit = isAdmin || (user && user.orcid === params.data.uploaderOrcid);
+      if (canEdit) {
+        const editBtn = document.createElement('a');
+        editBtn.className = 'btn btn-sm btn-outline-primary';
+        editBtn.href = `/api/v1/record/${params.data.id}/edit`;
+        editBtn.textContent = 'Edit';
+        container.appendChild(editBtn);
+      }
+      
+      return container;
+    }
+
+    // Column definitions
+    const columnDefs = [
+      { 
+        field: 'name', 
+        headerName: 'Name',
+        cellRenderer: nameCellRenderer,
+        flex: 2,
+        minWidth: 150,
+        filter: true,
+        sortable: true
+      },
+      { 
+        field: 'uploaderName', 
+        headerName: 'Author',
+        flex: 1,
+        minWidth: 100,
+        filter: true,
+        sortable: true
+      },
+      { 
+        field: 'categories', 
+        headerName: 'Categories',
+        cellRenderer: categoriesCellRenderer,
+        flex: 1.5,
+        minWidth: 120,
+        sortable: false,
+        filter: false
+      },
+      { 
+        field: 'rorIds', 
+        headerName: 'Organizations',
+        cellRenderer: organizationsCellRenderer,
+        flex: 1.5,
+        minWidth: 120,
+        sortable: false,
+        filter: false
+      },
+      { 
+        field: 'downloadCount', 
+        headerName: 'Downloads',
+        flex: 0.7,
+        minWidth: 80,
+        filter: true,
+        sortable: true
+      },
+      { 
+        field: 'createdAt', 
+        headerName: 'Created',
+        cellRenderer: createdCellRenderer,
+        flex: 1,
+        minWidth: 100,
+        sortable: true,
+        filter: false
+      },
+      { 
+        headerName: 'Actions',
+        cellRenderer: actionsCellRenderer,
+        flex: 1.5,
+        minWidth: 180,
+        sortable: false,
+        filter: false,
+        suppressSizeToFit: true
+      }
+    ];
+
+    // Grid options
+    const gridOptions = {
+      columnDefs: columnDefs,
+      rowData: records,
+      domLayout: 'autoHeight',
+      suppressHorizontalScroll: false,
+      defaultColDef: {
+        resizable: true
+      },
+      pagination: true,
+      paginationPageSize: pagination.pageSize || 10,
+      paginationPageSizeSelector: [10, 20, 30, 50],
+      suppressPaginationPanel: false,
+      animateRows: true,
+      rowHeight: 48,
+      headerHeight: 40,
+      onGridReady: function(params) {
+        params.api.sizeColumnsToFit();
+      },
+      onFirstDataRendered: function(params) {
+        params.api.sizeColumnsToFit();
+      }
+    };
+
+    // Create the grid
+    agGrid.createGrid(gridDiv, gridOptions);
+
+  } catch (error) {
+    console.error('Error initializing AG Grid:', error);
+    gridDiv.innerHTML = '<div class="alert alert-danger">Error loading records table</div>';
+  }
+}
+
+// Helper function to load ROR names for a cell
+async function loadRorNamesForCell(container, rorIds) {
+  try {
+    const response = await fetch(`/api/v1/ror/organizations?ids=${rorIds.join(',')}`);
+    if (!response.ok) {
+      container.textContent = rorIds.join(', ');
+      return;
+    }
+    
+    const organizations = await response.json();
+    container.innerHTML = '';
+    
+    organizations.forEach((org, index) => {
+      if (index > 0) {
+        container.appendChild(document.createTextNode(', '));
+      }
+      const link = document.createElement('a');
+      link.href = `/browse?ror=${encodeURIComponent(org.id)}`;
+      link.textContent = org.name;
+      link.title = org.id;
+      container.appendChild(link);
+    });
+  } catch (error) {
+    console.error('Error loading ROR names:', error);
+    container.textContent = rorIds.join(', ');
+  }
+}
