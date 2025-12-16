@@ -1132,6 +1132,8 @@ footer {
 /* AG Grid Custom Styles */
 #browseGrid {
     margin-bottom: 1.5rem;
+    min-height: 400px;
+    width: 100%;
 }
 
 #browseGrid.ag-theme-alpine {
