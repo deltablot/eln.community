@@ -1882,7 +1882,8 @@ function initializeBrowseGrid() {
       domLayout: 'autoHeight',
       suppressHorizontalScroll: false,
       defaultColDef: {
-        resizable: true
+        resizable: true,
+        floatingFilter: true
       },
       pagination: true,
       paginationPageSize: pagination.pageSize || 10,

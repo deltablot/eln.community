@@ -774,6 +774,10 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 			}
 			return false
 		},
+		"toJson": func(v interface{}) template.JS {
+			b, _ := json.Marshal(v)
+			return template.JS(b)
+		},
 	}
 
 	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,

@@ -202,18 +202,18 @@
   "records": [
     {{- range $i, $record := .Records }}
     {{ if $i }},{{ end }}{
-      "id": "{{ $record.Id }}",
-      "name": {{ printf "%q" $record.Name }},
-      "uploaderName": {{ printf "%q" $record.UploaderName }},
-      "uploaderOrcid": "{{ $record.UploaderOrcid }}",
+      "id": {{ toJson $record.Id }},
+      "name": {{ toJson $record.Name }},
+      "uploaderName": {{ toJson $record.UploaderName }},
+      "uploaderOrcid": {{ toJson $record.UploaderOrcid }},
       "categories": [
         {{- range $j, $cat := $record.Categories }}
-        {{ if $j }},{{ end }}{"id": "{{ $cat.Id }}", "name": {{ printf "%q" $cat.Name }}}
+        {{ if $j }},{{ end }}{"id": {{ toJson $cat.Id }}, "name": {{ toJson $cat.Name }}}
         {{- end }}
       ],
       "rorIds": [
         {{- range $k, $rorId := $record.RorIds }}
-        {{ if $k }},{{ end }}"{{ $rorId }}"
+        {{ if $k }},{{ end }}{{ toJson $rorId }}
         {{- end }}
       ],
       "downloadCount": {{ $record.DownloadCount }},
@@ -227,7 +227,7 @@
     "totalCount": {{ .TotalCount }},
     "totalPages": {{ .TotalPages }}
   },
-  "user": {{ if .User }}{"orcid": "{{ .User.Orcid }}"}{{ else }}null{{ end }},
+  "user": {{ if .User }}{"orcid": {{ toJson .User.Orcid }}}{{ else }}null{{ end }},
   "isAdmin": {{ if .IsAdmin }}true{{ else }}false{{ end }}
 }
 </script>
