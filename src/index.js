@@ -1764,9 +1764,6 @@ function initializeBrowseGrid() {
       container.setAttribute('data-ror-ids', rorIds.join(','));
       container.textContent = 'Loading...';
       
-      // Load ROR names asynchronously
-      loadRorNamesForCell(container, rorIds);
-      
       return container;
     }
 
@@ -1904,6 +1901,9 @@ function initializeBrowseGrid() {
 
     // Create the grid
     agGrid.createGrid(gridDiv, gridOptions);
+    
+    // Batch load all ROR names after grid is rendered
+    setTimeout(() => batchLoadRorNamesForGrid(), 0);
 
   } catch (error) {
     console.error('Error initializing AG Grid:', error);
@@ -1911,30 +1911,60 @@ function initializeBrowseGrid() {
   }
 }
 
-// Helper function to load ROR names for a cell
-async function loadRorNamesForCell(container, rorIds) {
+// Batch load ROR names for all cells in the grid
+async function batchLoadRorNamesForGrid() {
+  const containers = document.querySelectorAll('#browseGrid .ror-organizations[data-ror-ids]');
+  if (containers.length === 0) return;
+  
+  // Collect all unique ROR IDs from all cells
+  const allRorIds = new Set();
+  containers.forEach(container => {
+    const rorIds = container.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
+    rorIds.forEach(id => allRorIds.add(id.trim()));
+  });
+  
+  if (allRorIds.size === 0) return;
+  
   try {
-    const response = await fetch(`/api/v1/ror/organizations?ids=${rorIds.join(',')}`);
-    if (!response.ok) {
-      container.textContent = rorIds.join(', ');
-      return;
-    }
+    // Make a single request for all ROR IDs using the cached fetch function
+    const organizations = await fetchRorOrganizations(Array.from(allRorIds));
     
-    const organizations = await response.json();
-    container.innerHTML = '';
+    // Create a map for quick lookup
+    const orgMap = new Map();
+    organizations.forEach(org => {
+      orgMap.set(org.id, org);
+    });
     
-    organizations.forEach((org, index) => {
-      if (index > 0) {
-        container.appendChild(document.createTextNode(', '));
+    // Update each cell with the fetched data
+    containers.forEach(container => {
+      const rorIds = container.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
+      container.innerHTML = '';
+      
+      rorIds.forEach((rorId, index) => {
+        const org = orgMap.get(rorId.trim());
+        if (org) {
+          if (index > 0) {
+            container.appendChild(document.createTextNode(', '));
+          }
+          const link = document.createElement('a');
+          link.href = `/browse?ror=${encodeURIComponent(org.id)}`;
+          link.textContent = org.name;
+          link.title = org.id;
+          container.appendChild(link);
+        }
+      });
+      
+      // If no orgs were found, show the IDs
+      if (container.innerHTML === '') {
+        container.textContent = rorIds.join(', ');
       }
-      const link = document.createElement('a');
-      link.href = `/browse?ror=${encodeURIComponent(org.id)}`;
-      link.textContent = org.name;
-      link.title = org.id;
-      container.appendChild(link);
     });
   } catch (error) {
-    console.error('Error loading ROR names:', error);
-    container.textContent = rorIds.join(', ');
+    console.error('Error batch loading ROR names:', error);
+    // Show IDs on error
+    containers.forEach(container => {
+      const rorIds = container.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
+      container.textContent = rorIds.join(', ');
+    });
   }
 }
