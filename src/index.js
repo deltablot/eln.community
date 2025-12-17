@@ -978,6 +978,58 @@ async function fetchRorOrganizations(rorIds) {
   }
 }
 
+// Shared helper to format relative time with configurable options
+function formatRelative(timestamp, options = {}) {
+  const {
+    capitalize = false,
+    includeWeeks = true,
+    includeMonths = true,
+    includeYears = true,
+    fallbackToDate = false,
+    dateFallbackThreshold = 30
+  } = options;
+
+  const now = Date.now();
+  const date = new Date(timestamp * 1000);
+  const diff = now - date.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+
+  let relativeTime;
+
+  // Check if we should fall back to date string
+  if (fallbackToDate && days > dateFallbackThreshold) {
+    return date.toLocaleDateString();
+  }
+
+  // Determine the appropriate time unit
+  if (seconds < 60) {
+    relativeTime = capitalize ? 'Just now' : 'just now';
+  } else if (minutes < 60) {
+    relativeTime = minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+  } else if (hours < 24) {
+    relativeTime = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  } else if (days < 7) {
+    relativeTime = days === 1 ? '1 day ago' : `${days} days ago`;
+  } else if (includeWeeks && weeks < 5) {
+    relativeTime = weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+  } else if (includeMonths && months < 12) {
+    relativeTime = months === 1 ? '1 month ago' : `${months} months ago`;
+  } else if (includeYears) {
+    relativeTime = years === 1 ? '1 year ago' : `${years} years ago`;
+  } else {
+    // Fallback for when weeks/months/years are disabled
+    relativeTime = days === 1 ? '1 day ago' : `${days} days ago`;
+  }
+
+  return relativeTime;
+}
+
 // Format timestamps as relative time (e.g., "2 weeks ago")
 function formatRelativeTimes() {
   const timeElements = document.querySelectorAll('.relative-time');
@@ -990,33 +1042,12 @@ function formatRelativeTimes() {
     if (!timestamp) return;
     
     const date = new Date(timestamp * 1000);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-    const diffWeeks = Math.floor(diffDays / 7);
-    const diffMonths = Math.floor(diffDays / 30);
-    const diffYears = Math.floor(diffDays / 365);
-    
-    let relativeTime;
-    
-    if (diffSecs < 60) {
-      relativeTime = 'just now';
-    } else if (diffMins < 60) {
-      relativeTime = diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`;
-    } else if (diffHours < 24) {
-      relativeTime = diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
-    } else if (diffDays < 7) {
-      relativeTime = diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
-    } else if (diffWeeks < 5) {
-      relativeTime = diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
-    } else if (diffMonths < 12) {
-      relativeTime = diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
-    } else {
-      relativeTime = diffYears === 1 ? '1 year ago' : `${diffYears} years ago`;
-    }
+    const relativeTime = formatRelative(timestamp, {
+      capitalize: false,
+      includeWeeks: true,
+      includeMonths: true,
+      includeYears: true
+    });
     
     element.textContent = relativeTime;
     element.title = date.toLocaleString();
@@ -1694,27 +1725,16 @@ function initializeBrowseGrid() {
     const user = data.user;
     const isAdmin = data.isAdmin;
 
-    // Helper to format relative time
+    // Helper to format relative time (uses shared formatRelative)
     function formatRelativeTime(timestamp) {
-      const now = Date.now();
-      const date = new Date(timestamp * 1000);
-      const diff = now - date.getTime();
-      const seconds = Math.floor(diff / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-
-      if (days > 30) {
-        return date.toLocaleDateString();
-      } else if (days > 0) {
-        return `${days} day${days > 1 ? 's' : ''} ago`;
-      } else if (hours > 0) {
-        return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-      } else if (minutes > 0) {
-        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-      } else {
-        return 'Just now';
-      }
+      return formatRelative(timestamp, {
+        capitalize: true,
+        includeWeeks: false,
+        includeMonths: false,
+        includeYears: false,
+        fallbackToDate: true,
+        dateFallbackThreshold: 30
+      });
     }
 
     // Custom cell renderer for Name column with link
