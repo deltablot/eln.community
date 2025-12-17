@@ -1129,3 +1129,13 @@ footer {
     margin-bottom: 1rem;
 }
 
+/* AG Grid Overrides */
+.ag-menu {
+    overflow-y: unset;
+}
+
+.ag-filter-wrapper {
+    margin: 0;
+    padding: 0;
+    max-width: max-content;
+}
