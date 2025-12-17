@@ -1816,92 +1816,70 @@ function initializeBrowseGrid() {
         field: 'name', 
         headerName: 'Name',
         cellRenderer: nameCellRenderer,
-        flex: 2,
-        minWidth: 150,
-        filter: true,
-        sortable: true
+        filter: 'agTextColumnFilter'
       },
       { 
         field: 'uploaderName', 
         headerName: 'Author',
-        flex: 1,
-        minWidth: 100,
-        filter: true,
-        sortable: true
+        filter: 'agTextColumnFilter'
       },
       { 
         field: 'categories', 
         headerName: 'Categories',
         cellRenderer: categoriesCellRenderer,
-        flex: 1.5,
-        minWidth: 120,
-        sortable: false,
         filter: false
       },
       { 
         field: 'rorIds', 
         headerName: 'Organizations',
         cellRenderer: organizationsCellRenderer,
-        flex: 1.5,
-        minWidth: 120,
-        sortable: false,
         filter: false
       },
       { 
         field: 'downloadCount', 
         headerName: 'Downloads',
-        flex: 0.7,
-        minWidth: 80,
-        filter: true,
-        sortable: true
+        filter: 'agNumberColumnFilter',
+        maxWidth: 120
       },
       { 
         field: 'createdAt', 
         headerName: 'Created',
         cellRenderer: createdCellRenderer,
-        flex: 1,
-        minWidth: 100,
-        sortable: true,
-        filter: false
+        filter: false,
+        maxWidth: 130
       },
       { 
         headerName: 'Actions',
         cellRenderer: actionsCellRenderer,
-        flex: 1.5,
-        minWidth: 180,
-        sortable: false,
         filter: false,
-        suppressSizeToFit: true
+        sortable: false,
+        minWidth: 180
       }
     ];
 
-    // Grid options
+    // Grid options following AG Grid official pattern
     const gridOptions = {
       columnDefs: columnDefs,
-      rowData: records,
-      domLayout: 'autoHeight',
-      suppressHorizontalScroll: false,
       defaultColDef: {
+        flex: 1,
+        minWidth: 100,
+        filter: true,
+        sortable: true,
+        suppressHeaderMenuButton: true,
+        suppressHeaderContextMenu: true,
         resizable: true,
         floatingFilter: true
       },
+      domLayout: 'autoHeight',
       pagination: true,
       paginationPageSize: pagination.pageSize || 10,
       paginationPageSizeSelector: [10, 20, 30, 50],
-      suppressPaginationPanel: false,
-      animateRows: true,
-      rowHeight: 48,
-      headerHeight: 40,
-      onGridReady: function(params) {
-        params.api.sizeColumnsToFit();
-      },
-      onFirstDataRendered: function(params) {
-        params.api.sizeColumnsToFit();
-      }
+      animateRows: true
     };
 
     // Create the grid
-    agGrid.createGrid(gridDiv, gridOptions);
+    const gridApi = agGrid.createGrid(gridDiv, gridOptions);
+    gridApi.setGridOption('rowData', records);
     
     // Batch load all ROR names after grid is rendered
     setTimeout(() => batchLoadRorNamesForGrid(), 0);
