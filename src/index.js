@@ -1847,12 +1847,20 @@ function initializeBrowseGrid() {
         field: 'categories', 
         headerName: 'Categories',
         cellRenderer: categoriesCellRenderer,
+        valueFormatter: params => {
+          const categories = params.value || [];
+          return categories.map(cat => cat.name).join(', ') || '-';
+        },
         filter: false
       },
       { 
         field: 'rorIds', 
         headerName: 'Organizations',
         cellRenderer: organizationsCellRenderer,
+        valueFormatter: params => {
+          const rorIds = params.value || [];
+          return rorIds.join(', ') || '-';
+        },
         filter: false
       },
       { 
@@ -1865,6 +1873,9 @@ function initializeBrowseGrid() {
         field: 'createdAt', 
         headerName: 'Created',
         cellRenderer: createdCellRenderer,
+        valueFormatter: params => {
+          return formatRelativeTime(params.value);
+        },
         filter: false,
         maxWidth: 130
       },
