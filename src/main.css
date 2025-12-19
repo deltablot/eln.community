@@ -10,81 +10,8 @@
 
 .container-fluid {
     min-height: 100%;
+    font: 1.2em sans-serif;
 }
-
-/*
-html,
-body {
-  background-color: var(--white);
-  color: var(--black);
-  box-sizing: border-box;
-  height: 100%;
-  padding: 0;
-  margin: 0;
-  font: 1.2em sans-serif;
-}
-
-.container {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-.content {
-  padding: 3vw;
-  flex-grow: 1;
-  text-align: center;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
-a {
-    color: var(--blue);
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-.text-center {
-    text-align: center;
-}
-
-nav {
-    background: var(--black);
-    padding: 12px;
-    flex-grow: 0;
-    flex-shrink: 0;
-    text-align: center;
-    font-size: 1.5rem;
-    text-transform: uppercase;
-    letter-spacing: 2rem;
-    a {
-        color: var(--white);
-    }
-    a:hover {
-        color: var(--blue);
-        text-decoration: none;
-    }
-}
-
-.centered {
-    text-align: center;
-}
-
-h1 {
-    margin-bottom: 0;
-}
-
-h2 {
-    color: var(--medium);
-    margin-top: 3px;
-    font-size: 1rem;
-}
-
-*/
 
 dialog {
     border-radius: 5px;
