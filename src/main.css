@@ -1063,6 +1063,10 @@ footer {
 }
 
 /* AG Grid Overrides */
+.ag-theme-alpine {
+    ag-font-family: Roboto, Arial, sans-serif;
+}
+
 .ag-menu {
     overflow-y: unset;
 }
