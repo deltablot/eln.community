@@ -1,6 +1,7 @@
 {{ define "content" }}
 <!-- Delete Confirmation Modal -->
-<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel"
+     aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
@@ -56,11 +57,13 @@
         </div>
       </div>
 
-      <form method='post' action='/api/v1/record/{{ .Record.Id }}' class="edit-record-form col-md-12" enctype="multipart/form-data">
+      <form method='post' action='/api/v1/record/{{ .Record.Id }}' class="edit-record-form col-md-12"
+            enctype="multipart/form-data">
         {{ if .Categories }}
         <div class="mb-3">
           <label class="form-label fw-bold">Categories</label>
-          <input type="hidden" name="categories" id="selected-categories-input" value="{{ range $i, $cat := $.Record.Categories }}{{ if $i }},{{ end }}{{ $cat.Id }}{{ end }}" />
+          <input type="hidden" name="categories" id="selected-categories-input"
+                 value="{{ range $i, $cat := $.Record.Categories }}{{ if $i }},{{ end }}{{ $cat.Id }}{{ end }}"/>
           <div class="category-multiselect" id="categoryMultiselect">
             <div class="category-multiselect-input" id="categoryMultiselectInput">
               <div class="category-multiselect-tags" id="categoryMultiselectTags">
@@ -71,19 +74,24 @@
                 </span>
                 {{- end }}
               </div>
-              <span class="category-multiselect-placeholder {{ if $.Record.Categories }}hidden{{ end }}" id="categoryMultiselectPlaceholder">Select categories...</span>
+              <span class="category-multiselect-placeholder {{ if $.Record.Categories }}hidden{{ end }}"
+                    id="categoryMultiselectPlaceholder">Select categories...</span>
               <span class="category-multiselect-arrow">▼</span>
             </div>
             <div class="category-multiselect-dropdown d-none" id="categoryMultiselectDropdown">
               <div class="category-multiselect-search">
-                <input type="text" class="form-control form-control-sm" id="edit-category-search" placeholder="Search categories..." />
+                <input type="text" class="form-control form-control-sm" id="edit-category-search"
+                       placeholder="Search categories..."/>
               </div>
               <div class="category-multiselect-options" id="edit-category-tree">
                 <ul class="category-tree">
                   {{ range .Categories }}
                   <li class="category-tree-item">
-                    <div class="category-item {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}active{{ end }}{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                      <input type="checkbox" class="category-checkbox" {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}checked{{ end }}{{ end }} />
+                    <div
+                        class="category-item {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}active{{ end }}{{ end }}"
+                        data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                      <input type="checkbox" class="category-checkbox" {{ $catId :=.Id }}{{ range $.Record.Categories
+                             }}{{ if eq .Id $catId }}checked{{ end }}{{ end }}/>
                       {{- if .Subcategories }}
                       <span class="category-toggle"></span>
                       {{- else }}
@@ -95,8 +103,11 @@
                     <ul class="category-children">
                       {{- range .Subcategories }}
                       <li class="category-tree-item">
-                        <div class="category-item {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}active{{ end }}{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                          <input type="checkbox" class="category-checkbox" {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}checked{{ end }}{{ end }} />
+                        <div
+                            class="category-item {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}active{{ end }}{{ end }}"
+                            data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                          <input type="checkbox" class="category-checkbox" {{ $catId :=.Id }}{{ range
+                                 $.Record.Categories }}{{ if eq .Id $catId }}checked{{ end }}{{ end }}/>
                           {{- if .Subcategories }}
                           <span class="category-toggle"></span>
                           {{- else }}
@@ -108,8 +119,11 @@
                         <ul class="category-children">
                           {{- range .Subcategories }}
                           <li class="category-tree-item">
-                            <div class="category-item {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}active{{ end }}{{ end }}" data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
-                              <input type="checkbox" class="category-checkbox" {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}checked{{ end }}{{ end }} />
+                            <div
+                                class="category-item {{ $catId := .Id }}{{ range $.Record.Categories }}{{ if eq .Id $catId }}active{{ end }}{{ end }}"
+                                data-category-id="{{ .Id }}" data-category-name="{{ .Name }}">
+                              <input type="checkbox" class="category-checkbox" {{ $catId :=.Id }}{{ range
+                                     $.Record.Categories }}{{ if eq .Id $catId }}checked{{ end }}{{ end }}/>
                               <span class="category-toggle no-children"></span>
                               <span class="category-name">{{ .Name }}</span>
                             </div>
@@ -126,7 +140,8 @@
                 </ul>
               </div>
               <div class="category-multiselect-footer">
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="categoryClearBtnEdit">Clear All</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="categoryClearBtnEdit">Clear All
+                </button>
               </div>
             </div>
           </div>
@@ -135,20 +150,22 @@
 
         <div class="mb-3">
           <label class="form-label fw-bold">Upload New Version (Optional)</label>
-          <small class="form-text text-muted d-block mb-2">Upload a new .eln file to create a new version. The current version will be preserved in history.</small>
-          <input type='file' name='file' class='form-control' accept='.eln' id='file-input' />
+          <small class="form-text text-muted d-block mb-2">Upload a new .eln file to create a new version. The current
+            version will be preserved in history.</small>
+          <input type='file' name='file' class='form-control' accept='.eln' id='file-input'/>
           <div class="form-text">Current file: {{ .Record.Sha256 }}</div>
         </div>
 
         <div class="mb-2">
           <label class="form-label fw-bold">Name</label>
-          <input type='text' name='name' class='form-control' value="{{ .Record.Name }}" required />
+          <input type='text' name='name' class='form-control' value="{{ .Record.Name }}" required/>
         </div>
 
         <div class="mb-2">
           <label class="form-label fw-bold">Research Organization Registry (ROR)</label>
-          <small class="form-text text-muted d-block mb-2">Optional. Start typing to search for institutions. <a href="https://ror.org/" target="_blank">Learn more about ROR</a></small>
-          
+          <small class="form-text text-muted d-block mb-2">Optional. Start typing to search for institutions. <a
+              href="https://ror.org/" target="_blank">Learn more about ROR</a></small>
+
           <!-- Selected ROR organizations display -->
           <div id="selected-rors" class="mb-2">
             {{- range .Record.RorIds }}
@@ -158,15 +175,17 @@
             </button>
             {{- end }}
           </div>
-          
+
           <!-- Search input -->
           <div class="position-relative">
-            <input type='text' id='ror-search-input' class='form-control' placeholder='Search for institutions...' autocomplete="off" />
+            <input type='text' id='ror-search-input' class='form-control' placeholder='Search for institutions...'
+                   autocomplete="off"/>
             <div id="ror-search-results" class="list-group position-absolute w-100 d-none"></div>
           </div>
-          
+
           <!-- Hidden input to store ROR IDs -->
-          <input type='hidden' name='rors' id='rors-hidden-input' value="{{ range $i, $rorId := .Record.RorIds }}{{ if $i }}, {{ end }}{{ $rorId }}{{ end }}" />
+          <input type='hidden' name='rors' id='rors-hidden-input'
+                 value="{{ range $i, $rorId := .Record.RorIds }}{{ if $i }}, {{ end }}{{ $rorId }}{{ end }}"/>
         </div>
 
         <div class="d-flex flex-row gap-2 mt-3">

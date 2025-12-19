@@ -7,6 +7,7 @@
     --blue: #0c6291;
     --red: #a63446;
 }
+
 .container-fluid {
     min-height: 100%;
 }
@@ -101,11 +102,13 @@ form {
     margin: 1rem auto;
     padding: 1rem;
     width: clamp(300px, 42%, 800px);
+
     select {
         padding: 10px;
         background-color: white;
         border-radius: 5px;
     }
+
     select, input {
         border: 1px solid var(--black);
     }
@@ -204,7 +207,7 @@ input[name="passphrase"] {
 
 input:focus {
     outline: none;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
 select[name="deadline"] {
@@ -288,6 +291,7 @@ select[name="deadline"] {
         display: inline;
         font-size: 1.2rem;
     }
+
     span {
         align-items: baseline;
         font-size: 0.9rem;
@@ -315,9 +319,11 @@ footer {
     flex-shrink: 0;
     text-align: center;
     font-size: 0.9rem;
+
     a {
         color: var(--white);
     }
+
     a:hover {
         color: var(--blue);
         text-decoration: none;
@@ -326,19 +332,19 @@ footer {
 
 /** small spinner for buttons */
 @keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: rgba(255, 255, 255, 0.9);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top-color: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
 }
 
 .ro-crate-entity {
@@ -428,6 +434,7 @@ footer {
 .record-details {
     margin-bottom: 1em;
 }
+
 /* Edit page specific styles */
 .edit-form {
     max-width: 800px;
@@ -495,17 +502,17 @@ footer {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .btn-group {
         flex-direction: column;
     }
-    
+
     .btn-group .btn {
         border-radius: 0.375rem !important;
         border: 1px solid;
         margin-bottom: 0.25rem;
     }
-    
+
     .edit-form {
         margin: 0 1rem;
     }
@@ -705,7 +712,7 @@ footer {
     .record-card {
         flex: 1 1 100%;
     }
-    
+
     .records-grid {
         gap: 1rem;
     }
@@ -912,7 +919,6 @@ footer {
 .category-tree-item.search-hidden {
     display: none;
 }
-
 
 
 .category-tree {
@@ -1142,6 +1148,6 @@ footer {
 
 .ag-layout-auto-height, .ag-layout-print {
     .ag-center-cols-container, .ag-center-cols-viewport {
-         min-height: 0;
+        min-height: 0;
     }
 }
