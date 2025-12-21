@@ -228,7 +228,8 @@
     "totalPages": {{ .TotalPages }}
   },
   "user": {{ if .User }}{"orcid": {{ toJson .User.Orcid }}}{{ else }}null{{ end }},
-  "isAdmin": {{ if .IsAdmin }}true{{ else }}false{{ end }}
+  "isAdmin": {{ if .IsAdmin }}true{{ else }}false{{ end }},
+  "styleNonce": {{ toJson .StyleNonce }}
 }
 </script>
 {{- else}}

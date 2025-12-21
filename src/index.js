@@ -1889,6 +1889,7 @@ function initializeBrowseGrid() {
     ];
 
     // Grid options following AG Grid official pattern
+    // styleNonce is used to avoid 'unsafe-inline' in CSP for AG Grid styles
     const gridOptions = {
       columnDefs: columnDefs,
       defaultColDef: {
@@ -1905,7 +1906,8 @@ function initializeBrowseGrid() {
       pagination: true,
       paginationPageSize: pagination.pageSize || 10,
       paginationPageSizeSelector: [10, 20, 30, 50],
-      animateRows: true
+      animateRows: true,
+      styleNonce: data.styleNonce || undefined
     };
 
     // Create the grid

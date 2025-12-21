@@ -400,6 +400,46 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// generateNonce creates a cryptographically secure random nonce for CSP
+func generateNonce() string {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to a timestamp-based value if crypto/rand fails
+		return hex.EncodeToString([]byte(fmt.Sprintf("%d", time.Now().UnixNano())))
+	}
+	return hex.EncodeToString(bytes)
+}
+
+// Context key for storing the nonce
+type contextKey string
+
+const nonceContextKey contextKey = "styleNonce"
+
+// browseSecurityHeaders is a middleware for the browse page that uses nonce-based CSP for AG Grid
+func browseSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nonce := generateNonce()
+		// Store nonce in context for use in template
+		ctx := context.WithValue(r.Context(), nonceContextKey, nonce)
+
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; "+
+				"script-src 'self' https://cdn.jsdelivr.net; "+
+				"style-src 'self' 'nonce-"+nonce+"' https://cdn.jsdelivr.net; "+
+				"font-src 'self' https://cdn.jsdelivr.net data:; "+
+				"img-src 'self' data:; "+
+				"connect-src 'self'; "+
+				"frame-ancestors 'none';"+
+				"upgrade-insecure-requests;",
+		)
+		w.Header().Set("Referrer-Policy", "same-origin")
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // serveAsset will pick the .br version if the client accepts it.
 func serveAsset(w http.ResponseWriter, r *http.Request) {
 	// strip leading slash
@@ -542,7 +582,7 @@ func main() {
 	mux.Handle("/entry", securityHeaders(http.HandlerFunc(newEntry)))
 
 	// root catchall - now uses browse page
-	mux.Handle("/", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
+	mux.Handle("/", browseSecurityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
 
 	// TODO use DEV env var to serve files directly to avoid recompilation
 	mux.HandleFunc("GET /index.js", serveAsset)

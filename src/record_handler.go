@@ -972,6 +972,12 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Get style nonce from context (set by browseSecurityHeaders middleware)
+	styleNonce := ""
+	if nonce, ok := r.Context().Value(nonceContextKey).(string); ok {
+		styleNonce = nonce
+	}
+
 	data := struct {
 		App                 App
 		Categories          []Category
@@ -989,6 +995,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		TotalCount          int
 		TotalPages          int
 		CurrentPage         string
+		StyleNonce          string
 	}{
 		App:                 app,
 		Categories:          categories,
@@ -1006,6 +1013,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		TotalCount:          totalCount,
 		TotalPages:          totalPages,
 		CurrentPage:         "browse",
+		StyleNonce:          styleNonce,
 	}
 
 	w.Header().Set("Content-Type", "text/html")
