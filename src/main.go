@@ -379,27 +379,6 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	pageTmpl.ExecuteTemplate(w, "layout", data)
 }
 
-// securityHeaders is a middleware that injects your CSP, HSTS, etc.
-func securityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Security-Policy",
-			"default-src 'self'; "+
-				"script-src 'self' https://cdn.jsdelivr.net; "+
-				"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "+
-				"font-src 'self' https://cdn.jsdelivr.net data:; "+
-				"img-src 'self' data:; "+
-				"connect-src 'self'; "+
-				"frame-ancestors 'none';"+
-				"upgrade-insecure-requests;",
-		)
-		w.Header().Set("Referrer-Policy", "same-origin")
-		w.Header().Set("Strict-Transport-Security", "max-age=63072000")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
-		next.ServeHTTP(w, r)
-	})
-}
-
 // generateNonce creates a cryptographically secure random nonce for CSP
 func generateNonce() string {
 	bytes := make([]byte, 16)
@@ -415,11 +394,11 @@ type contextKey string
 
 const nonceContextKey contextKey = "styleNonce"
 
-// browseSecurityHeaders is a middleware for the browse page that uses nonce-based CSP for AG Grid
-func browseSecurityHeaders(next http.Handler) http.Handler {
+// securityHeaders is a middleware that injects your CSP, HSTS, etc.
+func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nonce := generateNonce()
-		// Store nonce in context for use in template
+		// Store nonce in context for use in templates (e.g., AG Grid styleNonce)
 		ctx := context.WithValue(r.Context(), nonceContextKey, nonce)
 
 		w.Header().Set("Content-Security-Policy",
@@ -582,7 +561,7 @@ func main() {
 	mux.Handle("/entry", securityHeaders(http.HandlerFunc(newEntry)))
 
 	// root catchall - now uses browse page
-	mux.Handle("/", browseSecurityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
+	mux.Handle("/", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
 
 	// TODO use DEV env var to serve files directly to avoid recompilation
 	mux.HandleFunc("GET /index.js", serveAsset)
