@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Redirect to browse page after toast hides
             successToast.addEventListener('hidden.bs.toast', function () {
               window.location.href = '/browse';
-            }, { once: true });
+            }, {once: true});
 
             toast.show();
           }
@@ -104,13 +104,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initialize ROR autocomplete for edit page
   initializeRorAutocomplete('ror-search-input', 'ror-search-results', 'selected-rors', 'rors-hidden-input');
-  
+
   // Initialize ROR autocomplete for upload page
   initializeRorAutocomplete('ror-search-input-upload', 'ror-search-results-upload', 'selected-rors-upload', 'rors-hidden-input-upload');
-  
+
   // Load ROR names for record page
   loadRorNames();
-  
+
   // Load ROR names for browse page
   loadRorNamesForBrowse();
 
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const categorySelect = document.getElementById('category');
   const searchForm = document.getElementById('searchForm');
   if (categorySelect && searchForm) {
-    categorySelect.addEventListener('change', function() {
+    categorySelect.addEventListener('change', function () {
       searchForm.submit();
     });
   }
@@ -128,6 +128,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initialize browse page search and filter
   initializeBrowseSearch();
+
+  // Initialize AG Grid for browse page
+  initializeBrowseGrid();
 
   // Format relative timestamps
   formatRelativeTimes();
@@ -141,7 +144,7 @@ function showFormattedView() {
   const rawView = document.getElementById('raw-view');
   const formattedBtn = document.getElementById('view-formatted');
   const rawBtn = document.getElementById('view-raw');
-  
+
   if (formattedView && rawView && formattedBtn && rawBtn) {
     formattedView.classList.remove('hidden');
     rawView.classList.add('hidden');
@@ -155,7 +158,7 @@ function showRawView() {
   const rawView = document.getElementById('raw-view');
   const formattedBtn = document.getElementById('view-formatted');
   const rawBtn = document.getElementById('view-raw');
-  
+
   if (formattedView && rawView && formattedBtn && rawBtn) {
     formattedView.classList.add('hidden');
     rawView.classList.remove('hidden');
@@ -263,9 +266,9 @@ function renderHtmlContent(htmlContent, entityId) {
 function openHtmlInNewTab(base64Content, entityId) {
   try {
     const htmlContent = decodeURIComponent(escape(atob(base64Content)));
-    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const blob = new Blob([htmlContent], {type: 'text/html'});
     const url = URL.createObjectURL(blob);
-    
+
     // Create a temporary link and trigger download instead of popup
     const link = document.createElement('a');
     link.href = url;
@@ -400,22 +403,22 @@ function initializeRoCrateViewer() {
   // Add event listeners for view toggle buttons
   const formattedBtn = document.getElementById('view-formatted');
   const rawBtn = document.getElementById('view-raw');
-  
+
   if (formattedBtn) {
     formattedBtn.addEventListener('click', showFormattedView);
   }
-  
+
   if (rawBtn) {
     rawBtn.addEventListener('click', showRawView);
   }
 
   // Add event delegation for HTML open buttons (they are created dynamically)
-  contentDiv.addEventListener('click', function(e) {
+  contentDiv.addEventListener('click', function (e) {
     if (e.target.classList.contains('html-open-btn') || e.target.closest('.html-open-btn')) {
       const button = e.target.classList.contains('html-open-btn') ? e.target : e.target.closest('.html-open-btn');
       const base64Content = button.getAttribute('data-html-content');
       const entityId = button.getAttribute('data-entity-id');
-      
+
       if (base64Content && entityId) {
         openHtmlInNewTab(base64Content, entityId);
       }
@@ -490,7 +493,7 @@ function initializeEditForm() {
           const recordId = this.action.split('/').pop();
           successToast.addEventListener('hidden.bs.toast', function () {
             window.location.href = '/record/' + recordId;
-          }, { once: true });
+          }, {once: true});
 
           toast.show();
         } else {
@@ -511,7 +514,7 @@ function initializeEditForm() {
           toast.show();
         }
         console.error('Update failed:', errorText);
-        
+
         // Reset button state
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -528,7 +531,7 @@ function initializeEditForm() {
         toast.show();
       }
       console.error('Update error:', error);
-      
+
       // Reset button state
       if (submitBtn) {
         submitBtn.disabled = false;
@@ -544,7 +547,7 @@ function initializeDeleteButton() {
   const deleteForm = document.querySelector('form.delete-record-form');
   const deleteModal = document.getElementById('deleteConfirmModal');
   const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-  
+
   if (!deleteBtn || !deleteForm || !deleteModal || !confirmDeleteBtn) {
     return; // Not on edit page
   }
@@ -581,7 +584,7 @@ function initializeDeleteButton() {
       if (response.ok) {
         // Hide modal
         modal.hide();
-        
+
         // Show success toast
         const successToast = document.getElementById('successToast');
         const successToastBody = successToast?.querySelector('.toast-body');
@@ -595,7 +598,7 @@ function initializeDeleteButton() {
           // Redirect to browse page after toast hides
           successToast.addEventListener('hidden.bs.toast', function () {
             window.location.href = '/browse';
-          }, { once: true });
+          }, {once: true});
 
           toast.show();
         } else {
@@ -607,7 +610,7 @@ function initializeDeleteButton() {
       } else {
         // Hide modal
         modal.hide();
-        
+
         // Show error toast
         const errorText = await response.text();
         const errorToast = document.getElementById('errorToast');
@@ -618,7 +621,7 @@ function initializeDeleteButton() {
           toast.show();
         }
         console.error('Delete failed:', errorText);
-        
+
         // Reset button state
         confirmDeleteBtn.disabled = false;
         confirmDeleteBtn.textContent = originalText;
@@ -626,7 +629,7 @@ function initializeDeleteButton() {
     } catch (error) {
       // Hide modal
       modal.hide();
-      
+
       // Show error toast for network/other errors
       const errorToast = document.getElementById('errorToast');
       const errorToastBody = document.getElementById('errorToastBody');
@@ -636,7 +639,7 @@ function initializeDeleteButton() {
         toast.show();
       }
       console.error('Delete error:', error);
-      
+
       // Reset button state
       confirmDeleteBtn.disabled = false;
       confirmDeleteBtn.textContent = originalText;
@@ -668,9 +671,9 @@ function initializeRorAutocomplete(inputId, resultsId, selectedId, hiddenInputId
   loadExistingRorNames(selectedId);
 
   // Handle search input
-  searchInput.addEventListener('input', function(e) {
+  searchInput.addEventListener('input', function (e) {
     const query = e.target.value.trim();
-    
+
     if (query.length < 2) {
       searchResults.classList.add('d-none');
       searchResults.innerHTML = '';
@@ -685,14 +688,14 @@ function initializeRorAutocomplete(inputId, resultsId, selectedId, hiddenInputId
   });
 
   // Handle clicks outside to close results
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', function (e) {
     if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
       searchResults.classList.add('d-none');
     }
   });
 
   // Handle remove button clicks
-  selectedRors.addEventListener('click', function(e) {
+  selectedRors.addEventListener('click', function (e) {
     const badge = e.target.closest('.ror-badge');
     if (badge) {
       e.preventDefault();
@@ -705,19 +708,19 @@ function initializeRorAutocomplete(inputId, resultsId, selectedId, hiddenInputId
 
 async function searchRorOrganizations(query, resultsId, selectedId, hiddenInputId, inputId) {
   const searchResults = document.getElementById(resultsId);
-  
+
   try {
     searchResults.innerHTML = '<div class="list-group-item">Searching...</div>';
     searchResults.classList.remove('d-none');
 
     const response = await fetch(`/api/v1/ror/search?q=${encodeURIComponent(query)}`);
-    
+
     if (!response.ok) {
       throw new Error('Search failed');
     }
 
     const organizations = await response.json();
-    
+
     if (organizations.length === 0) {
       searchResults.innerHTML = '<div class="list-group-item">No results found</div>';
       return;
@@ -741,13 +744,13 @@ async function searchRorOrganizations(query, resultsId, selectedId, hiddenInputI
         </div>
         ${org.types && org.types.length > 0 ? `<small class="text-muted">${org.types.map(t => escapeHtml(t)).join(', ')}</small>` : ''}
       `;
-      
-      item.addEventListener('click', function() {
+
+      item.addEventListener('click', function () {
         addRorOrganization(org, selectedId, hiddenInputId);
         searchResults.classList.add('d-none');
         document.getElementById(inputId).value = '';
       });
-      
+
       searchResults.appendChild(item);
     });
   } catch (error) {
@@ -758,7 +761,7 @@ async function searchRorOrganizations(query, resultsId, selectedId, hiddenInputI
 
 function addRorOrganization(org, selectedId, hiddenInputId) {
   const selectedRors = document.getElementById(selectedId);
-  
+
   // Check if already added
   const existing = selectedRors.querySelector(`[data-ror-id="${org.id}"]`);
   if (existing) {
@@ -774,7 +777,7 @@ function addRorOrganization(org, selectedId, hiddenInputId) {
     <span class="ror-name">${escapeHtml(org.name)}</span>
     <span class="badge bg-light text-dark ms-2">×</span>
   `;
-  
+
   selectedRors.appendChild(badge);
   updateHiddenInput(selectedId, hiddenInputId);
 }
@@ -782,10 +785,10 @@ function addRorOrganization(org, selectedId, hiddenInputId) {
 function updateHiddenInput(selectedId, hiddenInputId) {
   const selectedRors = document.getElementById(selectedId);
   const hiddenInput = document.getElementById(hiddenInputId);
-  
+
   const badges = selectedRors.querySelectorAll('.ror-badge');
   const rorIds = Array.from(badges).map(badge => badge.getAttribute('data-ror-id'));
-  
+
   hiddenInput.value = rorIds.join(', ');
 }
 
@@ -797,7 +800,7 @@ async function loadExistingRorNames(selectedId) {
   if (badges.length === 0) return;
 
   const rorIds = Array.from(badges).map(badge => badge.getAttribute('data-ror-id'));
-  
+
   try {
     const response = await fetch(`/api/v1/ror/organizations?ids=${rorIds.join(',')}`);
     if (!response.ok) {
@@ -806,7 +809,7 @@ async function loadExistingRorNames(selectedId) {
     }
 
     const organizations = await response.json();
-    
+
     // Update badges with names
     organizations.forEach(org => {
       rorCache.set(org.id, org);
@@ -831,28 +834,28 @@ async function loadRorNames() {
 
   const loadingElement = document.getElementById('ror-organizations-loading');
   const displayElement = document.getElementById('ror-organizations');
-  
+
   if (!loadingElement || !displayElement) {
     return;
   }
 
   try {
     const rorIds = JSON.parse(rorIdsElement.textContent);
-    
+
     if (!rorIds || rorIds.length === 0) {
       loadingElement.classList.add('d-none');
       return;
     }
 
     const organizations = await fetchRorOrganizations(rorIds);
-    
+
     // Build display HTML
     let html = '';
     organizations.forEach((org, index) => {
       if (index > 0) html += ', ';
       html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank' rel='noopener noreferrer'>${escapeHtml(org.name)}</a>`;
     });
-    
+
     displayElement.innerHTML = html;
     loadingElement.classList.add('d-none');
     displayElement.classList.remove('d-none');
@@ -882,7 +885,7 @@ async function loadRorNamesForBrowse() {
   try {
     // Fetch all organizations in one batch
     const organizations = await fetchRorOrganizations(Array.from(allRorIds));
-    
+
     // Create a map for quick lookup
     const orgMap = new Map();
     organizations.forEach(org => {
@@ -894,7 +897,7 @@ async function loadRorNamesForBrowse() {
       const recordId = element.getAttribute('data-record-id');
       const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
       const loadingElement = document.querySelector(`.ror-organizations-loading[data-record-id="${recordId}"]`);
-      
+
       if (rorIds.length === 0) {
         if (loadingElement) loadingElement.classList.add('ror-hidden');
         return;
@@ -909,13 +912,13 @@ async function loadRorNamesForBrowse() {
           html += `<a href='/browse?ror=${encodeURIComponent(org.id)}' class='ror-filter-link' title='Filter by ${escapeHtml(org.name)}'>${escapeHtml(org.name)}</a>`;
         }
       });
-      
+
       if (html) {
         element.innerHTML = html;
         element.classList.remove('ror-hidden');
         element.classList.add('ror-inline');
       }
-      
+
       if (loadingElement) {
         loadingElement.classList.add('ror-hidden');
       }
@@ -938,7 +941,7 @@ async function fetchRorOrganizations(rorIds) {
   // Check cache first
   const uncachedIds = [];
   const cachedOrgs = [];
-  
+
   rorIds.forEach(id => {
     if (rorCache.has(id)) {
       cachedOrgs.push(rorCache.get(id));
@@ -960,7 +963,7 @@ async function fetchRorOrganizations(rorIds) {
     }
 
     const organizations = await response.json();
-    
+
     // Cache the results
     organizations.forEach(org => {
       rorCache.set(org.id, org);
@@ -975,46 +978,77 @@ async function fetchRorOrganizations(rorIds) {
   }
 }
 
+// Shared helper to format relative time with configurable options
+function formatRelative(timestamp, options = {}) {
+  const {
+    capitalize = false,
+    includeWeeks = true,
+    includeMonths = true,
+    includeYears = true,
+    fallbackToDate = false,
+    dateFallbackThreshold = 30
+  } = options;
+
+  const now = Date.now();
+  const date = new Date(timestamp * 1000);
+  const diff = now - date.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+
+  let relativeTime;
+
+  // Check if we should fall back to date string
+  if (fallbackToDate && days > dateFallbackThreshold) {
+    return date.toLocaleDateString();
+  }
+
+  // Determine the appropriate time unit
+  if (seconds < 60) {
+    relativeTime = capitalize ? 'Just now' : 'just now';
+  } else if (minutes < 60) {
+    relativeTime = minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+  } else if (hours < 24) {
+    relativeTime = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  } else if (days < 7) {
+    relativeTime = days === 1 ? '1 day ago' : `${days} days ago`;
+  } else if (includeWeeks && weeks < 5) {
+    relativeTime = weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+  } else if (includeMonths && months < 12) {
+    relativeTime = months === 1 ? '1 month ago' : `${months} months ago`;
+  } else if (includeYears) {
+    relativeTime = years === 1 ? '1 year ago' : `${years} years ago`;
+  } else {
+    // Fallback for when weeks/months/years are disabled
+    relativeTime = days === 1 ? '1 day ago' : `${days} days ago`;
+  }
+
+  return relativeTime;
+}
+
 // Format timestamps as relative time (e.g., "2 weeks ago")
 function formatRelativeTimes() {
   const timeElements = document.querySelectorAll('.relative-time');
-  
+
   timeElements.forEach(element => {
     const card = element.closest('.record-card-date');
     if (!card) return;
-    
+
     const timestamp = parseInt(card.getAttribute('data-timestamp'));
     if (!timestamp) return;
-    
+
     const date = new Date(timestamp * 1000);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-    const diffWeeks = Math.floor(diffDays / 7);
-    const diffMonths = Math.floor(diffDays / 30);
-    const diffYears = Math.floor(diffDays / 365);
-    
-    let relativeTime;
-    
-    if (diffSecs < 60) {
-      relativeTime = 'just now';
-    } else if (diffMins < 60) {
-      relativeTime = diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`;
-    } else if (diffHours < 24) {
-      relativeTime = diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
-    } else if (diffDays < 7) {
-      relativeTime = diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
-    } else if (diffWeeks < 5) {
-      relativeTime = diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
-    } else if (diffMonths < 12) {
-      relativeTime = diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
-    } else {
-      relativeTime = diffYears === 1 ? '1 year ago' : `${diffYears} years ago`;
-    }
-    
+    const relativeTime = formatRelative(timestamp, {
+      capitalize: false,
+      includeWeeks: true,
+      includeMonths: true,
+      includeYears: true
+    });
+
     element.textContent = relativeTime;
     element.title = date.toLocaleString();
   });
@@ -1024,18 +1058,18 @@ function formatRelativeTimes() {
 function initializePagination() {
   // Handle pagination clicks
   document.querySelectorAll('.pagination .page-link[data-page]').forEach(link => {
-    link.addEventListener('click', function(e) {
+    link.addEventListener('click', function (e) {
       e.preventDefault();
       const page = this.getAttribute('data-page');
-      navigateToBrowse({ page: page });
+      navigateToBrowse({page: page});
     });
   });
-  
+
   // Handle page size change
   const pageSizeSelect = document.getElementById('pageSizeSelect');
   if (pageSizeSelect) {
-    pageSizeSelect.addEventListener('change', function() {
-      navigateToBrowse({ pageSize: this.value, page: '1' });
+    pageSizeSelect.addEventListener('change', function () {
+      navigateToBrowse({pageSize: this.value, page: '1'});
     });
   }
 }
@@ -1043,52 +1077,52 @@ function initializePagination() {
 // Navigate to browse page with parameters
 function navigateToBrowse(params = {}) {
   const url = new URL('/browse', window.location.origin);
-  
+
   // Get current values from inputs
   const searchInput = document.getElementById('searchInput');
   const rorInput = document.getElementById('rorInput');
   const pageInput = document.getElementById('pageInput');
   const pageSizeInput = document.getElementById('pageSizeInput');
   const selectedCategoryBadge = document.querySelector('#selected-categories-badges .category-badge');
-  
+
   // Build query parameters
   const queryParams = {};
-  
+
   // Search query
   const searchValue = params.q !== undefined ? params.q : (searchInput ? searchInput.value.trim() : '');
   if (searchValue) {
     queryParams.q = searchValue;
   }
-  
+
   // Category
   const categoryId = params.category !== undefined ? params.category : (selectedCategoryBadge ? selectedCategoryBadge.getAttribute('data-category-id') : '');
   if (categoryId) {
     queryParams.category = categoryId;
   }
-  
+
   // ROR
   const rorValue = params.ror !== undefined ? params.ror : (rorInput ? rorInput.value.trim() : '');
   if (rorValue) {
     queryParams.ror = rorValue;
   }
-  
+
   // Page
   const pageValue = params.page !== undefined ? params.page : (pageInput ? pageInput.value : '1');
   if (pageValue && pageValue !== '1') {
     queryParams.page = pageValue;
   }
-  
+
   // Page size
   const pageSizeValue = params.pageSize !== undefined ? params.pageSize : (pageSizeInput ? pageSizeInput.value : '10');
   if (pageSizeValue && pageSizeValue !== '10') {
     queryParams.pageSize = pageSizeValue;
   }
-  
+
   // Build URL with query parameters
   Object.keys(queryParams).forEach(key => {
     url.searchParams.append(key, queryParams[key]);
   });
-  
+
   // Navigate
   window.location.href = url.toString();
 }
@@ -1098,30 +1132,30 @@ function initializeBrowseSearch() {
   const searchButton = document.getElementById('searchButton');
   const searchInput = document.getElementById('searchInput');
   const rorInput = document.getElementById('rorInput');
-  
+
   if (!searchButton || !searchInput) {
     return; // Not on browse page
   }
-  
+
   // Handle search button click
-  searchButton.addEventListener('click', function() {
-    navigateToBrowse({ page: '1' });
+  searchButton.addEventListener('click', function () {
+    navigateToBrowse({page: '1'});
   });
-  
+
   // Handle Enter key in search input
-  searchInput.addEventListener('keypress', function(e) {
+  searchInput.addEventListener('keypress', function (e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      navigateToBrowse({ page: '1' });
+      navigateToBrowse({page: '1'});
     }
   });
-  
+
   // Handle Enter key in ROR input
   if (rorInput) {
-    rorInput.addEventListener('keypress', function(e) {
+    rorInput.addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault();
-        navigateToBrowse({ page: '1' });
+        navigateToBrowse({page: '1'});
       }
     });
   }
@@ -1133,7 +1167,7 @@ function initializeCategorySearch() {
   const browseSearch = document.getElementById('browse-category-search');
   if (browseSearch) {
     const browseTree = document.getElementById('browse-category-tree');
-    browseSearch.addEventListener('input', function() {
+    browseSearch.addEventListener('input', function () {
       filterCategories(this.value, browseTree);
     });
   }
@@ -1142,7 +1176,7 @@ function initializeCategorySearch() {
   const newSearch = document.getElementById('new-category-search');
   if (newSearch) {
     const newDropdown = document.getElementById('category-selector-dropdown');
-    newSearch.addEventListener('input', function() {
+    newSearch.addEventListener('input', function () {
       filterCategories(this.value, newDropdown);
     });
   }
@@ -1151,7 +1185,7 @@ function initializeCategorySearch() {
   const editSearch = document.getElementById('edit-category-search');
   if (editSearch) {
     const editDropdown = document.getElementById('category-selector-dropdown');
-    editSearch.addEventListener('input', function() {
+    editSearch.addEventListener('input', function () {
       filterCategories(this.value, editDropdown);
     });
   }
@@ -1173,7 +1207,7 @@ function filterCategories(searchTerm, container) {
       const categoryItem = item.querySelector('.category-item');
       const children = item.querySelector(':scope > .category-children');
       const toggle = item.querySelector('.category-toggle');
-      
+
       if (children) {
         children.classList.remove('expanded');
         if (toggle) toggle.classList.remove('expanded');
@@ -1203,12 +1237,12 @@ function filterCategories(searchTerm, container) {
       while (parent) {
         if (parent.classList.contains('category-tree-item')) {
           parent.classList.remove('search-hidden');
-          
+
           // Expand parent
           const parentChildren = parent.querySelector(':scope > .category-children');
           const parentToggle = parent.querySelector(':scope > .category-item > .category-toggle');
           const parentItem = parent.querySelector(':scope > .category-item');
-          
+
           if (parentChildren) {
             parentChildren.classList.add('expanded');
             if (parentToggle) parentToggle.classList.add('expanded');
@@ -1222,7 +1256,7 @@ function filterCategories(searchTerm, container) {
       const children = item.querySelector(':scope > .category-children');
       const toggle = item.querySelector('.category-toggle');
       const categoryItem = item.querySelector('.category-item');
-      
+
       if (children) {
         children.classList.add('expanded');
         if (toggle) toggle.classList.add('expanded');
@@ -1247,14 +1281,14 @@ function initializeCategoryMultiselect() {
   const multiselectDropdown = document.getElementById('categoryMultiselectDropdown');
   const multiselectTags = document.getElementById('categoryMultiselectTags');
   const multiselectPlaceholder = document.getElementById('categoryMultiselectPlaceholder');
-  
+
   if (!multiselectInput || !multiselectDropdown || !multiselectTags) {
     return; // Not on browse page
   }
-  
+
   // Track selected categories
   const selectedCategories = new Set();
-  
+
   // Initialize with existing selections
   const existingTags = multiselectTags.querySelectorAll('.category-tag');
   existingTags.forEach(tag => {
@@ -1263,7 +1297,7 @@ function initializeCategoryMultiselect() {
       selectedCategories.add(categoryId);
     }
   });
-  
+
   // Update placeholder visibility
   function updatePlaceholder() {
     if (selectedCategories.size > 0) {
@@ -1272,7 +1306,7 @@ function initializeCategoryMultiselect() {
       multiselectPlaceholder.classList.remove('hidden');
     }
   }
-  
+
   // Update hidden input with selected category IDs
   function updateHiddenCategoryInput() {
     const hiddenInput = document.getElementById('selected-categories-input');
@@ -1281,15 +1315,15 @@ function initializeCategoryMultiselect() {
       hiddenInput.value = categoryIds.join(',');
     }
   }
-  
+
   updatePlaceholder();
   updateHiddenCategoryInput();
-  
+
   // Toggle dropdown
-  multiselectInput.addEventListener('click', function(e) {
+  multiselectInput.addEventListener('click', function (e) {
     e.stopPropagation();
     const isOpen = !multiselectDropdown.classList.contains('d-none');
-    
+
     if (isOpen) {
       multiselectDropdown.classList.add('d-none');
       multiselectInput.classList.remove('open');
@@ -1298,24 +1332,24 @@ function initializeCategoryMultiselect() {
       multiselectInput.classList.add('open');
     }
   });
-  
+
   // Close dropdown when clicking outside
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', function (e) {
     if (!multiselectDropdown.contains(e.target) && !multiselectInput.contains(e.target)) {
       multiselectDropdown.classList.add('d-none');
       multiselectInput.classList.remove('open');
     }
   });
-  
+
   // Handle checkbox changes
   const checkboxes = multiselectDropdown.querySelectorAll('.category-checkbox');
   checkboxes.forEach(checkbox => {
-    checkbox.addEventListener('change', function(e) {
+    checkbox.addEventListener('change', function (e) {
       e.stopPropagation();
       const categoryItem = this.closest('.category-item');
       const categoryId = categoryItem.getAttribute('data-category-id');
       const categoryName = categoryItem.getAttribute('data-category-name');
-      
+
       if (this.checked) {
         // Add category
         selectedCategories.add(categoryId);
@@ -1327,44 +1361,44 @@ function initializeCategoryMultiselect() {
         removeCategoryTag(categoryId);
         categoryItem.classList.remove('active');
       }
-      
+
       updatePlaceholder();
       updateHiddenCategoryInput();
     });
   });
-  
+
   // Handle tag removal
-  multiselectTags.addEventListener('click', function(e) {
+  multiselectTags.addEventListener('click', function (e) {
     if (e.target.classList.contains('category-tag-remove')) {
       e.stopPropagation();
       const tag = e.target.closest('.category-tag');
       const categoryId = tag.getAttribute('data-category-id');
-      
+
       // Remove from selected set
       selectedCategories.delete(categoryId);
-      
+
       // Remove tag
       tag.remove();
-      
+
       // Uncheck checkbox
       const checkbox = multiselectDropdown.querySelector(`.category-item[data-category-id="${categoryId}"] .category-checkbox`);
       if (checkbox) {
         checkbox.checked = false;
         checkbox.closest('.category-item').classList.remove('active');
       }
-      
+
       updatePlaceholder();
       updateHiddenCategoryInput();
     }
   });
-  
+
   // Add category tag
   function addCategoryTag(categoryId, categoryName) {
     // Check if already exists
     if (multiselectTags.querySelector(`[data-category-id="${categoryId}"]`)) {
       return;
     }
-    
+
     const tag = document.createElement('span');
     tag.className = 'category-tag';
     tag.setAttribute('data-category-id', categoryId);
@@ -1372,10 +1406,10 @@ function initializeCategoryMultiselect() {
       <span class="category-tag-text">${escapeHtml(categoryName)}</span>
       <span class="category-tag-remove">×</span>
     `;
-    
+
     multiselectTags.appendChild(tag);
   }
-  
+
   // Remove category tag
   function removeCategoryTag(categoryId) {
     const tag = multiselectTags.querySelector(`[data-category-id="${categoryId}"]`);
@@ -1387,64 +1421,64 @@ function initializeCategoryMultiselect() {
   // Apply filters button
   const applyBtn = document.getElementById('categoryApplyBtn');
   if (applyBtn) {
-    applyBtn.addEventListener('click', function() {
+    applyBtn.addEventListener('click', function () {
       const categoryIds = Array.from(selectedCategories);
       if (categoryIds.length > 0) {
         // Send multiple categories as comma-separated values
-        navigateToBrowse({ category: categoryIds.join(','), page: '1' });
+        navigateToBrowse({category: categoryIds.join(','), page: '1'});
       } else {
-        navigateToBrowse({ category: '', page: '1' });
+        navigateToBrowse({category: '', page: '1'});
       }
     });
   }
-  
+
   // Clear all button
   const clearBtn = document.getElementById('categoryClearBtn');
   const clearBtnEdit = document.getElementById('categoryClearBtnEdit');
-  
+
   if (clearBtn) {
-    clearBtn.addEventListener('click', function(e) {
+    clearBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      
+
       // Clear all selections
       selectedCategories.clear();
-      
+
       // Remove all tags
       multiselectTags.innerHTML = '';
-      
+
       // Uncheck all checkboxes
       checkboxes.forEach(checkbox => {
         checkbox.checked = false;
         checkbox.closest('.category-item').classList.remove('active');
       });
-      
+
       updatePlaceholder();
       updateHiddenCategoryInput();
-      
+
       // Only navigate if on browse page (has Apply button)
       const applyBtn = document.getElementById('categoryApplyBtn');
       if (applyBtn) {
-        navigateToBrowse({ category: '', page: '1' });
+        navigateToBrowse({category: '', page: '1'});
       }
     });
   }
-  
+
   if (clearBtnEdit) {
-    clearBtnEdit.addEventListener('click', function(e) {
+    clearBtnEdit.addEventListener('click', function (e) {
       e.stopPropagation();
-      
+
       // Clear all selections
       selectedCategories.clear();
-      
+
       // Remove all tags
       multiselectTags.innerHTML = '';
-      
+
       // Uncheck all checkboxes
       checkboxes.forEach(checkbox => {
         checkbox.checked = false;
         checkbox.closest('.category-item').classList.remove('active');
       });
-      
+
       updatePlaceholder();
       updateHiddenCategoryInput();
     });
@@ -1454,17 +1488,17 @@ function initializeCategoryMultiselect() {
 // Category Tree functionality
 function initializeCategoryTree() {
   // Handle toggle clicks for expanding/collapsing - use event delegation for better compatibility
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', function (e) {
     // Check if clicked element is a category toggle
     if (e.target.classList.contains('category-toggle') && !e.target.classList.contains('no-children')) {
       e.stopPropagation();
       e.preventDefault();
-      
+
       const toggle = e.target;
       const categoryItem = toggle.closest('.category-item');
       const treeItem = toggle.closest('.category-tree-item');
       const children = treeItem ? treeItem.querySelector(':scope > .category-children') : null;
-      
+
       if (children) {
         // Toggle expanded state
         const isExpanded = children.classList.contains('expanded');
@@ -1489,7 +1523,7 @@ function initializeCategoryTree() {
   const selectedCategoriesBadges = document.getElementById('selected-categories-badges');
 
   browseCategoryItems.forEach(item => {
-    item.addEventListener('click', function(e) {
+    item.addEventListener('click', function (e) {
       // Don't trigger if clicking on toggle
       if (e.target.classList.contains('category-toggle')) {
         return;
@@ -1504,21 +1538,21 @@ function initializeCategoryTree() {
       const existingBadge = selectedCategoriesBadges.querySelector(`[data-category-id="${categoryId}"]`);
       if (existingBadge) {
         // Remove if already selected (clear filter)
-        navigateToBrowse({ category: '', page: '1' });
+        navigateToBrowse({category: '', page: '1'});
       } else {
         // Navigate with selected category
-        navigateToBrowse({ category: categoryId, page: '1' });
+        navigateToBrowse({category: categoryId, page: '1'});
       }
     });
   });
 
   // Handle badge removal
   if (selectedCategoriesBadges) {
-    selectedCategoriesBadges.addEventListener('click', function(e) {
+    selectedCategoriesBadges.addEventListener('click', function (e) {
       const badge = e.target.closest('.category-badge');
       if (badge) {
         // Navigate without category filter
-        navigateToBrowse({ category: '', page: '1' });
+        navigateToBrowse({category: '', page: '1'});
       }
     });
   }
@@ -1531,14 +1565,14 @@ function initializeCategoryTree() {
 
   if (selectorDisplay && selectorDropdown && selectedCategoryInput && selectedCategoryText) {
     // Toggle dropdown on click
-    selectorDisplay.addEventListener('click', function(e) {
+    selectorDisplay.addEventListener('click', function (e) {
       e.stopPropagation();
       selectorDropdown.classList.toggle('show');
       selectorDisplay.classList.toggle('open');
     });
 
     // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
       if (!selectorDropdown.contains(e.target) && e.target !== selectorDisplay) {
         selectorDropdown.classList.remove('show');
         selectorDisplay.classList.remove('open');
@@ -1547,7 +1581,7 @@ function initializeCategoryTree() {
 
     // Handle category selection in dropdown
     selectorDropdown.querySelectorAll('.category-selectable').forEach(item => {
-      item.addEventListener('click', function(e) {
+      item.addEventListener('click', function (e) {
         // Don't select if clicking on toggle
         if (e.target.classList.contains('category-toggle')) {
           return;
@@ -1585,7 +1619,7 @@ function initializeCategoryTree() {
 }
 
 // Initialize category tree when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   initializeCategoryTree();
   initializeCategorySearch();
   initializeCategoryMultiselect();
@@ -1625,33 +1659,33 @@ function initializeVersionHistory() {
     .then(data => {
       const versions = data.versions || [];
       const totalVersions = versions.length + 1; // +1 for current
-      
+
       if (versions.length > 0) {
         versionCount.textContent = `${totalVersions} total`;
-        
+
         // Clear any existing options except "Current"
         while (versionSelector.options.length > 1) {
           versionSelector.remove(1);
         }
-        
+
         // Populate dropdown with historical versions
         versions.forEach(version => {
           const option = document.createElement('option');
           option.value = version.version;
           const date = new Date(version.archived_at);
           option.textContent = `Version ${version.version} - ${version.name} (${date.toLocaleDateString()})`;
-          
+
           // Select this option if it matches current version
           if (currentVersion === version.version.toString()) {
             option.selected = true;
           }
-          
+
           versionSelector.appendChild(option);
         });
       } else {
         versionCount.textContent = '1 version';
       }
-      
+
       // Handle dropdown selection - reload page with version query parameter
       versionSelector.addEventListener('change', (e) => {
         const selectedValue = e.target.value;
@@ -1671,6 +1705,254 @@ function initializeVersionHistory() {
 }
 
 // Initialize version history when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   initializeVersionHistory();
 });
+
+// AG Grid initialization for browse page
+function initializeBrowseGrid() {
+  const gridDiv = document.getElementById('browseGrid');
+  
+  if (!gridDiv) {
+    return; // Not on browse page with AG Grid
+  }
+
+  // Get user/admin info from data attributes on the grid div
+  const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
+  const isAdmin = gridDiv.dataset.isAdmin === 'true';
+  const styleNonce = gridDiv.dataset.styleNonce || undefined;
+
+  // Helper to format relative time (uses shared formatRelative)
+  function formatRelativeTime(timestamp) {
+    return formatRelative(timestamp, {
+      capitalize: true,
+      includeWeeks: false,
+      includeMonths: false,
+      includeYears: false,
+      fallbackToDate: true,
+      dateFallbackThreshold: 30
+    });
+  }
+
+  // Custom cell renderer for Name column with link
+  function nameCellRenderer(params) {
+    if (!params.data) return '';
+    const link = document.createElement('a');
+    link.href = `/record/${params.data.id}`;
+    link.textContent = params.value;
+    return link;
+  }
+
+  // Custom cell renderer for Categories column
+  function categoriesCellRenderer(params) {
+    if (!params.data) return '';
+    const categories = params.value || [];
+    if (categories.length === 0) {
+      const span = document.createElement('span');
+      span.className = 'text-muted';
+      span.textContent = '-';
+      return span;
+    }
+
+    const container = document.createElement('span');
+    categories.forEach((cat, index) => {
+      if (index > 0) {
+        container.appendChild(document.createTextNode(', '));
+      }
+      const link = document.createElement('a');
+      link.href = `/browse?category=${cat.id}`;
+      link.textContent = cat.name;
+      container.appendChild(link);
+    });
+    return container;
+  }
+
+  // Custom cell renderer for Organizations column
+  function organizationsCellRenderer(params) {
+    if (!params.data) return '';
+    const organizations = params.value || [];
+    if (organizations.length === 0) {
+      const span = document.createElement('span');
+      span.className = 'text-muted';
+      span.textContent = '-';
+      return span;
+    }
+
+    const container = document.createElement('span');
+    organizations.forEach((org, index) => {
+      if (index > 0) {
+        container.appendChild(document.createTextNode(', '));
+      }
+      const link = document.createElement('a');
+      link.href = `/browse?ror=${org.id}`;
+      link.textContent = org.name;
+      container.appendChild(link);
+    });
+    return container;
+  }
+
+  // Custom cell renderer for Created column
+  function createdCellRenderer(params) {
+    if (!params.data) return '';
+    const div = document.createElement('div');
+    div.className = 'record-card-date';
+    const span = document.createElement('span');
+    span.className = 'relative-time';
+    span.textContent = formatRelativeTime(params.value);
+    div.appendChild(span);
+    return div;
+  }
+
+  // Custom cell renderer for Actions column
+  function actionsCellRenderer(params) {
+    if (!params.data) return '';
+    const container = document.createElement('div');
+    container.className = 'text-end';
+
+    // View button
+    const viewBtn = document.createElement('a');
+    viewBtn.className = 'btn btn-sm btn-outline-primary me-1';
+    viewBtn.href = `/record/${params.data.id}`;
+    viewBtn.textContent = 'View';
+    container.appendChild(viewBtn);
+
+    // Download button
+    const downloadBtn = document.createElement('a');
+    downloadBtn.className = 'btn btn-sm btn-outline-secondary me-1';
+    downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
+    downloadBtn.textContent = 'Download';
+    container.appendChild(downloadBtn);
+
+    // Edit button (only for owner or admin)
+    const canEdit = isAdmin || (user && user.orcid === params.data.uploaderOrcid);
+    if (canEdit) {
+      const editBtn = document.createElement('a');
+      editBtn.className = 'btn btn-sm btn-outline-primary';
+      editBtn.href = `/api/v1/record/${params.data.id}/edit`;
+      editBtn.textContent = 'Edit';
+      container.appendChild(editBtn);
+    }
+
+    return container;
+  }
+
+  // Column definitions
+  const columnDefs = [
+    {
+      field: 'name',
+      headerName: 'Name',
+      cellRenderer: nameCellRenderer,
+      filter: 'agTextColumnFilter'
+    },
+    {
+      field: 'uploaderName',
+      headerName: 'Author',
+      filter: 'agTextColumnFilter'
+    },
+    {
+      field: 'categories',
+      headerName: 'Categories',
+      cellRenderer: categoriesCellRenderer,
+      valueFormatter: params => {
+        const categories = params.value || [];
+        return categories.map(cat => cat.name).join(', ') || '-';
+      },
+      filter: false
+    },
+    {
+      field: 'organizations',
+      headerName: 'Organizations',
+      cellRenderer: organizationsCellRenderer,
+      valueFormatter: params => {
+        const organizations = params.value || [];
+        return organizations.map(org => org.name).join(', ') || '-';
+      },
+      filter: false
+    },
+    {
+      field: 'downloadCount',
+      headerName: 'Downloads',
+      filter: 'agNumberColumnFilter',
+      maxWidth: 120
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Created',
+      cellRenderer: createdCellRenderer,
+      valueFormatter: params => {
+        return formatRelativeTime(params.value);
+      },
+      filter: false,
+      maxWidth: 130
+    },
+    {
+      headerName: 'Actions',
+      cellRenderer: actionsCellRenderer,
+      filter: false,
+      sortable: false,
+      minWidth: 180
+    }
+  ];
+
+  // Grid options following AG Grid official pattern
+  // styleNonce is used to avoid 'unsafe-inline' in CSP for AG Grid styles
+  const gridOptions = {
+    columnDefs: columnDefs,
+    defaultColDef: {
+      flex: 1,
+      minWidth: 100,
+      filter: true,
+      sortable: true,
+      suppressHeaderMenuButton: true,
+      suppressHeaderContextMenu: true,
+      resizable: true,
+      floatingFilter: true
+    },
+    domLayout: 'autoHeight',
+    pagination: true,
+    paginationPageSize: 10,
+    paginationPageSizeSelector: [10, 20, 30, 50],
+    animateRows: true,
+    styleNonce: styleNonce,
+    // Server-side row model for API-based data fetching
+    rowModelType: 'infinite',
+    cacheBlockSize: 10,
+    maxBlocksInCache: 10,
+    datasource: {
+      getRows: async function(params) {
+        const page = Math.floor(params.startRow / 10) + 1;
+        const pageSize = params.endRow - params.startRow;
+        
+        // Build query string from current URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('short', '1');
+        urlParams.set('page', page.toString());
+        urlParams.set('pageSize', pageSize.toString());
+        
+        try {
+          const response = await fetch(`/browse?${urlParams.toString()}`, {
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          const records = data.records || [];
+          const totalCount = data.pagination?.totalCount || 0;
+          
+          params.successCallback(records, totalCount);
+        } catch (error) {
+          console.error('Error fetching browse data:', error);
+          params.failCallback();
+        }
+      }
+    }
+  };
+
+  // Create the grid
+  agGrid.createGrid(gridDiv, gridOptions);
+}

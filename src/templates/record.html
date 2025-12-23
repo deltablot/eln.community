@@ -84,7 +84,7 @@
 
 <!-- Pass JSON data safely to JavaScript -->
 <script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
-<script type="application/json" id="record-id-data">"{{ .Record.Id }}"</script>
+<script type="application/json" id="record-id-data">{{ toJson .Record.Id }}</script>
 {{- if .Record.RorIds }}
 <script type="application/json" id="ror-ids-data">{{ toJson .Record.RorIds }}</script>
 {{- end }}

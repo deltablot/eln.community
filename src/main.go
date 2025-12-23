@@ -379,13 +379,33 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	pageTmpl.ExecuteTemplate(w, "layout", data)
 }
 
+// generateNonce creates a cryptographically secure random nonce for CSP
+func generateNonce() string {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to a timestamp-based value if crypto/rand fails
+		return hex.EncodeToString([]byte(fmt.Sprintf("%d", time.Now().UnixNano())))
+	}
+	return hex.EncodeToString(bytes)
+}
+
+// Context key for storing the nonce
+type contextKey string
+
+const nonceContextKey contextKey = "styleNonce"
+
 // securityHeaders is a middleware that injects your CSP, HSTS, etc.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nonce := generateNonce()
+		// Store nonce in context for use in templates (e.g., AG Grid styleNonce)
+		ctx := context.WithValue(r.Context(), nonceContextKey, nonce)
+
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
 				"script-src 'self' https://cdn.jsdelivr.net; "+
-				"style-src 'self' https://cdn.jsdelivr.net; "+
+				"style-src 'self' 'nonce-"+nonce+"' https://cdn.jsdelivr.net; "+
+				"font-src 'self' https://cdn.jsdelivr.net data:; "+
 				"img-src 'self' data:; "+
 				"connect-src 'self'; "+
 				"frame-ancestors 'none';"+
@@ -395,7 +415,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Strict-Transport-Security", "max-age=63072000")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
