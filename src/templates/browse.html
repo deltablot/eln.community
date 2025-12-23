@@ -193,46 +193,11 @@
 </div>
 
 <!-- Records AG Grid -->
-{{- if .Records}}
-<div id="browseGrid" class="ag-theme-alpine"></div>
-
-<!-- Hidden data for AG Grid -->
-<script id="browse-records-data" type="application/json">
-{
-  "records": [
-    {{- range $i, $record := .Records }}
-    {{ if $i }},{{ end }}{
-      "id": {{ toJson $record.Id }},
-      "name": {{ toJson $record.Name }},
-      "uploaderName": {{ toJson $record.UploaderName }},
-      "uploaderOrcid": {{ toJson $record.UploaderOrcid }},
-      "categories": [
-        {{- range $j, $cat := $record.Categories }}
-        {{ if $j }},{{ end }}{"id": {{ toJson $cat.Id }}, "name": {{ toJson $cat.Name }}}
-        {{- end }}
-      ],
-      "rorIds": [
-        {{- range $k, $rorId := $record.RorIds }}
-        {{ if $k }},{{ end }}{{ toJson $rorId }}
-        {{- end }}
-      ],
-      "downloadCount": {{ $record.DownloadCount }},
-      "createdAt": {{ $record.CreatedAt.Unix }}
-    }
-    {{- end }}
-  ],
-  "pagination": {
-    "page": {{ .Page }},
-    "pageSize": {{ .PageSize }},
-    "totalCount": {{ .TotalCount }},
-    "totalPages": {{ .TotalPages }}
-  },
-  "user": {{ if .User }}{"orcid": {{ toJson .User.Orcid }}}{{ else }}null{{ end }},
-  "isAdmin": {{ if .IsAdmin }}true{{ else }}false{{ end }},
-  "styleNonce": {{ toJson .StyleNonce }}
-}
-</script>
-{{- else}}
-<p class="text-center text-muted"><em>No records found.</em></p>
-{{- end}}
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@35.0.0/dist/ag-grid-community.min.js"
+        integrity="sha384-AhAzzsDZKp6p+3EfYkf2ZbsyABVhqa/nCxhCkFC2shZhXVUfgVKdUKROFgI87uCu"
+        crossorigin="anonymous"></script>
+<div id="browseGrid" class="ag-theme-alpine"
+     data-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}"
+     data-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}"
+     data-style-nonce="{{ .StyleNonce }}"></div>
 {{ end }}

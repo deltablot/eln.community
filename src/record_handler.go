@@ -753,8 +753,194 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// BrowseRecordShort is a lightweight record representation for the browse API
+type BrowseRecordShort struct {
+	Id            string            `json:"id"`
+	Name          string            `json:"name"`
+	UploaderName  string            `json:"uploaderName"`
+	UploaderOrcid string            `json:"uploaderOrcid"`
+	Categories    []Category        `json:"categories"`
+	RorIds        []string          `json:"rorIds"`
+	Organizations []RorOrganization `json:"organizations"` // Organization names from ROR cache
+	DownloadCount int               `json:"downloadCount"`
+	CreatedAt     int64             `json:"createdAt"`
+}
+
+// BrowseAPIResponse is the JSON response for the browse API
+type BrowseAPIResponse struct {
+	Records    []BrowseRecordShort `json:"records"`
+	Pagination struct {
+		Page       int `json:"page"`
+		PageSize   int `json:"pageSize"`
+		TotalCount int `json:"totalCount"`
+		TotalPages int `json:"totalPages"`
+	} `json:"pagination"`
+}
+
+// GetBrowseAPI handles GET /browse?short=1 with Accept: application/json
+// Returns a lightweight JSON response for ag-grid to consume
+func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Parse query parameters
+	categoryIDStr := r.URL.Query().Get("category")
+	searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
+	rorInput := strings.TrimSpace(r.URL.Query().Get("ror"))
+
+	// Parse pagination parameters
+	pageStr := r.URL.Query().Get("page")
+	pageSizeStr := r.URL.Query().Get("pageSize")
+
+	page := 1
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	pageSize := 10 // default
+	if pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+			pageSize = ps
+		}
+	}
+
+	offset := (page - 1) * pageSize
+
+	var selectedCategoryID int64
+	var selectedCategoryIDs []int64
+	var records []Record
+	var totalCount int
+	var err error
+
+	// Parse category ID(s) if provided
+	if categoryIDStr != "" {
+		categoryIDStrs := strings.Split(categoryIDStr, ",")
+		for _, idStr := range categoryIDStrs {
+			idStr = strings.TrimSpace(idStr)
+			if idStr == "" {
+				continue
+			}
+			categoryID, err := strconv.ParseInt(idStr, 10, 64)
+			if err != nil {
+				http.Error(w, "Invalid category ID", http.StatusBadRequest)
+				return
+			}
+			selectedCategoryIDs = append(selectedCategoryIDs, categoryID)
+		}
+		if len(selectedCategoryIDs) > 0 {
+			selectedCategoryID = selectedCategoryIDs[0]
+		}
+	}
+
+	// Process ROR input
+	var rorIDs []string
+	var noRorMatch bool
+	if rorInput != "" {
+		normalizedRorId, isValid := validateAndNormalizeRorId(rorInput)
+		if isValid && normalizedRorId != "" {
+			rorIDs = []string{normalizedRorId}
+		} else if h.rorNameCache != nil {
+			matchingOrgs := h.rorNameCache.Search(rorInput)
+			if len(matchingOrgs) > 0 {
+				rorIDs = make([]string, len(matchingOrgs))
+				for i, org := range matchingOrgs {
+					rorIDs[i] = org.ID
+				}
+			} else {
+				noRorMatch = true
+			}
+		} else {
+			http.Error(w, "Invalid ROR ID format and name search not available", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Execute query based on filters
+	if noRorMatch {
+		records = []Record{}
+		totalCount = 0
+	} else if searchQuery != "" {
+		records, totalCount, err = h.recordRepo.SearchPaginated(ctx, searchQuery, selectedCategoryID, pageSize, offset)
+	} else if len(rorIDs) > 0 {
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, pageSize, offset)
+	} else if len(selectedCategoryIDs) > 0 {
+		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, pageSize, offset)
+	} else {
+		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, pageSize, offset)
+	}
+
+	if err != nil {
+		log.Printf("Error in GetBrowseAPI: %v", err)
+		http.Error(w, "Error fetching records", http.StatusInternalServerError)
+		return
+	}
+
+	// Build lightweight response
+	shortRecords := make([]BrowseRecordShort, 0, len(records))
+	for _, rec := range records {
+		// Get organization names from ROR cache
+		organizations := make([]RorOrganization, 0, len(rec.RorIds))
+		if h.rorNameCache != nil {
+			for _, rorId := range rec.RorIds {
+				if name, found := h.rorNameCache.Get(rorId); found {
+					organizations = append(organizations, RorOrganization{
+						ID:   rorId,
+						Name: name,
+					})
+				} else {
+					// Fallback: just use the ID if not in cache
+					organizations = append(organizations, RorOrganization{
+						ID:   rorId,
+						Name: rorId,
+					})
+				}
+			}
+		}
+
+		shortRecords = append(shortRecords, BrowseRecordShort{
+			Id:            rec.Id,
+			Name:          rec.Name,
+			UploaderName:  rec.UploaderName,
+			UploaderOrcid: rec.UploaderOrcid,
+			Categories:    rec.Categories,
+			RorIds:        rec.RorIds,
+			Organizations: organizations,
+			DownloadCount: rec.DownloadCount,
+			CreatedAt:     rec.CreatedAt.Unix(),
+		})
+	}
+
+	totalPages := (totalCount + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	response := BrowseAPIResponse{
+		Records: shortRecords,
+	}
+	response.Pagination.Page = page
+	response.Pagination.PageSize = pageSize
+	response.Pagination.TotalCount = totalCount
+	response.Pagination.TotalPages = totalPages
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		errorLogger.Printf("failed to write browse API response: %v", err)
+	}
+}
+
 // GetBrowsePage handles the browse page that lists all records with pagination
 func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
+	// Check if this is an API request (short=1 with Accept: application/json)
+	if r.URL.Query().Get("short") == "1" {
+		accept := r.Header.Get("Accept")
+		if strings.Contains(accept, "application/json") {
+			h.GetBrowseAPI(w, r)
+			return
+		}
+	}
+
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },

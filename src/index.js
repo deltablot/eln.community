@@ -1712,271 +1712,247 @@ document.addEventListener('DOMContentLoaded', function () {
 // AG Grid initialization for browse page
 function initializeBrowseGrid() {
   const gridDiv = document.getElementById('browseGrid');
-  const dataElement = document.getElementById('browse-records-data');
-
-  if (!gridDiv || !dataElement) {
+  
+  if (!gridDiv) {
     return; // Not on browse page with AG Grid
   }
 
-  try {
-    const data = JSON.parse(dataElement.textContent);
-    const records = data.records || [];
-    const pagination = data.pagination || {};
-    const user = data.user;
-    const isAdmin = data.isAdmin;
+  // Get user/admin info from data attributes on the grid div
+  const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
+  const isAdmin = gridDiv.dataset.isAdmin === 'true';
+  const styleNonce = gridDiv.dataset.styleNonce || undefined;
 
-    // Helper to format relative time (uses shared formatRelative)
-    function formatRelativeTime(timestamp) {
-      return formatRelative(timestamp, {
-        capitalize: true,
-        includeWeeks: false,
-        includeMonths: false,
-        includeYears: false,
-        fallbackToDate: true,
-        dateFallbackThreshold: 30
-      });
-    }
+  // Helper to format relative time (uses shared formatRelative)
+  function formatRelativeTime(timestamp) {
+    return formatRelative(timestamp, {
+      capitalize: true,
+      includeWeeks: false,
+      includeMonths: false,
+      includeYears: false,
+      fallbackToDate: true,
+      dateFallbackThreshold: 30
+    });
+  }
 
-    // Custom cell renderer for Name column with link
-    function nameCellRenderer(params) {
-      const link = document.createElement('a');
-      link.href = `/record/${params.data.id}`;
-      link.textContent = params.value;
-      return link;
-    }
+  // Custom cell renderer for Name column with link
+  function nameCellRenderer(params) {
+    if (!params.data) return '';
+    const link = document.createElement('a');
+    link.href = `/record/${params.data.id}`;
+    link.textContent = params.value;
+    return link;
+  }
 
-    // Custom cell renderer for Categories column
-    function categoriesCellRenderer(params) {
-      const categories = params.value || [];
-      if (categories.length === 0) {
-        const span = document.createElement('span');
-        span.className = 'text-muted';
-        span.textContent = '-';
-        return span;
-      }
-
-      const container = document.createElement('span');
-      categories.forEach((cat, index) => {
-        if (index > 0) {
-          container.appendChild(document.createTextNode(', '));
-        }
-        const link = document.createElement('a');
-        link.href = `/browse?category=${cat.id}`;
-        link.textContent = cat.name;
-        container.appendChild(link);
-      });
-      return container;
-    }
-
-    // Custom cell renderer for Organizations column
-    function organizationsCellRenderer(params) {
-      const rorIds = params.value || [];
-      if (rorIds.length === 0) {
-        const span = document.createElement('span');
-        span.className = 'text-muted';
-        span.textContent = '-';
-        return span;
-      }
-
-      const container = document.createElement('span');
-      container.className = 'ror-organizations';
-      container.setAttribute('data-record-id', params.data.id);
-      container.setAttribute('data-ror-ids', rorIds.join(','));
-      container.textContent = 'Loading...';
-
-      return container;
-    }
-
-    // Custom cell renderer for Created column
-    function createdCellRenderer(params) {
-      const div = document.createElement('div');
-      div.className = 'record-card-date';
+  // Custom cell renderer for Categories column
+  function categoriesCellRenderer(params) {
+    if (!params.data) return '';
+    const categories = params.value || [];
+    if (categories.length === 0) {
       const span = document.createElement('span');
-      span.className = 'relative-time';
-      span.textContent = formatRelativeTime(params.value);
-      div.appendChild(span);
-      return div;
+      span.className = 'text-muted';
+      span.textContent = '-';
+      return span;
     }
 
-    // Custom cell renderer for Actions column
-    function actionsCellRenderer(params) {
-      const container = document.createElement('div');
-      container.className = 'text-end';
-
-      // View button
-      const viewBtn = document.createElement('a');
-      viewBtn.className = 'btn btn-sm btn-outline-primary me-1';
-      viewBtn.href = `/record/${params.data.id}`;
-      viewBtn.textContent = 'View';
-      container.appendChild(viewBtn);
-
-      // Download button
-      const downloadBtn = document.createElement('a');
-      downloadBtn.className = 'btn btn-sm btn-outline-secondary me-1';
-      downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
-      downloadBtn.textContent = 'Download';
-      container.appendChild(downloadBtn);
-
-      // Edit button (only for owner or admin)
-      const canEdit = isAdmin || (user && user.orcid === params.data.uploaderOrcid);
-      if (canEdit) {
-        const editBtn = document.createElement('a');
-        editBtn.className = 'btn btn-sm btn-outline-primary';
-        editBtn.href = `/api/v1/record/${params.data.id}/edit`;
-        editBtn.textContent = 'Edit';
-        container.appendChild(editBtn);
+    const container = document.createElement('span');
+    categories.forEach((cat, index) => {
+      if (index > 0) {
+        container.appendChild(document.createTextNode(', '));
       }
-
-      return container;
-    }
-
-    // Column definitions
-    const columnDefs = [
-      {
-        field: 'name',
-        headerName: 'Name',
-        cellRenderer: nameCellRenderer,
-        filter: 'agTextColumnFilter'
-      },
-      {
-        field: 'uploaderName',
-        headerName: 'Author',
-        filter: 'agTextColumnFilter'
-      },
-      {
-        field: 'categories',
-        headerName: 'Categories',
-        cellRenderer: categoriesCellRenderer,
-        valueFormatter: params => {
-          const categories = params.value || [];
-          return categories.map(cat => cat.name).join(', ') || '-';
-        },
-        filter: false
-      },
-      {
-        field: 'rorIds',
-        headerName: 'Organizations',
-        cellRenderer: organizationsCellRenderer,
-        valueFormatter: params => {
-          const rorIds = params.value || [];
-          return rorIds.join(', ') || '-';
-        },
-        filter: false
-      },
-      {
-        field: 'downloadCount',
-        headerName: 'Downloads',
-        filter: 'agNumberColumnFilter',
-        maxWidth: 120
-      },
-      {
-        field: 'createdAt',
-        headerName: 'Created',
-        cellRenderer: createdCellRenderer,
-        valueFormatter: params => {
-          return formatRelativeTime(params.value);
-        },
-        filter: false,
-        maxWidth: 130
-      },
-      {
-        headerName: 'Actions',
-        cellRenderer: actionsCellRenderer,
-        filter: false,
-        sortable: false,
-        minWidth: 180
-      }
-    ];
-
-    // Grid options following AG Grid official pattern
-    // styleNonce is used to avoid 'unsafe-inline' in CSP for AG Grid styles
-    const gridOptions = {
-      columnDefs: columnDefs,
-      defaultColDef: {
-        flex: 1,
-        minWidth: 100,
-        filter: true,
-        sortable: true,
-        suppressHeaderMenuButton: true,
-        suppressHeaderContextMenu: true,
-        resizable: true,
-        floatingFilter: true
-      },
-      domLayout: 'autoHeight',
-      pagination: true,
-      paginationPageSize: pagination.pageSize || 10,
-      paginationPageSizeSelector: [10, 20, 30, 50],
-      animateRows: true,
-      styleNonce: data.styleNonce || undefined
-    };
-
-    // Create the grid
-    const gridApi = agGrid.createGrid(gridDiv, gridOptions);
-    gridApi.setGridOption('rowData', records);
-
-    // Batch load all ROR names after grid is rendered
-    setTimeout(() => batchLoadRorNamesForGrid(), 0);
-
-  } catch (error) {
-    console.error('Error initializing AG Grid:', error);
-    gridDiv.innerHTML = '<div class="alert alert-danger">Error loading records table</div>';
-  }
-}
-
-// Batch load ROR names for all cells in the grid
-async function batchLoadRorNamesForGrid() {
-  const containers = document.querySelectorAll('#browseGrid .ror-organizations[data-ror-ids]');
-  if (containers.length === 0) return;
-
-  // Collect all unique ROR IDs from all cells
-  const allRorIds = new Set();
-  containers.forEach(container => {
-    const rorIds = container.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
-    rorIds.forEach(id => allRorIds.add(id.trim()));
-  });
-
-  if (allRorIds.size === 0) return;
-
-  try {
-    // Make a single request for all ROR IDs using the cached fetch function
-    const organizations = await fetchRorOrganizations(Array.from(allRorIds));
-
-    // Create a map for quick lookup
-    const orgMap = new Map();
-    organizations.forEach(org => {
-      orgMap.set(org.id, org);
+      const link = document.createElement('a');
+      link.href = `/browse?category=${cat.id}`;
+      link.textContent = cat.name;
+      container.appendChild(link);
     });
+    return container;
+  }
 
-    // Update each cell with the fetched data
-    containers.forEach(container => {
-      const rorIds = container.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
-      container.innerHTML = '';
+  // Custom cell renderer for Organizations column
+  function organizationsCellRenderer(params) {
+    if (!params.data) return '';
+    const organizations = params.value || [];
+    if (organizations.length === 0) {
+      const span = document.createElement('span');
+      span.className = 'text-muted';
+      span.textContent = '-';
+      return span;
+    }
 
-      rorIds.forEach((rorId, index) => {
-        const org = orgMap.get(rorId.trim());
-        if (org) {
-          if (index > 0) {
-            container.appendChild(document.createTextNode(', '));
+    const container = document.createElement('span');
+    organizations.forEach((org, index) => {
+      if (index > 0) {
+        container.appendChild(document.createTextNode(', '));
+      }
+      const link = document.createElement('a');
+      link.href = `/browse?ror=${org.id}`;
+      link.textContent = org.name;
+      container.appendChild(link);
+    });
+    return container;
+  }
+
+  // Custom cell renderer for Created column
+  function createdCellRenderer(params) {
+    if (!params.data) return '';
+    const div = document.createElement('div');
+    div.className = 'record-card-date';
+    const span = document.createElement('span');
+    span.className = 'relative-time';
+    span.textContent = formatRelativeTime(params.value);
+    div.appendChild(span);
+    return div;
+  }
+
+  // Custom cell renderer for Actions column
+  function actionsCellRenderer(params) {
+    if (!params.data) return '';
+    const container = document.createElement('div');
+    container.className = 'text-end';
+
+    // View button
+    const viewBtn = document.createElement('a');
+    viewBtn.className = 'btn btn-sm btn-outline-primary me-1';
+    viewBtn.href = `/record/${params.data.id}`;
+    viewBtn.textContent = 'View';
+    container.appendChild(viewBtn);
+
+    // Download button
+    const downloadBtn = document.createElement('a');
+    downloadBtn.className = 'btn btn-sm btn-outline-secondary me-1';
+    downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
+    downloadBtn.textContent = 'Download';
+    container.appendChild(downloadBtn);
+
+    // Edit button (only for owner or admin)
+    const canEdit = isAdmin || (user && user.orcid === params.data.uploaderOrcid);
+    if (canEdit) {
+      const editBtn = document.createElement('a');
+      editBtn.className = 'btn btn-sm btn-outline-primary';
+      editBtn.href = `/api/v1/record/${params.data.id}/edit`;
+      editBtn.textContent = 'Edit';
+      container.appendChild(editBtn);
+    }
+
+    return container;
+  }
+
+  // Column definitions
+  const columnDefs = [
+    {
+      field: 'name',
+      headerName: 'Name',
+      cellRenderer: nameCellRenderer,
+      filter: 'agTextColumnFilter'
+    },
+    {
+      field: 'uploaderName',
+      headerName: 'Author',
+      filter: 'agTextColumnFilter'
+    },
+    {
+      field: 'categories',
+      headerName: 'Categories',
+      cellRenderer: categoriesCellRenderer,
+      valueFormatter: params => {
+        const categories = params.value || [];
+        return categories.map(cat => cat.name).join(', ') || '-';
+      },
+      filter: false
+    },
+    {
+      field: 'organizations',
+      headerName: 'Organizations',
+      cellRenderer: organizationsCellRenderer,
+      valueFormatter: params => {
+        const organizations = params.value || [];
+        return organizations.map(org => org.name).join(', ') || '-';
+      },
+      filter: false
+    },
+    {
+      field: 'downloadCount',
+      headerName: 'Downloads',
+      filter: 'agNumberColumnFilter',
+      maxWidth: 120
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Created',
+      cellRenderer: createdCellRenderer,
+      valueFormatter: params => {
+        return formatRelativeTime(params.value);
+      },
+      filter: false,
+      maxWidth: 130
+    },
+    {
+      headerName: 'Actions',
+      cellRenderer: actionsCellRenderer,
+      filter: false,
+      sortable: false,
+      minWidth: 180
+    }
+  ];
+
+  // Grid options following AG Grid official pattern
+  // styleNonce is used to avoid 'unsafe-inline' in CSP for AG Grid styles
+  const gridOptions = {
+    columnDefs: columnDefs,
+    defaultColDef: {
+      flex: 1,
+      minWidth: 100,
+      filter: true,
+      sortable: true,
+      suppressHeaderMenuButton: true,
+      suppressHeaderContextMenu: true,
+      resizable: true,
+      floatingFilter: true
+    },
+    domLayout: 'autoHeight',
+    pagination: true,
+    paginationPageSize: 10,
+    paginationPageSizeSelector: [10, 20, 30, 50],
+    animateRows: true,
+    styleNonce: styleNonce,
+    // Server-side row model for API-based data fetching
+    rowModelType: 'infinite',
+    cacheBlockSize: 10,
+    maxBlocksInCache: 10,
+    datasource: {
+      getRows: async function(params) {
+        const page = Math.floor(params.startRow / 10) + 1;
+        const pageSize = params.endRow - params.startRow;
+        
+        // Build query string from current URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('short', '1');
+        urlParams.set('page', page.toString());
+        urlParams.set('pageSize', pageSize.toString());
+        
+        try {
+          const response = await fetch(`/browse?${urlParams.toString()}`, {
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
-          const link = document.createElement('a');
-          link.href = `/browse?ror=${encodeURIComponent(org.id)}`;
-          link.textContent = org.name;
-          link.title = org.id;
-          container.appendChild(link);
+          
+          const data = await response.json();
+          const records = data.records || [];
+          const totalCount = data.pagination?.totalCount || 0;
+          
+          params.successCallback(records, totalCount);
+        } catch (error) {
+          console.error('Error fetching browse data:', error);
+          params.failCallback();
         }
-      });
-
-      // If no orgs were found, show the IDs
-      if (container.innerHTML === '') {
-        container.textContent = rorIds.join(', ');
       }
-    });
-  } catch (error) {
-    console.error('Error batch loading ROR names:', error);
-    // Show IDs on error
-    containers.forEach(container => {
-      const rorIds = container.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
-      container.textContent = rorIds.join(', ');
-    });
-  }
+    }
+  };
+
+  // Create the grid
+  agGrid.createGrid(gridDiv, gridOptions);
 }
