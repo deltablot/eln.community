@@ -58,6 +58,18 @@
 
 <h4>RO-Crate Metadata</h4>
 <a class="btn btn-success btn-sm h-25 text-center" href="/api/v1/record/{{ .Record.Id }}.json">Download Metadata</a>
+
+{{- if .SandboxedHTML }}
+<!-- Server-rendered sandboxed HTML content (hidden, will be referenced by JS) -->
+<div id="sandboxed-html-containers" style="display: none;">
+  {{- range $entityId, $html := .SandboxedHTML }}
+  <div data-sandbox-entity-id="{{ $entityId }}">
+    {{ $html }}
+  </div>
+  {{- end }}
+</div>
+{{- end }}
+
 <div id="ro-crate-viewer">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>

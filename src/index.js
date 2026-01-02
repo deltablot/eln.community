@@ -242,7 +242,19 @@ function renderValue(value, entity, key) {
 }
 
 function renderHtmlContent(htmlContent, entityId) {
-  // Create a safe blob URL for HTML content
+  // Check if server-side sandboxed HTML is available
+  const sandboxContainer = document.querySelector(`[data-sandbox-entity-id="${escapeHtml(entityId)}"]`);
+  if (sandboxContainer) {
+    // Return a reference to the server-rendered sandbox
+    return `<div class="html-content-preview">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="badge bg-info">HTML Content (Sandboxed)</span>
+      </div>
+      <div class="sandboxed-content-ref" data-entity-id="${escapeHtml(entityId)}"></div>
+    </div>`;
+  }
+
+  // Fallback: show preview with download option (for backwards compatibility)
   const safeEntityId = escapeHtml(entityId || 'unknown');
   const truncatedContent = htmlContent.length > 200 ? htmlContent.substring(0, 200) + '...' : htmlContent;
   const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
@@ -440,6 +452,9 @@ function initializeRoCrateViewer() {
     roCrateData = JSON.parse(jsonText);
 
     contentDiv.innerHTML = renderRoCrate(roCrateData);
+    
+    // Inject server-rendered sandboxed HTML content
+    injectSandboxedContent();
   } catch (error) {
     console.error('Error processing RO-Crate data:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -447,6 +462,31 @@ function initializeRoCrateViewer() {
       '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(errorMessage) +
       '<br><small>Check browser console for more details</small></div>';
   }
+}
+
+// Inject server-rendered sandboxed HTML into the appropriate places
+function injectSandboxedContent() {
+  const sandboxContainers = document.getElementById('sandboxed-html-containers');
+  if (!sandboxContainers) {
+    return; // No sandboxed content available
+  }
+
+  // Find all sandboxed content references in the rendered RO-Crate
+  const refs = document.querySelectorAll('.sandboxed-content-ref');
+  refs.forEach(ref => {
+    const entityId = ref.getAttribute('data-entity-id');
+    if (!entityId) return;
+
+    // Find the corresponding sandboxed HTML container
+    const sandboxContainer = sandboxContainers.querySelector(`[data-sandbox-entity-id="${entityId}"]`);
+    if (sandboxContainer) {
+      // Clone and inject the sandboxed content
+      const clone = sandboxContainer.cloneNode(true);
+      clone.style.display = 'block';
+      clone.removeAttribute('data-sandbox-entity-id');
+      ref.appendChild(clone);
+    }
+  });
 }
 
 // Handle edit form submission
