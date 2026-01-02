@@ -633,19 +633,10 @@ func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
 
 // GetRecordPage handles HTML page rendering for individual records
 func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
-	// Create content sandbox for HTML sanitization
-	sandbox := NewContentSandbox()
-
 	funcMap := template.FuncMap{
 		"toJson": func(v interface{}) template.JS {
 			b, _ := json.Marshal(v)
 			return template.JS(b)
-		},
-		"sandboxedHTML": func(entityID string, htmlMap map[string]template.HTML) template.HTML {
-			if html, ok := htmlMap[entityID]; ok {
-				return html
-			}
-			return ""
 		},
 	}
 	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
@@ -725,13 +716,6 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	// prettify JSON
 	record.MetadataPretty = prettyJSON(record.Metadata)
 
-	// Process RO-Crate metadata for HTML content
-	var metadataMap map[string]interface{}
-	sandboxedHTML := make(map[string]template.HTML)
-	if err := json.Unmarshal(record.Metadata, &metadataMap); err == nil {
-		sandboxedHTML = sandbox.ProcessRoCrateMetadata(metadataMap)
-	}
-
 	// Check if current user can edit this record
 	ctx = r.Context()
 	canEdit := false
@@ -761,7 +745,6 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		CurrentPage:    "",
 		IsHistorical:   isHistorical,
 		HistoryVersion: historyVersion,
-		SandboxedHTML:  sandboxedHTML,
 	}
 
 	if err := pageTmpl.ExecuteTemplate(w, "layout", data); err != nil {

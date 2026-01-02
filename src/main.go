@@ -111,7 +111,6 @@ type RecordPageData struct {
 	CurrentPage    string
 	IsHistorical   bool
 	HistoryVersion int
-	SandboxedHTML  map[string]template.HTML
 }
 
 type RecordsPageData struct {

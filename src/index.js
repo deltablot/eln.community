@@ -242,37 +242,106 @@ function renderValue(value, entity, key) {
 }
 
 function renderHtmlContent(htmlContent, entityId) {
-  // Check if server-side sandboxed HTML is available
-  const sandboxContainer = document.querySelector(`[data-sandbox-entity-id="${escapeHtml(entityId)}"]`);
-  if (sandboxContainer) {
-    // Return a reference to the server-rendered sandbox
-    return `<div class="html-content-preview">
-      <div class="d-flex align-items-center gap-2 mb-2">
-        <span class="badge bg-info">HTML Content (Sandboxed)</span>
-      </div>
-      <div class="sandboxed-content-ref" data-entity-id="${escapeHtml(entityId)}"></div>
-    </div>`;
-  }
+  // Sanitize HTML content client-side before rendering in sandbox
+  const sanitizedHTML = sanitizeHTML(htmlContent);
+  
+  // Create a complete HTML document with safe styling
+  const styledHTML = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #333;
+            padding: 16px;
+            margin: 0;
+        }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f5f5f5; }
+        img { max-width: 100%; height: auto; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        pre, code { background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
+        pre { padding: 12px; overflow-x: auto; }
+        blockquote { border-left: 3px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+    </style>
+</head>
+<body>${sanitizedHTML}</body>
+</html>`;
 
-  // Fallback: show preview with download option (for backwards compatibility)
+  // Escape for srcdoc attribute
+  const escapedHTML = styledHTML
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;');
+
   const safeEntityId = escapeHtml(entityId || 'unknown');
-  const truncatedContent = htmlContent.length > 200 ? htmlContent.substring(0, 200) + '...' : htmlContent;
-  const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
 
+  // Render inline sandboxed iframe - no popup needed
   return `
     <div class="html-content-preview">
       <div class="d-flex align-items-center gap-2 mb-2">
         <span class="badge bg-info">HTML Content</span>
-        <button class="btn btn-sm btn-outline-primary html-open-btn" data-html-content="${base64Content}" data-entity-id="${safeEntityId}">
-          <i class="bi bi-download"></i>
-          Download HTML
-        </button>
+        <small class="text-muted">${safeEntityId}</small>
       </div>
-      <div class="html-preview bg-light p-2 rounded small">
-        ${escapeHtml(truncatedContent)}
+      <div class="user-content-container">
+        <iframe 
+          sandbox=""
+          srcdoc="${escapedHTML}"
+          title="HTML content from ${safeEntityId}"
+          loading="lazy"
+          onload="this.style.height = this.contentWindow.document.body.scrollHeight + 32 + 'px'"
+        ></iframe>
       </div>
     </div>
   `;
+}
+
+// Client-side HTML sanitization using DOMParser
+function sanitizeHTML(html) {
+  // Create a temporary DOM to parse the HTML
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  
+  // Remove dangerous elements
+  const dangerousElements = [
+    'script', 'style', 'link', 'meta', 'base',
+    'iframe', 'frame', 'frameset', 'object', 'embed', 'applet',
+    'form', 'input', 'button', 'select', 'textarea'
+  ];
+  
+  dangerousElements.forEach(tag => {
+    const elements = doc.querySelectorAll(tag);
+    elements.forEach(el => el.remove());
+  });
+  
+  // Remove dangerous attributes from all elements
+  const allElements = doc.querySelectorAll('*');
+  allElements.forEach(el => {
+    // Remove event handlers
+    const attrs = Array.from(el.attributes);
+    attrs.forEach(attr => {
+      const name = attr.name.toLowerCase();
+      // Remove event handlers (on*)
+      if (name.startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+      // Remove style attribute
+      if (name === 'style') {
+        el.removeAttribute(attr.name);
+      }
+      // Remove javascript: URLs
+      if ((name === 'href' || name === 'src') && attr.value.toLowerCase().trim().startsWith('javascript:')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+  
+  return doc.body.innerHTML;
 }
 
 function openHtmlInNewTab(base64Content, entityId) {
@@ -452,9 +521,6 @@ function initializeRoCrateViewer() {
     roCrateData = JSON.parse(jsonText);
 
     contentDiv.innerHTML = renderRoCrate(roCrateData);
-    
-    // Inject server-rendered sandboxed HTML content
-    injectSandboxedContent();
   } catch (error) {
     console.error('Error processing RO-Crate data:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -462,31 +528,6 @@ function initializeRoCrateViewer() {
       '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(errorMessage) +
       '<br><small>Check browser console for more details</small></div>';
   }
-}
-
-// Inject server-rendered sandboxed HTML into the appropriate places
-function injectSandboxedContent() {
-  const sandboxContainers = document.getElementById('sandboxed-html-containers');
-  if (!sandboxContainers) {
-    return; // No sandboxed content available
-  }
-
-  // Find all sandboxed content references in the rendered RO-Crate
-  const refs = document.querySelectorAll('.sandboxed-content-ref');
-  refs.forEach(ref => {
-    const entityId = ref.getAttribute('data-entity-id');
-    if (!entityId) return;
-
-    // Find the corresponding sandboxed HTML container
-    const sandboxContainer = sandboxContainers.querySelector(`[data-sandbox-entity-id="${entityId}"]`);
-    if (sandboxContainer) {
-      // Clone and inject the sandboxed content
-      const clone = sandboxContainer.cloneNode(true);
-      clone.style.display = 'block';
-      clone.removeAttribute('data-sandbox-entity-id');
-      ref.appendChild(clone);
-    }
-  });
 }
 
 // Handle edit form submission
