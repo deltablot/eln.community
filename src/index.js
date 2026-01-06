@@ -2037,3 +2037,33 @@ function initializeBrowseGrid() {
   // Create the grid
   agGrid.createGrid(gridDiv, gridOptions);
 }
+
+
+// Moderation functionality
+async function moderateRecord(recordId, action) {
+  const reason = prompt(`Enter reason for ${action} (optional):`);
+  if (reason === null) return; // User cancelled
+  
+  try {
+    const response = await fetch(`/api/v1/moderation/${recordId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, reason })
+    });
+    
+    if (response.ok) {
+      alert(`Record ${action}d successfully`);
+      window.location.reload();
+    } else {
+      const error = await response.text();
+      alert(`Error: ${error}`);
+    }
+  } catch (error) {
+    alert(`Error: ${error.message}`);
+  }
+}
+
+// Make moderateRecord available globally
+window.moderateRecord = moderateRecord;

@@ -97,12 +97,6 @@ type App struct {
 	Version     string
 }
 
-type RootPageData struct {
-	App
-	Categories []Category
-	User       *User
-}
-
 type RecordPageData struct {
 	App
 	Record         Record
@@ -356,6 +350,13 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		records[i].MetadataPretty = prettyJSON(records[i].Metadata)
 	}
 
+	// Check if user is admin (needed for nav link)
+	adminRepo := NewPostgresAdminRepository(db)
+	isAdmin := false
+	if admin, err := adminRepo.IsAdmin(ctx, orcid); err == nil {
+		isAdmin = admin
+	}
+
 	var pageTmpl = template.Must(template.ParseFS(staticFiles,
 		"templates/layout.html",
 		"templates/profile.html",
@@ -367,12 +368,14 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		Records      []Record
 		TotalRecords int
 		CurrentPage  string
+		IsAdmin      bool
 	}{
 		App:          app,
 		User:         user,
 		Records:      records,
 		TotalRecords: totalCount,
 		CurrentPage:  "",
+		IsAdmin:      isAdmin,
 	}
 
 	w.Header().Set("Content-Type", "text/html")
@@ -533,6 +536,10 @@ func main() {
 	historyHandler := NewHistoryHandler(historyRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
 
+	// Initialize moderation handler
+	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
+	moderationHandler := NewModerationHandler(moderationRepo, adminRepo)
+
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
 	mux.HandleFunc("GET /api/v1/record/", recordHandler.Router)
@@ -553,12 +560,16 @@ func main() {
 	mux.HandleFunc("/api/v1/ror/organizations", rorHandler.Router)
 	mux.HandleFunc("/api/v1/ror/organization/", rorHandler.Router)
 
+	// Moderation API routes
+	mux.HandleFunc("/api/v1/moderation/", moderationHandler.Router)
+
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
 	mux.Handle("/organizations", securityHeaders(http.HandlerFunc(organizationHandler.GetOrganizationsPage)))
 	mux.Handle("/profile", securityHeaders(http.HandlerFunc(getProfile)))
 	mux.Handle("/record/", securityHeaders(http.HandlerFunc(recordHandler.GetRecordPage)))
 	mux.Handle("/entry", securityHeaders(http.HandlerFunc(newEntry)))
+	mux.Handle("/moderation", securityHeaders(http.HandlerFunc(moderationHandler.GetModerationQueue)))
 
 	// root catchall - now uses browse page
 	mux.Handle("/", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
