@@ -1,8 +1,35 @@
 package main
 
 import (
+	"mime"
+	"strings"
+
 	"github.com/microcosm-cc/bluemonday"
 )
+
+// sanitizeEncodingFormat normalizes and validates a MIME type string
+// Returns the sanitized media type or empty string if invalid
+func sanitizeEncodingFormat(encodingFormat string) string {
+	if encodingFormat == "" {
+		return ""
+	}
+
+	// Parse the MIME type to validate and normalize it
+	mediaType, _, err := mime.ParseMediaType(encodingFormat)
+	if err != nil {
+		return ""
+	}
+
+	// Normalize to lowercase for consistent comparison
+	mediaType = strings.ToLower(mediaType)
+
+	// Validate that it looks like a proper MIME type (type/subtype)
+	if !strings.Contains(mediaType, "/") {
+		return ""
+	}
+
+	return mediaType
+}
 
 // HTMLSanitizer provides server-side HTML sanitization using bluemonday
 // This can be used during upload to sanitize HTML content before storage
@@ -64,7 +91,9 @@ func (s *HTMLSanitizer) SanitizeRoCrateMetadata(metadata map[string]interface{})
 		}
 
 		// Check if this entity has HTML content
-		encodingFormat, _ := entity["encodingFormat"].(string)
+		// Always sanitize user-provided encodingFormat to prevent injection
+		rawEncodingFormat, _ := entity["encodingFormat"].(string)
+		encodingFormat := sanitizeEncodingFormat(rawEncodingFormat)
 		if encodingFormat != "text/html" {
 			continue
 		}
