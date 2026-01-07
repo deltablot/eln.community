@@ -1,6 +1,27 @@
 {{define "title"}}Moderation Queue{{end}}
 
 {{define "content"}}
+<div class="toast-container position-fixed top-0 end-0 p-3">
+  <div id="successToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto text-success">Success</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body">
+      Action completed successfully!
+    </div>
+  </div>
+  <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto text-danger">Error</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="errorToastBody">
+      Action failed. Please try again.
+    </div>
+  </div>
+</div>
+
 <div class="container py-4">
     <h1 class="mb-4">Moderation Queue</h1>
     
@@ -46,17 +67,26 @@
                         </div>
 
                         <div class="d-flex flex-row gap-2 flex-wrap">
-                            <button onclick="moderateRecord('{{.Id}}', 'approve')" 
-                                    class="btn btn-success">
-                                ✓ Approve
+                            <button onclick="moderateRecord('{{.Id}}', 'approve', this)" 
+                                    class="btn btn-success moderation-btn"
+                                    data-record-id="{{.Id}}"
+                                    data-action="approve"></button>
+                                <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+                                <span class="btn-text">✓ Approve</span>
                             </button>
-                            <button onclick="moderateRecord('{{.Id}}', 'reject')" 
-                                    class="btn btn-danger">
-                                ✗ Reject
+                            <button onclick="moderateRecord('{{.Id}}', 'reject', this)" 
+                                    class="btn btn-danger moderation-btn"
+                                    data-record-id="{{.Id}}"
+                                    data-action="reject">
+                                <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+                                <span class="btn-text">✗ Reject</span>
                             </button>
-                            <button onclick="moderateRecord('{{.Id}}', 'flag')" 
-                                    class="btn btn-warning">
-                                ⚠ Flag
+                            <button onclick="moderateRecord('{{.Id}}', 'flag', this)" 
+                                    class="btn btn-warning moderation-btn"
+                                    data-record-id="{{.Id}}"
+                                    data-action="flag">
+                                <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+                                <span class="btn-text">⚠ Flag</span>
                             </button>
                         </div>
                     </div>
