@@ -242,25 +242,106 @@ function renderValue(value, entity, key) {
 }
 
 function renderHtmlContent(htmlContent, entityId) {
-  // Create a safe blob URL for HTML content
-  const safeEntityId = escapeHtml(entityId || 'unknown');
-  const truncatedContent = htmlContent.length > 200 ? htmlContent.substring(0, 200) + '...' : htmlContent;
-  const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
+  // Sanitize HTML content client-side before rendering in sandbox
+  const sanitizedHTML = sanitizeHTML(htmlContent);
+  
+  // Create a complete HTML document with safe styling
+  const styledHTML = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #333;
+            padding: 16px;
+            margin: 0;
+        }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f5f5f5; }
+        img { max-width: 100%; height: auto; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        pre, code { background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
+        pre { padding: 12px; overflow-x: auto; }
+        blockquote { border-left: 3px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+    </style>
+</head>
+<body>${sanitizedHTML}</body>
+</html>`;
 
+  // Escape for srcdoc attribute
+  const escapedHTML = styledHTML
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;');
+
+  const safeEntityId = escapeHtml(entityId || 'unknown');
+
+  // Render inline sandboxed iframe - no popup needed
   return `
     <div class="html-content-preview">
       <div class="d-flex align-items-center gap-2 mb-2">
         <span class="badge bg-info">HTML Content</span>
-        <button class="btn btn-sm btn-outline-primary html-open-btn" data-html-content="${base64Content}" data-entity-id="${safeEntityId}">
-          <i class="bi bi-download"></i>
-          Download HTML
-        </button>
+        <small class="text-muted">${safeEntityId}</small>
       </div>
-      <div class="html-preview bg-light p-2 rounded small">
-        ${escapeHtml(truncatedContent)}
+      <div class="user-content-container">
+        <iframe 
+          sandbox=""
+          srcdoc="${escapedHTML}"
+          title="HTML content from ${safeEntityId}"
+          loading="lazy"
+          onload="this.style.height = this.contentWindow.document.body.scrollHeight + 32 + 'px'"
+        ></iframe>
       </div>
     </div>
   `;
+}
+
+// Client-side HTML sanitization using DOMParser
+function sanitizeHTML(html) {
+  // Create a temporary DOM to parse the HTML
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  
+  // Remove dangerous elements
+  const dangerousElements = [
+    'script', 'style', 'link', 'meta', 'base',
+    'iframe', 'frame', 'frameset', 'object', 'embed', 'applet',
+    'form', 'input', 'button', 'select', 'textarea'
+  ];
+  
+  dangerousElements.forEach(tag => {
+    const elements = doc.querySelectorAll(tag);
+    elements.forEach(el => el.remove());
+  });
+  
+  // Remove dangerous attributes from all elements
+  const allElements = doc.querySelectorAll('*');
+  allElements.forEach(el => {
+    // Remove event handlers
+    const attrs = Array.from(el.attributes);
+    attrs.forEach(attr => {
+      const name = attr.name.toLowerCase();
+      // Remove event handlers (on*)
+      if (name.startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+      // Remove style attribute
+      if (name === 'style') {
+        el.removeAttribute(attr.name);
+      }
+      // Remove javascript: URLs
+      if ((name === 'href' || name === 'src') && attr.value.toLowerCase().trim().startsWith('javascript:')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+  
+  return doc.body.innerHTML;
 }
 
 function openHtmlInNewTab(base64Content, entityId) {

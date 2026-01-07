@@ -344,6 +344,25 @@ footer {
     border-radius: 0.375rem;
     padding: 0.75rem;
     background: #f8f9fa;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.html-content-preview .user-content-container {
+    width: 100%;
+    max-height: 600px;
+    overflow: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    box-sizing: border-box;
+}
+
+.html-content-preview .user-content-container iframe {
+    width: 100%;
+    min-height: 200px;
+    border: none;
+    display: block;
 }
 
 .html-preview {
