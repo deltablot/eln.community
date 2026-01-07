@@ -108,8 +108,9 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 // GetByID retrieves a record by its ID with categories and ROR IDs
 func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Record, error) {
 	var record Record
+	var moderationStatus string
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status
 		FROM records
 		WHERE id = $1
 	`, id).Scan(
@@ -122,6 +123,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 		&record.UploaderName,
 		&record.UploaderOrcid,
 		&record.DownloadCount,
+		&moderationStatus,
 	)
 
 	if err == sql.ErrNoRows {
@@ -130,6 +132,8 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 	if err != nil {
 		return nil, err
 	}
+
+	record.ModerationStatus = ModerationStatus(moderationStatus)
 
 	// Get categories for this record
 	categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
@@ -577,7 +581,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 
 	// Get paginated records
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
+		SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status
 		FROM records
 		WHERE uploader_orcid = $1
 		ORDER BY created_at DESC
@@ -591,6 +595,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 	var records []Record
 	for rows.Next() {
 		var rec Record
+		var moderationStatus string
 		err := rows.Scan(
 			&rec.Id,
 			&rec.Name,
@@ -601,10 +606,12 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 			&rec.UploaderName,
 			&rec.UploaderOrcid,
 			&rec.DownloadCount,
+			&moderationStatus,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
+		rec.ModerationStatus = ModerationStatus(moderationStatus)
 
 		// Fetch categories for this record
 		categories, err := r.categoryRepo.GetRecordCategories(ctx, rec.Id)

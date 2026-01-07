@@ -183,6 +183,52 @@ func (r *PostgresModerationRepository) GetModerationHistory(ctx context.Context,
 	return actions, rows.Err()
 }
 
+// ModerationHistoryEntry represents a moderation action with record details
+type ModerationHistoryEntry struct {
+	ModerationAction
+	RecordName string
+}
+
+// GetRecentModerationHistory returns recent moderation actions with record names
+func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Context, limit int) ([]ModerationHistoryEntry, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT ma.id, ma.record_id, ma.admin_orcid, ma.action, ma.reason, ma.created_at, r.name
+		 FROM moderation_actions ma
+		 JOIN records r ON ma.record_id = r.id
+		 ORDER BY ma.created_at DESC
+		 LIMIT $1`,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []ModerationHistoryEntry
+	for rows.Next() {
+		var entry ModerationHistoryEntry
+		var reason sql.NullString
+		err := rows.Scan(
+			&entry.ID,
+			&entry.RecordID,
+			&entry.AdminOrcid,
+			&entry.Action,
+			&reason,
+			&entry.CreatedAt,
+			&entry.RecordName,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if reason.Valid {
+			entry.Reason = reason.String
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, rows.Err()
+}
+
 // IsModerationEnabled checks if moderation is enabled via environment variable
 // Default is true (enabled)
 func IsModerationEnabled() bool {

@@ -2040,10 +2040,22 @@ function initializeBrowseGrid() {
 
 
 // Moderation functionality
+function initializeModerationButtons() {
+  // Use event delegation for moderation buttons
+  document.addEventListener('click', function(e) {
+    const button = e.target.closest('.moderation-btn');
+    if (!button) return;
+    
+    const recordId = button.getAttribute('data-record-id');
+    const action = button.getAttribute('data-action');
+    
+    if (recordId && action) {
+      moderateRecord(recordId, action, button);
+    }
+  });
+}
+
 async function moderateRecord(recordId, action, buttonElement) {
-  const reason = prompt(`Enter reason for ${action} (optional):`);
-  if (reason === null) return; // User cancelled
-  
   // Get button elements
   const spinner = buttonElement.querySelector('.spinner-border');
   const btnText = buttonElement.querySelector('.btn-text');
@@ -2066,7 +2078,7 @@ async function moderateRecord(recordId, action, buttonElement) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ action, reason })
+      body: JSON.stringify({ action })
     });
     
     if (response.ok) {
@@ -2128,5 +2140,7 @@ async function moderateRecord(recordId, action, buttonElement) {
   }
 }
 
-// Make moderateRecord available globally
-window.moderateRecord = moderateRecord;
+// Initialize moderation buttons when DOM is loaded
+document.addEventListener('DOMContentLoaded', function () {
+  initializeModerationButtons();
+});

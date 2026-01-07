@@ -61,6 +61,16 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 		records[i].MetadataPretty = prettyJSON(records[i].Metadata)
 	}
 
+	// Get recent moderation history
+	var history []ModerationHistoryEntry
+	if repo, ok := h.moderationRepo.(*PostgresModerationRepository); ok {
+		history, err = repo.GetRecentModerationHistory(ctx, 50)
+		if err != nil {
+			errorLogger.Printf("Error fetching moderation history: %v", err)
+			// Don't fail the request, just show empty history
+		}
+	}
+
 	name, _ := sessionManager.Get(ctx, "name").(string)
 	user := &User{
 		Name:  name,
@@ -86,6 +96,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 		App         App
 		User        *User
 		Records     []Record
+		History     []ModerationHistoryEntry
 		CurrentPage string
 		Page        int
 		TotalPages  int
@@ -94,6 +105,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 		App:         app,
 		User:        user,
 		Records:     records,
+		History:     history,
 		CurrentPage: "moderation",
 		Page:        page,
 		TotalPages:  totalPages,

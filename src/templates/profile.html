@@ -44,6 +44,7 @@
         <tr>
           <th scope="col">Name</th>
           <th scope="col">Categories</th>
+          <th scope="col">Status</th>
           <th scope="col">Created</th>
           <th scope="col" class="text-end">Actions</th>
         </tr>
@@ -61,6 +62,17 @@
             {{ end }}
             {{ else }}
             <span class="text-muted">-</span>
+            {{ end }}
+          </td>
+          <td>
+            {{ if eq .ModerationStatus "pending_review" }}
+            <span class="badge bg-warning text-dark">Pending</span>
+            {{ else if eq .ModerationStatus "approved" }}
+            <span class="badge bg-success">Approved</span>
+            {{ else if eq .ModerationStatus "rejected" }}
+            <span class="badge bg-danger">Rejected</span>
+            {{ else }}
+            <span class="badge bg-secondary">-</span>
             {{ end }}
           </td>
           <td>

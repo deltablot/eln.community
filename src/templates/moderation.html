@@ -67,26 +67,17 @@
                         </div>
 
                         <div class="d-flex flex-row gap-2 flex-wrap">
-                            <button onclick="moderateRecord('{{.Id}}', 'approve', this)" 
-                                    class="btn btn-success moderation-btn"
+                            <button class="btn btn-success moderation-btn"
                                     data-record-id="{{.Id}}"
-                                    data-action="approve"></button>
+                                    data-action="approve">
                                 <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
                                 <span class="btn-text">✓ Approve</span>
                             </button>
-                            <button onclick="moderateRecord('{{.Id}}', 'reject', this)" 
-                                    class="btn btn-danger moderation-btn"
+                            <button class="btn btn-danger moderation-btn"
                                     data-record-id="{{.Id}}"
                                     data-action="reject">
                                 <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
                                 <span class="btn-text">✗ Reject</span>
-                            </button>
-                            <button onclick="moderateRecord('{{.Id}}', 'flag', this)" 
-                                    class="btn btn-warning moderation-btn"
-                                    data-record-id="{{.Id}}"
-                                    data-action="flag">
-                                <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
-                                <span class="btn-text">⚠ Flag</span>
                             </button>
                         </div>
                     </div>
@@ -117,5 +108,56 @@
         </nav>
         {{end}}
     {{end}}
+
+    <!-- Moderation History -->
+    <div class="mt-5">
+        <h2 class="mb-4">Moderation History</h2>
+        {{if .History}}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Record</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">Admin</th>
+                        <th scope="col">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .History}}
+                    <tr>
+                        <td>
+                            <a href="/record/{{.RecordID}}">{{.RecordName}}</a>
+                        </td>
+                        <td>
+                            {{if eq .Action "approve"}}
+                            <span class="badge bg-success">Approved</span>
+                            {{else if eq .Action "reject"}}
+                            <span class="badge bg-danger">Rejected</span>
+                            {{else if eq .Action "flag"}}
+                            <span class="badge bg-warning text-dark">Flagged</span>
+                            {{else}}
+                            <span class="badge bg-secondary">{{.Action}}</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            <a href="https://orcid.org/{{.AdminOrcid}}" target="_blank" rel="noopener noreferrer">
+                                {{.AdminOrcid}}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="text-muted">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="alert alert-info text-center">
+            <p class="mb-0">No moderation history yet.</p>
+        </div>
+        {{end}}
+    </div>
 </div>
 {{end}}
