@@ -423,54 +423,244 @@ function renderRoCrate(data) {
     return '<div class="alert alert-warning">Invalid RO-Crate format: missing or invalid @graph property</div>';
   }
 
-  let html = '';
-
-  // Find the root dataset (usually has @id of "./" or similar)
-  const rootDataset = data['@graph'].find(entity => {
-    if (!entity || typeof entity !== 'object') return false;
-    if (entity['@id'] === './') return true;
-
-    // Check if @type contains Dataset
-    if (entity['@type']) {
-      const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
-      return types.includes('Dataset');
+  const graph = data['@graph'];
+  
+  // Types to exclude from display
+  const excludedTypes = ['CreateAction', 'CreativeWork', 'PropertyValue', 'SoftwareApplication', 'Thing'];
+  
+  // Build a lookup map for resolving references (e.g., Person by ID)
+  const entityMap = {};
+  graph.forEach(entity => {
+    if (entity && entity['@id']) {
+      entityMap[entity['@id']] = entity;
     }
-
-    return false;
   });
-
-  if (rootDataset) {
-    html += '<h4>Dataset Information</h4>';
-    html += renderEntity(rootDataset);
+  
+  // Helper to resolve author name from Person entity
+  function resolveAuthorName(authorRef) {
+    if (!authorRef) return null;
+    const authorId = typeof authorRef === 'object' ? authorRef['@id'] : authorRef;
+    const person = entityMap[authorId];
+    if (person && person['@type'] === 'Person') {
+      const givenName = person.givenName || '';
+      const familyName = person.familyName || '';
+      const email = person.email || '';
+      if (givenName || familyName) {
+        return { name: `${givenName} ${familyName}`.trim(), email };
+      }
+    }
+    return null;
   }
-
-  // Group other entities by type
-  const otherEntities = data['@graph'].filter(entity => entity !== rootDataset);
-  const entityGroups = {};
-
-  otherEntities.forEach(entity => {
-    if (!entity || typeof entity !== 'object') return;
-
-    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type'] || 'Unknown'];
-    const primaryType = types[0] || 'Unknown';
-
-    if (!entityGroups[primaryType]) {
-      entityGroups[primaryType] = [];
+  
+  // Helper to resolve category/about name from Thing entity
+  function resolveCategoryName(aboutRef) {
+    if (!aboutRef) return null;
+    const aboutId = typeof aboutRef === 'object' ? aboutRef['@id'] : aboutRef;
+    const thing = entityMap[aboutId];
+    if (thing && thing.name) {
+      return thing.name;
     }
-    entityGroups[primaryType].push(entity);
+    return null;
+  }
+  
+  // Find all Dataset entities (excluding root "./")
+  const datasets = graph.filter(entity => {
+    if (!entity || typeof entity !== 'object') return false;
+    if (entity['@id'] === './') return false; // Skip root dataset
+    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
+    return types.includes('Dataset');
   });
-
-  // Render grouped entities
-  Object.keys(entityGroups).sort().forEach(type => {
-    if (entityGroups[type].length > 0) {
-      html += `<h4>${escapeHtml(type)} (${entityGroups[type].length})</h4>`;
-      entityGroups[type].forEach(entity => {
-        html += renderEntity(entity);
-      });
-    }
+  
+  // Find Comment entities
+  const comments = graph.filter(entity => {
+    if (!entity || typeof entity !== 'object') return false;
+    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
+    return types.includes('Comment');
   });
-
+  
+  // Find Organization entities
+  const organizations = graph.filter(entity => {
+    if (!entity || typeof entity !== 'object') return false;
+    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
+    return types.includes('Organization');
+  });
+  
+  let html = '';
+  
+  // Render Datasets
+  if (datasets.length > 0) {
+    html += '<h5 class="mb-3">Datasets</h5>';
+    datasets.forEach(dataset => {
+      html += renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName);
+    });
+  }
+  
+  // Render Comments
+  if (comments.length > 0) {
+    html += '<h5 class="mt-4 mb-3">Comments</h5>';
+    comments.forEach(comment => {
+      html += renderCommentCard(comment, resolveAuthorName);
+    });
+  }
+  
+  // Render Organizations
+  if (organizations.length > 0) {
+    html += '<h5 class="mt-4 mb-3">Organizations</h5>';
+    organizations.forEach(org => {
+      html += renderOrganizationCard(org);
+    });
+  }
+  
+  if (html === '') {
+    html = '<p class="text-muted">No displayable metadata found</p>';
+  }
+  
   return html;
+}
+
+/**
+ * Render a Dataset entity as a card
+ */
+function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
+  const name = dataset.name || 'Unnamed Dataset';
+  const author = resolveAuthorName(dataset.author);
+  const category = resolveCategoryName(dataset.about);
+  const status = dataset.creativeWorkStatus;
+  const dateCreated = dataset.dateCreated ? formatDisplayDate(dataset.dateCreated) : null;
+  const keywords = dataset.keywords;
+  const url = dataset.url;
+  
+  let html = '<div class="card mb-3">';
+  html += '<div class="card-body">';
+  
+  // Name
+  html += `<h6 class="card-title fw-semibold mb-2">${escapeHtml(name)}</h6>`;
+  
+  // Author
+  if (author) {
+    html += `<div class="mb-1"><i class="bi bi-person me-2 text-secondary"></i>`;
+    html += `<span class="text-muted">Author:</span> <span>${escapeHtml(author.name)}</span>`;
+    if (author.email) {
+      html += ` <small class="text-muted">(${escapeHtml(author.email)})</small>`;
+    }
+    html += '</div>';
+  }
+  
+  // Category
+  if (category) {
+    html += `<div class="mb-1"><i class="bi bi-folder me-2 text-secondary"></i>`;
+    html += `<span class="text-muted">Category:</span> <span class="badge bg-secondary">${escapeHtml(category)}</span></div>`;
+  }
+  
+  // Status
+  if (status) {
+    const statusClass = status.toLowerCase().includes('success') ? 'bg-success' : 
+                        status.toLowerCase().includes('fail') ? 'bg-danger' : 'bg-info';
+    html += `<div class="mb-1"><i class="bi bi-flag me-2 text-secondary"></i>`;
+    html += `<span class="text-muted">Status:</span> <span class="badge ${statusClass}">${escapeHtml(status)}</span></div>`;
+  }
+  
+  // Date Created
+  if (dateCreated) {
+    html += `<div class="mb-1"><i class="bi bi-calendar me-2 text-secondary"></i>`;
+    html += `<span class="text-muted">Created:</span> <span>${escapeHtml(dateCreated)}</span></div>`;
+  }
+  
+  // Keywords/Tags
+  if (keywords) {
+    const tags = typeof keywords === 'string' ? keywords.split(',').map(t => t.trim()) : keywords;
+    html += `<div class="mb-1"><i class="bi bi-tags me-2 text-secondary"></i>`;
+    html += `<span class="text-muted">Tags:</span> `;
+    tags.forEach(tag => {
+      if (tag) {
+        html += `<span class="badge bg-primary me-1">${escapeHtml(tag)}</span>`;
+      }
+    });
+    html += '</div>';
+  }
+  
+  // URL
+  if (url) {
+    html += `<div class="mb-1"><i class="bi bi-link me-2 text-secondary"></i>`;
+    html += `<span class="text-muted">URL:</span> <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">${escapeHtml(url)}</a></div>`;
+  }
+  
+  html += '</div></div>';
+  return html;
+}
+
+/**
+ * Render a Comment entity as a card
+ */
+function renderCommentCard(comment, resolveAuthorName) {
+  const author = resolveAuthorName(comment.author);
+  const text = comment.text || '';
+  const dateCreated = comment.dateCreated ? formatDisplayDate(comment.dateCreated) : null;
+  
+  let html = '<div class="card mb-2 border-start border-primary border-3">';
+  html += '<div class="card-body py-2">';
+  
+  // Comment text
+  html += `<p class="mb-2">${escapeHtml(text)}</p>`;
+  
+  // Author and date
+  html += '<div class="small text-muted">';
+  if (author) {
+    html += `<i class="bi bi-person me-1"></i>${escapeHtml(author.name)}`;
+  }
+  if (dateCreated) {
+    html += ` <i class="bi bi-clock ms-2 me-1"></i>${escapeHtml(dateCreated)}`;
+  }
+  html += '</div>';
+  
+  html += '</div></div>';
+  return html;
+}
+
+/**
+ * Render an Organization entity as a card
+ */
+function renderOrganizationCard(org) {
+  const name = org.name || 'Unnamed Organization';
+  const url = org.url;
+  const slogan = org.slogan;
+  
+  let html = '<div class="card mb-2">';
+  html += '<div class="card-body py-2">';
+  
+  // Name
+  html += `<h6 class="card-title fw-semibold mb-1">${escapeHtml(name)}</h6>`;
+  
+  // Slogan
+  if (slogan) {
+    html += `<p class="small text-muted mb-1">${escapeHtml(slogan)}</p>`;
+  }
+  
+  // URL
+  if (url) {
+    html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="small text-decoration-none">${escapeHtml(url)}</a>`;
+  }
+  
+  html += '</div></div>';
+  return html;
+}
+
+/**
+ * Format a date string for display
+ */
+function formatDisplayDate(dateStr) {
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return dateStr;
+  }
 }
 
 // Initialize RO-Crate viewer functionality
@@ -520,6 +710,10 @@ function initializeRoCrateViewer() {
 
     roCrateData = JSON.parse(jsonText);
 
+    // Use new structured rendering with RecordExtractor
+    renderStructuredRecordView(roCrateData);
+
+    // Also render the traditional RO-Crate view in the content div
     contentDiv.innerHTML = renderRoCrate(roCrateData);
   } catch (error) {
     console.error('Error processing RO-Crate data:', error);
@@ -527,6 +721,160 @@ function initializeRoCrateViewer() {
     contentDiv.innerHTML =
       '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(errorMessage) +
       '<br><small>Check browser console for more details</small></div>';
+  }
+}
+
+/**
+ * Render the structured record view using the RecordExtractor module
+ * Populates the Common Info, Main Text, Extra Fields, and Other Metadata containers
+ * 
+ * @param {Object} roCrateData - The parsed RO-Crate JSON data
+ */
+function renderStructuredRecordView(roCrateData) {
+  // Check if RecordExtractor is available
+  if (typeof window.RecordExtractor === 'undefined') {
+    console.warn('RecordExtractor module not loaded, skipping structured view');
+    return;
+  }
+
+  const {
+    extractRecordData,
+    renderCommonInfoBlock,
+    renderMainTextBlock,
+    renderExtraFieldsBlock,
+    renderOtherMetadata
+  } = window.RecordExtractor;
+
+  // Get fallback data from Record model
+  const fallbackData = getFallbackRecordData();
+
+  // Extract data from RO-Crate
+  const extractedData = extractRecordData(roCrateData);
+
+  // Apply fallbacks for missing data
+  applyFallbackData(extractedData, fallbackData);
+
+  // Render Common Info Block
+  const commonInfoContainer = document.getElementById('common-info-container');
+  if (commonInfoContainer && extractedData.commonInfo) {
+    // Only update if we have meaningful data from RO-Crate
+    const hasRoCrateData = extractedData.commonInfo.owner || 
+                           extractedData.commonInfo.team || 
+                           extractedData.commonInfo.tags.length > 0 ||
+                           extractedData.commonInfo.startDate;
+    
+    if (hasRoCrateData) {
+      commonInfoContainer.innerHTML = renderCommonInfoBlock(extractedData.commonInfo);
+    }
+    // Otherwise keep the server-rendered fallback content
+  }
+
+  // Render Main Text Block
+  const mainTextContainer = document.getElementById('main-text-container');
+  if (mainTextContainer) {
+    const hasMainText = extractedData.mainText.introduction || 
+                        extractedData.mainText.experimentalDesign || 
+                        extractedData.mainText.results;
+    
+    if (hasMainText) {
+      mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
+    } else {
+      // Hide the container if no main text content
+      mainTextContainer.style.display = 'none';
+    }
+  }
+
+  // Render Extra Fields Block
+  const extraFieldsContainer = document.getElementById('extra-fields-container');
+  if (extraFieldsContainer) {
+    const hasExtraFields = extractedData.extraFields.attachedFiles.length > 0 ||
+                           extractedData.extraFields.experimentLinks.length > 0 ||
+                           extractedData.extraFields.resourceLinks.length > 0 ||
+                           extractedData.extraFields.compounds.length > 0 ||
+                           extractedData.extraFields.storage.length > 0;
+    
+    if (hasExtraFields) {
+      extraFieldsContainer.innerHTML = renderExtraFieldsBlock(extractedData.extraFields);
+    } else {
+      // Hide the container if no extra fields
+      extraFieldsContainer.style.display = 'none';
+    }
+  }
+
+  // Render Other Metadata Block
+  const otherMetadataContainer = document.getElementById('other-metadata-container');
+  if (otherMetadataContainer) {
+    if (extractedData.unmappedEntities && extractedData.unmappedEntities.length > 0) {
+      otherMetadataContainer.innerHTML = renderOtherMetadata(extractedData.unmappedEntities);
+    } else {
+      // Hide the container if no unmapped entities
+      otherMetadataContainer.style.display = 'none';
+    }
+  }
+}
+
+/**
+ * Get fallback data from the Record model (server-rendered data)
+ * Used when RO-Crate metadata doesn't contain certain fields
+ * 
+ * @returns {Object} - Fallback data object
+ */
+function getFallbackRecordData() {
+  const fallbackElement = document.getElementById('record-fallback-data');
+  if (!fallbackElement) {
+    return {
+      uploaderName: null,
+      uploaderOrcid: null,
+      createdAt: null,
+      categories: []
+    };
+  }
+
+  try {
+    return JSON.parse(fallbackElement.textContent);
+  } catch (e) {
+    console.warn('Failed to parse fallback record data:', e);
+    return {
+      uploaderName: null,
+      uploaderOrcid: null,
+      createdAt: null,
+      categories: []
+    };
+  }
+}
+
+/**
+ * Apply fallback data to extracted data when RO-Crate fields are missing
+ * 
+ * @param {Object} extractedData - The extracted data from RO-Crate
+ * @param {Object} fallbackData - The fallback data from Record model
+ */
+function applyFallbackData(extractedData, fallbackData) {
+  if (!extractedData || !fallbackData) return;
+
+  // Fallback for owner: use uploader_name when no author in RO-Crate
+  if (!extractedData.commonInfo.owner && fallbackData.uploaderName) {
+    extractedData.commonInfo.owner = {
+      name: fallbackData.uploaderName,
+      orcid: fallbackData.uploaderOrcid || undefined
+    };
+  }
+
+  // Fallback for tags: use categories when no keywords in RO-Crate
+  if (extractedData.commonInfo.tags.length === 0 && fallbackData.categories && fallbackData.categories.length > 0) {
+    extractedData.commonInfo.tags = fallbackData.categories.map(cat => cat.Name || cat.name);
+  }
+
+  // Fallback for start date: use created_at when no dateCreated in RO-Crate
+  if (!extractedData.commonInfo.startDate && fallbackData.createdAt) {
+    // Convert Go time format to ISO string if needed
+    const createdAt = fallbackData.createdAt;
+    if (typeof createdAt === 'string') {
+      extractedData.commonInfo.startDate = createdAt;
+    } else if (createdAt && createdAt.Time) {
+      // Handle Go time.Time JSON format
+      extractedData.commonInfo.startDate = createdAt.Time;
+    }
   }
 }
 
