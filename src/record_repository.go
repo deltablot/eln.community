@@ -45,9 +45,9 @@ func NewPostgresRecordRepository(db *sql.DB, categoryRepo CategoryRepository, ro
 
 // GetAllPaginated retrieves records with pagination
 func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, offset int) ([]Record, int, error) {
-	// Get total count
+	// Get total count - only approved records for public view
 	var totalCount int
-	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM records`).Scan(&totalCount)
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM records WHERE moderation_status = 'approved'`).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -55,6 +55,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
 		FROM records
+		WHERE moderation_status = 'approved'
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
 	`, limit, offset)
@@ -107,8 +108,9 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 // GetByID retrieves a record by its ID with categories and ROR IDs
 func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Record, error) {
 	var record Record
+	var moderationStatus string
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status
 		FROM records
 		WHERE id = $1
 	`, id).Scan(
@@ -121,6 +123,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 		&record.UploaderName,
 		&record.UploaderOrcid,
 		&record.DownloadCount,
+		&moderationStatus,
 	)
 
 	if err == sql.ErrNoRows {
@@ -129,6 +132,8 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 	if err != nil {
 		return nil, err
 	}
+
+	record.ModerationStatus = ModerationStatus(moderationStatus)
 
 	// Get categories for this record
 	categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
@@ -149,12 +154,15 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 
 // Create creates a new record within a transaction
 func (r *PostgresRecordRepository) Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error {
+	// Get initial moderation status based on configuration
+	moderationStatus := GetInitialModerationStatus()
+
 	// Insert the main record without ROR IDs
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid, moderation_status) 
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		record.Id, s3Key, record.Sha256, record.Name, record.Metadata,
-		record.UploaderName, record.UploaderOrcid,
+		record.UploaderName, record.UploaderOrcid, string(moderationStatus),
 	)
 	if err != nil {
 		return err
@@ -208,7 +216,7 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 		SELECT COUNT(DISTINCT r.id)
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
-		WHERE rc.category_id IN (%s)
+		WHERE r.moderation_status = 'approved' AND rc.category_id IN (%s)
 	`, inClause)
 
 	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
@@ -221,7 +229,7 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
-		WHERE rc.category_id IN (%s)
+		WHERE r.moderation_status = 'approved' AND rc.category_id IN (%s)
 		ORDER BY r.created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, inClause, len(categoryIDs)+1, len(categoryIDs)+2)
@@ -295,7 +303,7 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 		SELECT COUNT(DISTINCT r.id)
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
-		WHERE rr.ror IN (%s)
+		WHERE r.moderation_status = 'approved' AND rr.ror IN (%s)
 	`, inClause)
 	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
 	if err != nil {
@@ -309,7 +317,7 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
-		WHERE rr.ror IN (%s)
+		WHERE r.moderation_status = 'approved' AND rr.ror IN (%s)
 		ORDER BY r.created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, inClause, len(rorIDs)+1, len(rorIDs)+2)
@@ -376,7 +384,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE rc.category_id = $1 AND (
+			WHERE r.moderation_status = 'approved' AND rc.category_id = $1 AND (
 				r.name ILIKE $2 OR
 				r.metadata::text ILIKE $2 OR
 				r.uploader_name ILIKE $2 OR
@@ -394,7 +402,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE rc.category_id = $1 AND (
+			WHERE r.moderation_status = 'approved' AND rc.category_id = $1 AND (
 				r.name ILIKE $2 OR
 				r.metadata::text ILIKE $2 OR
 				r.uploader_name ILIKE $2 OR
@@ -414,7 +422,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE (
+			WHERE r.moderation_status = 'approved' AND (
 				r.name ILIKE $1 OR
 				r.metadata::text ILIKE $1 OR
 				r.uploader_name ILIKE $1 OR
@@ -432,7 +440,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE (
+			WHERE r.moderation_status = 'approved' AND (
 				r.name ILIKE $1 OR
 				r.metadata::text ILIKE $1 OR
 				r.uploader_name ILIKE $1 OR
@@ -573,7 +581,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 
 	// Get paginated records
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
+		SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status
 		FROM records
 		WHERE uploader_orcid = $1
 		ORDER BY created_at DESC
@@ -587,6 +595,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 	var records []Record
 	for rows.Next() {
 		var rec Record
+		var moderationStatus string
 		err := rows.Scan(
 			&rec.Id,
 			&rec.Name,
@@ -597,10 +606,12 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 			&rec.UploaderName,
 			&rec.UploaderOrcid,
 			&rec.DownloadCount,
+			&moderationStatus,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
+		rec.ModerationStatus = ModerationStatus(moderationStatus)
 
 		// Fetch categories for this record
 		categories, err := r.categoryRepo.GetRecordCategories(ctx, rec.Id)

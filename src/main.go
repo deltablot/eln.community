@@ -11,7 +11,6 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -42,84 +41,6 @@ import (
 )
 
 //go:generate bash build.sh
-
-type Record struct {
-	CreatedAt time.Time       `json:"created_at"`
-	Id        string          `json:"id"`
-	Metadata  json.RawMessage `json:"metadata"`
-	// This will be ignored by json.Marshal
-	MetadataPretty string     `json:"-"`
-	ModifiedAt     time.Time  `json:"modified_at"`
-	Name           string     `json:"name"`
-	Sha256         string     `json:"sha256"`
-	UploaderName   string     `json:"uploader_name"`
-	UploaderOrcid  string     `json:"uploader_orcid"`
-	RorIds         []string   `json:"rors,omitempty"`
-	Categories     []Category `json:"categories,omitempty"`
-	DownloadCount  int        `json:"download_count"`
-}
-
-// RecordHistory represents a historical version of a record
-type RecordHistory struct {
-	HistoryId     int64           `json:"history_id"`
-	RecordId      string          `json:"record_id"`
-	Version       int             `json:"version"`
-	S3Key         string          `json:"-"`
-	Name          string          `json:"name"`
-	Sha256        string          `json:"sha256"`
-	Metadata      json.RawMessage `json:"metadata"`
-	UploaderName  string          `json:"uploader_name"`
-	UploaderOrcid string          `json:"uploader_orcid"`
-	DownloadCount int             `json:"download_count"`
-	CreatedAt     time.Time       `json:"created_at"`
-	ModifiedAt    time.Time       `json:"modified_at"`
-	ArchivedAt    time.Time       `json:"archived_at"`
-	ChangeType    string          `json:"change_type"`
-}
-
-type Category struct {
-	Id            int64      `json:"id"`
-	Name          string     `json:"name"`
-	ParentId      *int64     `json:"parent_id,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	ModifiedAt    time.Time  `json:"modified_at"`
-	Subcategories []Category `json:"subcategories,omitempty"`
-}
-
-type User struct {
-	Name  string
-	Orcid string
-}
-
-type App struct {
-	BuildId     string
-	MaxFileSize int64
-	Version     string
-}
-
-type RootPageData struct {
-	App
-	Categories []Category
-	User       *User
-}
-
-type RecordPageData struct {
-	App
-	Record         Record
-	CanEdit        bool
-	User           *User
-	CurrentPage    string
-	IsHistorical   bool
-	HistoryVersion int
-}
-
-type RecordsPageData struct {
-	App
-	Categories []Category
-	Records    []Record
-	User       *User
-	IsAdmin    bool
-}
 
 //go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
 var staticFiles embed.FS
@@ -356,6 +277,13 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		records[i].MetadataPretty = prettyJSON(records[i].Metadata)
 	}
 
+	// Check if user is admin (needed for nav link)
+	adminRepo := NewPostgresAdminRepository(db)
+	isAdmin := false
+	if admin, err := adminRepo.IsAdmin(ctx, orcid); err == nil {
+		isAdmin = admin
+	}
+
 	var pageTmpl = template.Must(template.ParseFS(staticFiles,
 		"templates/layout.html",
 		"templates/profile.html",
@@ -367,12 +295,14 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		Records      []Record
 		TotalRecords int
 		CurrentPage  string
+		IsAdmin      bool
 	}{
 		App:          app,
 		User:         user,
 		Records:      records,
 		TotalRecords: totalCount,
 		CurrentPage:  "",
+		IsAdmin:      isAdmin,
 	}
 
 	w.Header().Set("Content-Type", "text/html")
@@ -533,6 +463,10 @@ func main() {
 	historyHandler := NewHistoryHandler(historyRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
 
+	// Initialize moderation handler
+	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
+	moderationHandler := NewModerationHandler(moderationRepo, adminRepo)
+
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
 	mux.HandleFunc("GET /api/v1/record/", recordHandler.Router)
@@ -553,12 +487,16 @@ func main() {
 	mux.HandleFunc("/api/v1/ror/organizations", rorHandler.Router)
 	mux.HandleFunc("/api/v1/ror/organization/", rorHandler.Router)
 
+	// Moderation API routes
+	mux.HandleFunc("/api/v1/moderation/", moderationHandler.Router)
+
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
 	mux.Handle("/organizations", securityHeaders(http.HandlerFunc(organizationHandler.GetOrganizationsPage)))
 	mux.Handle("/profile", securityHeaders(http.HandlerFunc(getProfile)))
 	mux.Handle("/record/", securityHeaders(http.HandlerFunc(recordHandler.GetRecordPage)))
 	mux.Handle("/entry", securityHeaders(http.HandlerFunc(newEntry)))
+	mux.Handle("/moderation", securityHeaders(http.HandlerFunc(moderationHandler.GetModerationQueue)))
 
 	// root catchall - now uses browse page
 	mux.Handle("/", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))

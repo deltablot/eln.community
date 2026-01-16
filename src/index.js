@@ -2037,3 +2037,110 @@ function initializeBrowseGrid() {
   // Create the grid
   agGrid.createGrid(gridDiv, gridOptions);
 }
+
+
+// Moderation functionality
+function initializeModerationButtons() {
+  // Use event delegation for moderation buttons
+  document.addEventListener('click', function(e) {
+    const button = e.target.closest('.moderation-btn');
+    if (!button) return;
+    
+    const recordId = button.getAttribute('data-record-id');
+    const action = button.getAttribute('data-action');
+    
+    if (recordId && action) {
+      moderateRecord(recordId, action, button);
+    }
+  });
+}
+
+async function moderateRecord(recordId, action, buttonElement) {
+  // Get button elements
+  const spinner = buttonElement.querySelector('.spinner-border');
+  const btnText = buttonElement.querySelector('.btn-text');
+  const originalText = btnText.textContent;
+  
+  // Disable all moderation buttons for this record
+  const allButtons = document.querySelectorAll(`[data-record-id="${recordId}"]`);
+  allButtons.forEach(btn => btn.disabled = true);
+  
+  // Show loading state
+  spinner?.classList.remove('d-none');
+  if (btnText) {
+    const actionText = action.charAt(0).toUpperCase() + action.slice(1);
+    btnText.textContent = `${actionText}ing...`;
+  }
+  
+  try {
+    const response = await fetch(`/api/v1/moderation/${recordId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action })
+    });
+    
+    if (response.ok) {
+      // Show success toast
+      const successToast = document.getElementById('successToast');
+      const successToastBody = successToast?.querySelector('.toast-body');
+      if (successToast && successToastBody) {
+        const actionText = action.charAt(0).toUpperCase() + action.slice(1);
+        successToastBody.textContent = `Record ${action}ed successfully!`;
+        const toast = new bootstrap.Toast(successToast, {
+          delay: 2000,
+          autohide: true
+        });
+        
+        // Reload page after toast hides
+        successToast.addEventListener('hidden.bs.toast', function () {
+          window.location.reload();
+        }, { once: true });
+        
+        toast.show();
+      } else {
+        // Fallback reload if no toast
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+    } else {
+      // Show error toast
+      const errorText = await response.text();
+      const errorToast = document.getElementById('errorToast');
+      const errorToastBody = document.getElementById('errorToastBody');
+      if (errorToast && errorToastBody) {
+        errorToastBody.textContent = errorText || `Failed to ${action} record. Please try again.`;
+        const toast = new bootstrap.Toast(errorToast);
+        toast.show();
+      }
+      console.error(`${action} failed:`, errorText);
+      
+      // Reset button state
+      spinner?.classList.add('d-none');
+      if (btnText) btnText.textContent = originalText;
+      allButtons.forEach(btn => btn.disabled = false);
+    }
+  } catch (error) {
+    // Show error toast for network/other errors
+    const errorToast = document.getElementById('errorToast');
+    const errorToastBody = document.getElementById('errorToastBody');
+    if (errorToast && errorToastBody) {
+      errorToastBody.textContent = 'Network error. Please check your connection and try again.';
+      const toast = new bootstrap.Toast(errorToast);
+      toast.show();
+    }
+    console.error(`${action} error:`, error);
+    
+    // Reset button state
+    spinner?.classList.add('d-none');
+    if (btnText) btnText.textContent = originalText;
+    allButtons.forEach(btn => btn.disabled = false);
+  }
+}
+
+// Initialize moderation buttons when DOM is loaded
+document.addEventListener('DOMContentLoaded', function () {
+  initializeModerationButtons();
+});
