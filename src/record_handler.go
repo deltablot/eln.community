@@ -791,6 +791,40 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	pageSizeStr := r.URL.Query().Get("pageSize")
 
+	// Parse sort parameters
+	sortBy := r.URL.Query().Get("sortBy")
+	sortOrder := r.URL.Query().Get("sortOrder")
+
+	// Parse filter parameters
+	filterName := strings.TrimSpace(r.URL.Query().Get("filterName"))
+	filterNameType := r.URL.Query().Get("filterNameType")
+	filterAuthor := strings.TrimSpace(r.URL.Query().Get("filterAuthor"))
+	filterAuthorType := r.URL.Query().Get("filterAuthorType")
+	filterDownloads := r.URL.Query().Get("filterDownloads")
+	filterDownloadsType := r.URL.Query().Get("filterDownloadsType")
+	filterDownloadsTo := r.URL.Query().Get("filterDownloadsTo")
+
+	// Validate and map sort field to database column
+	var orderByClause string
+	switch sortBy {
+	case "name":
+		orderByClause = "name"
+	case "uploaderName":
+		orderByClause = "uploader_name"
+	case "downloadCount":
+		orderByClause = "download_count"
+	case "createdAt":
+		orderByClause = "created_at"
+	default:
+		// Default sort by created_at
+		orderByClause = "created_at"
+	}
+
+	// Validate sort order
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc" // Default to descending
+	}
+
 	page := 1
 	if pageStr != "" {
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
@@ -856,18 +890,40 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Build filters map
+	filters := make(map[string]interface{})
+	if filterName != "" {
+		filters["name"] = filterName
+		filters["nameType"] = filterNameType
+	}
+	if filterAuthor != "" {
+		filters["author"] = filterAuthor
+		filters["authorType"] = filterAuthorType
+	}
+	if filterDownloads != "" {
+		if downloads, err := strconv.Atoi(filterDownloads); err == nil {
+			filters["downloads"] = downloads
+			filters["downloadsType"] = filterDownloadsType
+			if filterDownloadsTo != "" {
+				if downloadsTo, err := strconv.Atoi(filterDownloadsTo); err == nil {
+					filters["downloadsTo"] = downloadsTo
+				}
+			}
+		}
+	}
+
 	// Execute query based on filters
 	if noRorMatch {
 		records = []Record{}
 		totalCount = 0
 	} else if searchQuery != "" {
-		records, totalCount, err = h.recordRepo.SearchPaginated(ctx, searchQuery, selectedCategoryID, pageSize, offset)
+		records, totalCount, err = h.recordRepo.SearchPaginated(ctx, searchQuery, selectedCategoryID, pageSize, offset, orderByClause, sortOrder, filters)
 	} else if len(rorIDs) > 0 {
-		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, pageSize, offset)
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, pageSize, offset, orderByClause, sortOrder, filters)
 	} else if len(selectedCategoryIDs) > 0 {
-		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, pageSize, offset)
+		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, pageSize, offset, orderByClause, sortOrder, filters)
 	} else {
-		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, pageSize, offset)
+		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, pageSize, offset, orderByClause, sortOrder, filters)
 	}
 
 	if err != nil {
@@ -987,6 +1043,31 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	pageSizeStr := r.URL.Query().Get("pageSize")
 
+	// Parse sort parameters
+	sortBy := r.URL.Query().Get("sortBy")
+	sortOrder := r.URL.Query().Get("sortOrder")
+
+	// Validate and map sort field to database column
+	var orderByClause string
+	switch sortBy {
+	case "name":
+		orderByClause = "name"
+	case "uploaderName":
+		orderByClause = "uploader_name"
+	case "downloadCount":
+		orderByClause = "download_count"
+	case "createdAt":
+		orderByClause = "created_at"
+	default:
+		// Default sort by created_at
+		orderByClause = "created_at"
+	}
+
+	// Validate sort order
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc" // Default to descending
+	}
+
 	page := 1
 	if pageStr != "" {
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
@@ -1087,7 +1168,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		totalCount = 0
 	} else if searchQuery != "" {
 		// Search with optional category filter
-		records, totalCount, err = h.recordRepo.SearchPaginated(r.Context(), searchQuery, selectedCategoryID, pageSize, offset)
+		records, totalCount, err = h.recordRepo.SearchPaginated(r.Context(), searchQuery, selectedCategoryID, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
 		if err != nil {
 			log.Printf("Error in GetBrowsePage searching for '%s': %v", searchQuery, err)
 			http.Error(w, "Error searching records", http.StatusInternalServerError)
@@ -1096,7 +1177,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	} else if len(rorIDs) > 0 {
 		// Filter by ROR ID(s) (either directly provided or found via name search)
 		// Multiple ROR IDs - use the multi-ID query
-		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(r.Context(), rorIDs, pageSize, offset)
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(r.Context(), rorIDs, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
 		if err != nil {
 			log.Printf("Error in GetBrowsePage filtering by ROR IDs %v: %v", rorIDs, err)
 			http.Error(w, "Error fetching records for ROR organizations", http.StatusInternalServerError)
@@ -1114,7 +1195,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if len(selectedCategoryIDs) > 0 {
 		// Filter by categories (single or multiple)
-		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(r.Context(), selectedCategoryIDs, pageSize, offset)
+		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(r.Context(), selectedCategoryIDs, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
 		if err != nil {
 			log.Printf("Error in GetBrowsePage filtering by categories %v: %v", selectedCategoryIDs, err)
 			http.Error(w, fmt.Sprintf("Error fetching records for categories"), http.StatusInternalServerError)
@@ -1122,7 +1203,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Get all records
-		records, totalCount, err = h.recordRepo.GetAllPaginated(r.Context(), pageSize, offset)
+		records, totalCount, err = h.recordRepo.GetAllPaginated(r.Context(), pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
 		if err != nil {
 			http.Error(w, "Error fetching records", http.StatusInternalServerError)
 			return

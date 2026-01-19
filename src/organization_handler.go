@@ -64,7 +64,7 @@ func (h *OrganizationHandler) GetOrganizationsPage(w http.ResponseWriter, r *htt
 		}
 
 		// Count records for this organization
-		_, count, err := h.recordRepo.GetAllByRorIDsPaginated(ctx, []string{rorId}, 1, 0)
+		_, count, err := h.recordRepo.GetAllByRorIDsPaginated(ctx, []string{rorId}, 1, 0, "created_at", "desc", make(map[string]interface{}))
 		if err != nil {
 			log.Printf("Error counting records for ROR %s: %v", rorId, err)
 			continue

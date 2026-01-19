@@ -244,7 +244,7 @@ function renderValue(value, entity, key) {
 function renderHtmlContent(htmlContent, entityId) {
   // Sanitize HTML content client-side before rendering in sandbox
   const sanitizedHTML = sanitizeHTML(htmlContent);
-  
+
   // Create a complete HTML document with safe styling
   const styledHTML = `<!DOCTYPE html>
 <html>
@@ -306,19 +306,19 @@ function sanitizeHTML(html) {
   // Create a temporary DOM to parse the HTML
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  
+
   // Remove dangerous elements
   const dangerousElements = [
     'script', 'style', 'link', 'meta', 'base',
     'iframe', 'frame', 'frameset', 'object', 'embed', 'applet',
     'form', 'input', 'button', 'select', 'textarea'
   ];
-  
+
   dangerousElements.forEach(tag => {
     const elements = doc.querySelectorAll(tag);
     elements.forEach(el => el.remove());
   });
-  
+
   // Remove dangerous attributes from all elements
   const allElements = doc.querySelectorAll('*');
   allElements.forEach(el => {
@@ -340,7 +340,7 @@ function sanitizeHTML(html) {
       }
     });
   });
-  
+
   return doc.body.innerHTML;
 }
 
@@ -2141,7 +2141,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // AG Grid initialization for browse page
 function initializeBrowseGrid() {
   const gridDiv = document.getElementById('browseGrid');
-  
+
   if (!gridDiv) {
     return; // Not on browse page with AG Grid
   }
@@ -2351,28 +2351,68 @@ function initializeBrowseGrid() {
       getRows: async function(params) {
         const page = Math.floor(params.startRow / 10) + 1;
         const pageSize = params.endRow - params.startRow;
-        
+
         // Build query string from current URL params
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set('short', '1');
         urlParams.set('page', page.toString());
         urlParams.set('pageSize', pageSize.toString());
-        
+
+        // Add sort parameters if present
+        if (params.sortModel && params.sortModel.length > 0) {
+          const sortModel = params.sortModel[0];
+          urlParams.set('sortBy', sortModel.colId);
+          urlParams.set('sortOrder', sortModel.sort);
+        }
+
+        // Add filter parameters if present
+        if (params.filterModel) {
+          // Handle text filters (name, uploaderName)
+          if (params.filterModel.name) {
+            const nameFilter = params.filterModel.name;
+            if (nameFilter.filter) {
+              urlParams.set('filterName', nameFilter.filter);
+              urlParams.set('filterNameType', nameFilter.type || 'contains');
+            }
+          }
+          
+          if (params.filterModel.uploaderName) {
+            const authorFilter = params.filterModel.uploaderName;
+            if (authorFilter.filter) {
+              urlParams.set('filterAuthor', authorFilter.filter);
+              urlParams.set('filterAuthorType', authorFilter.type || 'contains');
+            }
+          }
+          
+          // Handle number filter (downloadCount)
+          if (params.filterModel.downloadCount) {
+            const downloadFilter = params.filterModel.downloadCount;
+            if (downloadFilter.filter !== undefined) {
+              urlParams.set('filterDownloads', downloadFilter.filter);
+              urlParams.set('filterDownloadsType', downloadFilter.type || 'equals');
+            }
+            // Handle range filters (from/to)
+            if (downloadFilter.filterTo !== undefined) {
+              urlParams.set('filterDownloadsTo', downloadFilter.filterTo);
+            }
+          }
+        }
+
         try {
           const response = await fetch(`/browse?${urlParams.toString()}`, {
             headers: {
               'Accept': 'application/json'
             }
           });
-          
+
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          
+
           const data = await response.json();
           const records = data.records || [];
           const totalCount = data.pagination?.totalCount || 0;
-          
+
           params.successCallback(records, totalCount);
         } catch (error) {
           console.error('Error fetching browse data:', error);
@@ -2393,10 +2433,10 @@ function initializeModerationButtons() {
   document.addEventListener('click', function(e) {
     const button = e.target.closest('.moderation-btn');
     if (!button) return;
-    
+
     const recordId = button.getAttribute('data-record-id');
     const action = button.getAttribute('data-action');
-    
+
     if (recordId && action) {
       moderateRecord(recordId, action, button);
     }
@@ -2408,18 +2448,18 @@ async function moderateRecord(recordId, action, buttonElement) {
   const spinner = buttonElement.querySelector('.spinner-border');
   const btnText = buttonElement.querySelector('.btn-text');
   const originalText = btnText.textContent;
-  
+
   // Disable all moderation buttons for this record
   const allButtons = document.querySelectorAll(`[data-record-id="${recordId}"]`);
   allButtons.forEach(btn => btn.disabled = true);
-  
+
   // Show loading state
   spinner?.classList.remove('d-none');
   if (btnText) {
     const actionText = action.charAt(0).toUpperCase() + action.slice(1);
     btnText.textContent = `${actionText}ing...`;
   }
-  
+
   try {
     const response = await fetch(`/api/v1/moderation/${recordId}`, {
       method: 'POST',
@@ -2428,7 +2468,7 @@ async function moderateRecord(recordId, action, buttonElement) {
       },
       body: JSON.stringify({ action })
     });
-    
+
     if (response.ok) {
       // Show success toast
       const successToast = document.getElementById('successToast');
@@ -2440,12 +2480,12 @@ async function moderateRecord(recordId, action, buttonElement) {
           delay: 2000,
           autohide: true
         });
-        
+
         // Reload page after toast hides
         successToast.addEventListener('hidden.bs.toast', function () {
           window.location.reload();
         }, { once: true });
-        
+
         toast.show();
       } else {
         // Fallback reload if no toast
@@ -2464,7 +2504,7 @@ async function moderateRecord(recordId, action, buttonElement) {
         toast.show();
       }
       console.error(`${action} failed:`, errorText);
-      
+
       // Reset button state
       spinner?.classList.add('d-none');
       if (btnText) btnText.textContent = originalText;
@@ -2480,7 +2520,7 @@ async function moderateRecord(recordId, action, buttonElement) {
       toast.show();
     }
     console.error(`${action} error:`, error);
-    
+
     // Reset button state
     spinner?.classList.add('d-none');
     if (btnText) btnText.textContent = originalText;
