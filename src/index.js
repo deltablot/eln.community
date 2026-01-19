@@ -2017,6 +2017,39 @@ function initializeBrowseGrid() {
           urlParams.set('sortOrder', sortModel.sort);
         }
 
+        // Add filter parameters if present
+        if (params.filterModel) {
+          // Handle text filters (name, uploaderName)
+          if (params.filterModel.name) {
+            const nameFilter = params.filterModel.name;
+            if (nameFilter.filter) {
+              urlParams.set('filterName', nameFilter.filter);
+              urlParams.set('filterNameType', nameFilter.type || 'contains');
+            }
+          }
+          
+          if (params.filterModel.uploaderName) {
+            const authorFilter = params.filterModel.uploaderName;
+            if (authorFilter.filter) {
+              urlParams.set('filterAuthor', authorFilter.filter);
+              urlParams.set('filterAuthorType', authorFilter.type || 'contains');
+            }
+          }
+          
+          // Handle number filter (downloadCount)
+          if (params.filterModel.downloadCount) {
+            const downloadFilter = params.filterModel.downloadCount;
+            if (downloadFilter.filter !== undefined) {
+              urlParams.set('filterDownloads', downloadFilter.filter);
+              urlParams.set('filterDownloadsType', downloadFilter.type || 'equals');
+            }
+            // Handle range filters (from/to)
+            if (downloadFilter.filterTo !== undefined) {
+              urlParams.set('filterDownloadsTo', downloadFilter.filterTo);
+            }
+          }
+        }
+
         try {
           const response = await fetch(`/browse?${urlParams.toString()}`, {
             headers: {
