@@ -14,11 +14,11 @@ var (
 
 // RecordRepository defines the interface for record data operations
 type RecordRepository interface {
-	GetAllPaginated(ctx context.Context, limit, offset int) ([]Record, int, error)
-	GetAllByCategoriesPaginated(ctx context.Context, categoryIDs []int64, limit, offset int) ([]Record, int, error)
-	GetAllByRorIDsPaginated(ctx context.Context, rorIDs []string, limit, offset int) ([]Record, int, error)
+	GetAllPaginated(ctx context.Context, limit, offset int, orderBy, sortOrder string) ([]Record, int, error)
+	GetAllByCategoriesPaginated(ctx context.Context, categoryIDs []int64, limit, offset int, orderBy, sortOrder string) ([]Record, int, error)
+	GetAllByRorIDsPaginated(ctx context.Context, rorIDs []string, limit, offset int, orderBy, sortOrder string) ([]Record, int, error)
 	GetAllByOrcidPaginated(ctx context.Context, orcid string, limit, offset int) ([]Record, int, error)
-	SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int) ([]Record, int, error)
+	SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int, orderBy, sortOrder string) ([]Record, int, error)
 	GetByID(ctx context.Context, id string) (*Record, error)
 	Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error
 	Update(ctx context.Context, tx *sql.Tx, record *Record) error
@@ -44,7 +44,7 @@ func NewPostgresRecordRepository(db *sql.DB, categoryRepo CategoryRepository, ro
 }
 
 // GetAllPaginated retrieves records with pagination
-func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, offset int) ([]Record, int, error) {
+func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, offset int, orderBy, sortOrder string) ([]Record, int, error) {
 	// Get total count - only approved records for public view
 	var totalCount int
 	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM records WHERE moderation_status = 'approved'`).Scan(&totalCount)
@@ -52,13 +52,18 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 		return nil, 0, err
 	}
 
-	rows, err := r.db.QueryContext(ctx, `
+	// Build ORDER BY clause with SQL injection protection
+	orderByClause := fmt.Sprintf("ORDER BY %s %s", orderBy, strings.ToUpper(sortOrder))
+
+	query := fmt.Sprintf(`
 		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
 		FROM records
 		WHERE moderation_status = 'approved'
-		ORDER BY created_at DESC
+		%s
 		LIMIT $1 OFFSET $2
-	`, limit, offset)
+	`, orderByClause)
+
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -196,9 +201,9 @@ func (r *PostgresRecordRepository) GetS3Key(ctx context.Context, id string) (str
 }
 
 // GetAllByCategoriesPaginated retrieves records filtered by multiple categories with pagination
-func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Context, categoryIDs []int64, limit, offset int) ([]Record, int, error) {
+func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Context, categoryIDs []int64, limit, offset int, orderBy, sortOrder string) ([]Record, int, error) {
 	if len(categoryIDs) == 0 {
-		return r.GetAllPaginated(ctx, limit, offset)
+		return r.GetAllPaginated(ctx, limit, offset, orderBy, sortOrder)
 	}
 
 	// Build the query with placeholders for multiple category IDs
@@ -224,15 +229,18 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 		return nil, 0, err
 	}
 
+	// Build ORDER BY clause with SQL injection protection
+	orderByClause := fmt.Sprintf("ORDER BY r.%s %s", orderBy, strings.ToUpper(sortOrder))
+
 	// Get records
 	selectQuery := fmt.Sprintf(`
 		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
 		WHERE r.moderation_status = 'approved' AND rc.category_id IN (%s)
-		ORDER BY r.created_at DESC
+		%s
 		LIMIT $%d OFFSET $%d
-	`, inClause, len(categoryIDs)+1, len(categoryIDs)+2)
+	`, inClause, orderByClause, len(categoryIDs)+1, len(categoryIDs)+2)
 
 	queryArgs := append(args, limit, offset)
 	rows, err := r.db.QueryContext(ctx, selectQuery, queryArgs...)
@@ -283,7 +291,7 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 }
 
 // GetAllByRorIDsPaginated retrieves records filtered by multiple ROR IDs with pagination
-func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, rorIDs []string, limit, offset int) ([]Record, int, error) {
+func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, rorIDs []string, limit, offset int, orderBy, sortOrder string) ([]Record, int, error) {
 	if len(rorIDs) == 0 {
 		return []Record{}, 0, nil
 	}
@@ -310,6 +318,9 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 		return nil, 0, err
 	}
 
+	// Build ORDER BY clause with SQL injection protection
+	orderByClause := fmt.Sprintf("ORDER BY r.%s %s", orderBy, strings.ToUpper(sortOrder))
+
 	// Get records
 	// Add limit and offset to args
 	args = append(args, limit, offset)
@@ -318,9 +329,9 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
 		WHERE r.moderation_status = 'approved' AND rr.ror IN (%s)
-		ORDER BY r.created_at DESC
+		%s
 		LIMIT $%d OFFSET $%d
-	`, inClause, len(rorIDs)+1, len(rorIDs)+2)
+	`, inClause, orderByClause, len(rorIDs)+1, len(rorIDs)+2)
 
 	rows, err := r.db.QueryContext(ctx, selectQuery, args...)
 	if err != nil {
@@ -370,11 +381,14 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 }
 
 // SearchPaginated retrieves records based on search query with pagination
-func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int) ([]Record, int, error) {
+func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int, orderBy, sortOrder string) ([]Record, int, error) {
 	var countQuery string
 	var sqlQuery string
 	var args []interface{}
 	var countArgs []interface{}
+
+	// Build ORDER BY clause with SQL injection protection
+	orderByClause := fmt.Sprintf("ORDER BY r.%s %s", orderBy, strings.ToUpper(sortOrder))
 
 	if categoryID > 0 {
 		// Count query for specific category
@@ -396,7 +410,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 		countArgs = []interface{}{categoryID, "%" + query + "%"}
 
 		// Search within a specific category
-		sqlQuery = `
+		sqlQuery = fmt.Sprintf(`
 			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 			FROM records r
 			JOIN records_categories rc ON r.id = rc.record_id
@@ -410,9 +424,9 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 				rr.ror ILIKE $2 OR
 				c.name ILIKE $2
 			)
-			ORDER BY r.created_at DESC
+			%s
 			LIMIT $3 OFFSET $4
-		`
+		`, orderByClause)
 		args = []interface{}{categoryID, "%" + query + "%", limit, offset}
 	} else {
 		// Count query for all records
@@ -434,7 +448,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 		countArgs = []interface{}{"%" + query + "%"}
 
 		// Search across all records
-		sqlQuery = `
+		sqlQuery = fmt.Sprintf(`
 			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 			FROM records r
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
@@ -448,9 +462,9 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 				rr.ror ILIKE $1 OR
 				c.name ILIKE $1
 			)
-			ORDER BY r.created_at DESC
+			%s
 			LIMIT $2 OFFSET $3
-		`
+		`, orderByClause)
 		args = []interface{}{"%" + query + "%", limit, offset}
 	}
 
