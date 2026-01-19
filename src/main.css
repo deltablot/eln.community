@@ -175,14 +175,7 @@ select[name="deadline"] {
     box-shadow: 0 0 8px var(--red);
 }
 
-.d-flex {
-    display: flex;
-    flex-direction: column;
-
-    &.flex-row {
-        flex-direction: row;
-    }
-}
+/* Removed custom .d-flex override - use Bootstrap's default flex utilities */
 
 .section-buttons {
     display: flex;
@@ -1100,4 +1093,12 @@ footer {
     .ag-center-cols-container, .ag-center-cols-viewport {
         min-height: 0;
     }
+}
+
+/* Record Screen - minimal custom styles (using Bootstrap utilities) */
+.section-divider {
+    border: 0;
+    border-top: 1px solid #dee2e6;
+    margin: 1.5rem 0;
+    width: 100%;
 }
