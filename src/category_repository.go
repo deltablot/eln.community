@@ -30,6 +30,7 @@ type CategoryRepository interface {
 // AdminRepository defines the interface for admin operations
 type AdminRepository interface {
 	IsAdmin(ctx context.Context, orcid string) (bool, error)
+	GetAllEmails(ctx context.Context) ([]string, error)
 }
 
 // PostgresCategoryRepository implements CategoryRepository using PostgreSQL
@@ -255,6 +256,34 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 		return false, err
 	}
 	return exists, nil
+}
+
+// GetAllEmails retrieves all admin email addresses (non-null only)
+func (r *PostgresAdminRepository) GetAllEmails(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT email 
+		FROM admin_orcids 
+		WHERE email IS NOT NULL AND email != ''
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var emails []string
+	for rows.Next() {
+		var email string
+		if err := rows.Scan(&email); err != nil {
+			return nil, err
+		}
+		emails = append(emails, email)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return emails, nil
 }
 
 // AssociateCategoryWithRecord creates an association between a record and a category
