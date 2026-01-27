@@ -2087,7 +2087,8 @@ function initializeVersionHistory() {
     })
     .then(data => {
       const versions = data.versions || [];
-      const totalVersions = versions.length + 1; // +1 for current
+      // Count only the archived versions (don't add +1 for current)
+      const totalVersions = versions.length;
 
       if (versions.length > 0) {
         versionCount.textContent = `${totalVersions} versions`;
