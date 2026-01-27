@@ -2087,10 +2087,11 @@ function initializeVersionHistory() {
     })
     .then(data => {
       const versions = data.versions || [];
-      const totalVersions = versions.length + 1; // +1 for current
+      // Count only the archived versions (don't add +1 for current)
+      const totalVersions = versions.length;
 
       if (versions.length > 0) {
-        versionCount.textContent = `${totalVersions} total`;
+        versionCount.textContent = `${totalVersions} versions`;
 
         // Clear any existing options except "Current"
         while (versionSelector.options.length > 1) {
@@ -2102,7 +2103,17 @@ function initializeVersionHistory() {
           const option = document.createElement('option');
           option.value = version.version;
           const date = new Date(version.archived_at);
-          option.textContent = `Version ${version.version} - ${version.name} (${date.toLocaleDateString()})`;
+          // Format date with time: "Jan 02, 2006 15:04"
+          const formattedDate = date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: '2-digit', 
+            year: 'numeric' 
+          }) + ' ' + date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false
+          });
+          option.textContent = `Version ${version.version} - ${version.name} (${formattedDate})`;
 
           // Select this option if it matches current version
           if (currentVersion === version.version.toString()) {
