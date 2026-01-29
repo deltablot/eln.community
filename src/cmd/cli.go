@@ -157,12 +157,16 @@ var adminListCmd = &cobra.Command{
 }
 
 var adminAddCmd = &cobra.Command{
-	Use:   "add <orcid>",
-	Short: "Add admin ORCID",
-	Args:  cobra.ExactArgs(1),
+	Use:   "add <orcid> [email]",
+	Short: "Add admin ORCID with optional email",
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		repo := NewPostgresAdminRepository(db)
-		addAdmin(ctx, repo, args[0])
+		email := ""
+		if len(args) > 1 {
+			email = args[1]
+		}
+		addAdmin(ctx, repo, args[0], email)
 	},
 }
 
@@ -346,17 +350,22 @@ func listAdmins(ctx context.Context, repo AdminRepository) {
 		return
 	}
 
-	fmt.Printf("%-25s %-20s\n", "ORCID", "Created")
-	fmt.Println(strings.Repeat("-", 50))
+	fmt.Printf("%-25s %-35s %-20s\n", "ORCID", "Email", "Created")
+	fmt.Println(strings.Repeat("-", 85))
 	for _, admin := range admins {
-		fmt.Printf("%-25s %-20s\n",
+		email := admin.Email
+		if email == "" {
+			email = "(not set)"
+		}
+		fmt.Printf("%-25s %-35s %-20s\n",
 			admin.Orcid,
+			email,
 			admin.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
 }
 
-func addAdmin(ctx context.Context, repo AdminRepository, orcid string) {
-	admin, err := repo.Add(ctx, orcid)
+func addAdmin(ctx context.Context, repo AdminRepository, orcid string, email string) {
+	admin, err := repo.Add(ctx, orcid, email)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate") {
 			fmt.Printf("ORCID '%s' is already an admin\n", orcid)
@@ -367,6 +376,9 @@ func addAdmin(ctx context.Context, repo AdminRepository, orcid string) {
 
 	fmt.Printf("Admin added successfully:\n")
 	fmt.Printf("ORCID: %s\n", admin.Orcid)
+	if admin.Email != "" {
+		fmt.Printf("Email: %s\n", admin.Email)
+	}
 	fmt.Printf("Created: %s\n", admin.CreatedAt.Format("2006-01-02 15:04:05"))
 }
 
@@ -422,7 +434,7 @@ func seedDatabase(ctx context.Context, db *sql.DB) {
 	// Add sample admin ORCID
 	sampleAdminOrcid := "0000-0000-0000-0000"
 	fmt.Printf("\nAdding sample admin ORCID: %s\n", sampleAdminOrcid)
-	_, err := adminRepo.Add(ctx, sampleAdminOrcid)
+	_, err := adminRepo.Add(ctx, sampleAdminOrcid, "")
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate") {
 			fmt.Printf("Admin ORCID '%s' already exists, skipping\n", sampleAdminOrcid)

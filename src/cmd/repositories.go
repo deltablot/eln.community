@@ -24,6 +24,7 @@ type Category struct {
 
 type Admin struct {
 	Orcid      string
+	Email      string
 	CreatedAt  time.Time
 	ModifiedAt time.Time
 }
@@ -42,7 +43,7 @@ type CategoryRepository interface {
 type AdminRepository interface {
 	IsAdmin(ctx context.Context, orcid string) (bool, error)
 	GetAll(ctx context.Context) ([]Admin, error)
-	Add(ctx context.Context, orcid string) (*Admin, error)
+	Add(ctx context.Context, orcid string, email string) (*Admin, error)
 	Remove(ctx context.Context, orcid string) error
 }
 
@@ -211,7 +212,7 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 // GetAll retrieves all admin ORCIDs
 func (r *PostgresAdminRepository) GetAll(ctx context.Context) ([]Admin, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT orcid, created_at, modified_at 
+		SELECT orcid, email, created_at, modified_at 
 		FROM admin_orcids 
 		ORDER BY created_at
 	`)
@@ -223,8 +224,12 @@ func (r *PostgresAdminRepository) GetAll(ctx context.Context) ([]Admin, error) {
 	var admins []Admin
 	for rows.Next() {
 		var admin Admin
-		if err := rows.Scan(&admin.Orcid, &admin.CreatedAt, &admin.ModifiedAt); err != nil {
+		var email sql.NullString
+		if err := rows.Scan(&admin.Orcid, &email, &admin.CreatedAt, &admin.ModifiedAt); err != nil {
 			return nil, err
+		}
+		if email.Valid {
+			admin.Email = email.String
 		}
 		admins = append(admins, admin)
 	}
@@ -236,17 +241,26 @@ func (r *PostgresAdminRepository) GetAll(ctx context.Context) ([]Admin, error) {
 	return admins, nil
 }
 
-// Add adds a new admin ORCID
-func (r *PostgresAdminRepository) Add(ctx context.Context, orcid string) (*Admin, error) {
+// Add adds a new admin ORCID with optional email
+func (r *PostgresAdminRepository) Add(ctx context.Context, orcid string, email string) (*Admin, error) {
 	var admin Admin
+	var emailVal sql.NullString
+	if email != "" {
+		emailVal = sql.NullString{String: email, Valid: true}
+	}
+
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO admin_orcids (orcid) 
-		VALUES ($1) 
-		RETURNING orcid, created_at, modified_at
-	`, orcid).Scan(&admin.Orcid, &admin.CreatedAt, &admin.ModifiedAt)
+		INSERT INTO admin_orcids (orcid, email) 
+		VALUES ($1, $2) 
+		RETURNING orcid, email, created_at, modified_at
+	`, orcid, emailVal).Scan(&admin.Orcid, &emailVal, &admin.CreatedAt, &admin.ModifiedAt)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if emailVal.Valid {
+		admin.Email = emailVal.String
 	}
 
 	return &admin, nil
