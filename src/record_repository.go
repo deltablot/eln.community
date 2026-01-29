@@ -158,7 +158,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 
 	// Build query with filters
 	query := fmt.Sprintf(`
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, license
 		FROM records r
 		WHERE moderation_status = 'approved'%s
 		%s
@@ -185,6 +185,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 			&record.UploaderName,
 			&record.UploaderOrcid,
 			&record.DownloadCount,
+			&record.License,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -218,7 +219,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 	var record Record
 	var moderationStatus string
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status
+		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status, license
 		FROM records
 		WHERE id = $1
 	`, id).Scan(
@@ -232,6 +233,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 		&record.UploaderOrcid,
 		&record.DownloadCount,
 		&moderationStatus,
+		&record.License,
 	)
 
 	if err == sql.ErrNoRows {
@@ -265,12 +267,17 @@ func (r *PostgresRecordRepository) Create(ctx context.Context, tx *sql.Tx, recor
 	// Get initial moderation status based on configuration
 	moderationStatus := GetInitialModerationStatus()
 
+	// Default license if not provided
+	if record.License == "" {
+		record.License = "CC-BY-4.0"
+	}
+
 	// Insert the main record without ROR IDs
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid, moderation_status) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid, moderation_status, license) 
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		record.Id, s3Key, record.Sha256, record.Name, record.Metadata,
-		record.UploaderName, record.UploaderOrcid, string(moderationStatus),
+		record.UploaderName, record.UploaderOrcid, string(moderationStatus), record.License,
 	)
 	if err != nil {
 		return err

@@ -168,6 +168,7 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		UploaderName:  user.Name,
 		UploaderOrcid: user.Orcid,
 		RorIds:        rorIds,
+		License:       "CC-BY-4.0", // All new uploads are CC-BY-4.0
 	}
 
 	// Start transaction for record and category associations
