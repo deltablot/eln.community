@@ -201,6 +201,11 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Add new ROR IDs to the name cache immediately
+	if len(rorIds) > 0 && h.rorNameCache != nil {
+		h.rorNameCache.AddRorIds(rorIds)
+	}
+
 	// S3 Upload
 	if err := h.uploadToS3(file, key); err != nil {
 		log.Printf("upload error: %v", err)
@@ -1513,6 +1518,11 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	if err = tx.Commit(); err != nil {
 		http.Error(w, fmt.Sprintf("Error committing transaction: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Add new ROR IDs to the name cache immediately
+	if len(updatedRecord.RorIds) > 0 && h.rorNameCache != nil {
+		h.rorNameCache.AddRorIds(updatedRecord.RorIds)
 	}
 
 	// Redirect to record page

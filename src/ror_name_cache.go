@@ -140,6 +140,48 @@ func (c *RorNameCache) Get(rorID string) (string, bool) {
 	return name, found
 }
 
+// Set adds or updates an organization name in the cache
+func (c *RorNameCache) Set(rorID string, name string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.cache[rorID] = name
+}
+
+// AddRorIds fetches and caches organization names for the given ROR IDs
+// This is useful for immediately caching newly added ROR IDs
+func (c *RorNameCache) AddRorIds(rorIDs []string) {
+	if len(rorIDs) == 0 {
+		return
+	}
+
+	// Check which IDs are not already in cache
+	c.mutex.RLock()
+	missingIDs := make([]string, 0)
+	for _, rorID := range rorIDs {
+		if _, found := c.cache[rorID]; !found {
+			missingIDs = append(missingIDs, rorID)
+		}
+	}
+	c.mutex.RUnlock()
+
+	if len(missingIDs) == 0 {
+		return // All IDs already cached
+	}
+
+	// Fetch organization names from ROR API
+	organizations := c.rorClient.GetOrganizations(missingIDs)
+
+	// Add to cache
+	c.mutex.Lock()
+	for _, org := range organizations {
+		c.cache[org.ID] = org.Name
+	}
+	c.mutex.Unlock()
+
+	log.Printf("Added %d new ROR organizations to cache", len(organizations))
+}
+
 // Size returns the current number of cached organizations
 func (c *RorNameCache) Size() int {
 	c.mutex.RLock()
