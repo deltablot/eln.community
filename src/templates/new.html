@@ -114,7 +114,13 @@
   <label class="form-label fw-bold">Upload .eln file
     <input type='file' name='file' class='form-control' accept=".eln" required/>
   </label>
-  <button type='submit' id='submitBtn' class='btn btn-primary'>
+  <div class="form-check mt-3">
+    <input class="form-check-input" type="checkbox" id="licenseAgreement" required>
+    <label class="form-check-label" for="licenseAgreement">
+      I agree to license this entry under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">Creative Commons Attribution 4.0 International (CC BY 4.0)</a>
+    </label>
+  </div>
+  <button type='submit' id='submitBtn' class='btn btn-primary mt-3'>
     <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
     <span class="btn-text">Send</span>
   </button>

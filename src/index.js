@@ -970,6 +970,52 @@ function initializeEditForm() {
   });
 }
 
+// Handle license checkbox for edit page
+function initializeLicenseCheckbox() {
+  const fileInput = document.getElementById('file-input');
+  const licenseContainer = document.getElementById('licenseAgreementContainer');
+  const licenseCheckbox = document.getElementById('licenseAgreement');
+  const editForm = document.querySelector('form.edit-record-form');
+
+  if (!fileInput || !licenseContainer || !licenseCheckbox || !editForm) {
+    return; // Not on edit page or elements not found
+  }
+
+  // Show/hide license checkbox based on file selection
+  fileInput.addEventListener('change', function () {
+    if (this.files && this.files.length > 0) {
+      licenseContainer.style.display = 'block';
+      licenseCheckbox.required = true;
+      licenseCheckbox.checked = false;
+    } else {
+      licenseContainer.style.display = 'none';
+      licenseCheckbox.required = false;
+      licenseCheckbox.checked = false;
+    }
+  });
+
+  // Validate license checkbox on form submit
+  editForm.addEventListener('submit', function (e) {
+    if (fileInput.files && fileInput.files.length > 0 && !licenseCheckbox.checked) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Show error toast
+      const errorToast = document.getElementById('errorToast');
+      const errorToastBody = document.getElementById('errorToastBody');
+      if (errorToast && errorToastBody) {
+        errorToastBody.textContent = 'Please agree to the license terms to upload a new version.';
+        const toast = new bootstrap.Toast(errorToast);
+        toast.show();
+      }
+      
+      // Focus on the checkbox
+      licenseCheckbox.focus();
+      return false;
+    }
+  }, true); // Use capture phase to run before other submit handlers
+}
+
 // Handle delete button click
 function initializeDeleteButton() {
   const deleteBtn = document.getElementById('deleteBtn');
@@ -1080,6 +1126,7 @@ function initializeDeleteButton() {
 document.addEventListener('DOMContentLoaded', function () {
   initializeEditForm();
   initializeDeleteButton();
+  initializeLicenseCheckbox();
 });
 
 // ROR Autocomplete functionality

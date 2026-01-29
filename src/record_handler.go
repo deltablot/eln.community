@@ -168,6 +168,7 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		UploaderName:  user.Name,
 		UploaderOrcid: user.Orcid,
 		RorIds:        rorIds,
+		License:       "CC-BY-4.0", // All new uploads are CC-BY-4.0
 	}
 
 	// Start transaction for record and category associations
@@ -198,6 +199,11 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	if err = tx.Commit(); err != nil {
 		http.Error(w, fmt.Sprintf("Error committing transaction: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Add new ROR IDs to the name cache immediately
+	if len(rorIds) > 0 && h.rorNameCache != nil {
+		h.rorNameCache.AddRorIds(rorIds)
 	}
 
 	// S3 Upload
@@ -1512,6 +1518,11 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	if err = tx.Commit(); err != nil {
 		http.Error(w, fmt.Sprintf("Error committing transaction: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Add new ROR IDs to the name cache immediately
+	if len(updatedRecord.RorIds) > 0 && h.rorNameCache != nil {
+		h.rorNameCache.AddRorIds(updatedRecord.RorIds)
 	}
 
 	// Redirect to record page

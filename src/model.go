@@ -20,6 +20,7 @@ type Record struct {
 	Categories       []Category       `json:"categories,omitempty"`
 	DownloadCount    int              `json:"download_count"`
 	ModerationStatus ModerationStatus `json:"moderation_status,omitempty"`
+	License          string           `json:"license"`
 }
 
 // RecordHistory represents a historical version of a record
@@ -38,6 +39,7 @@ type RecordHistory struct {
 	ModifiedAt    time.Time       `json:"modified_at"`
 	ArchivedAt    time.Time       `json:"archived_at"`
 	ChangeType    string          `json:"change_type"`
+	License       string          `json:"license"`
 }
 
 type Category struct {
