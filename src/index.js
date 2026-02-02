@@ -1209,16 +1209,48 @@ async function searchRorOrganizations(query, resultsId, selectedId, hiddenInputI
 
     // Display results
     searchResults.innerHTML = '';
+    // Display results
+    searchResults.innerHTML = '';
     organizations.forEach(org => {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'list-group-item list-group-item-action';
+      
+      // Prepare country badge
+      let countryHtml = '';
+      if (org.country && org.country.country_name) {
+        countryHtml = `<span class="badge bg-light text-dark border me-2">${escapeHtml(org.country.country_name)}</span>`;
+      }
+      
+      // Prepare website link
+      let websiteHtml = '';
+      if (org.links && org.links.length > 0) {
+        const url = org.links[0];
+        if (url && (url.startsWith('http') || url.startsWith('https'))) {
+           websiteHtml = `<a href="${escapeHtml(url)}" target="_blank" class="text-decoration-none small me-2" onclick="event.stopPropagation()"><span class="bi bi-globe"></span> Website</a>`;
+        }
+      }
+
+      // Prepare aliases
+      let aliasesHtml = '';
+      if (org.aliases && org.aliases.length > 0) {
+          const displayedAliases = org.aliases.slice(0, 3).join(', ');
+          const moreCount = org.aliases.length - 3;
+          const moreText = moreCount > 0 ? ` (+${moreCount} more)` : '';
+          aliasesHtml = `<div class="small text-muted text-truncate mt-1" title="${escapeHtml(org.aliases.join(', '))}"><em>AKA: ${escapeHtml(displayedAliases)}${moreText}</em></div>`;
+      }
+
       item.innerHTML = `
         <div class="d-flex w-100 justify-content-between">
           <h6 class="mb-1">${escapeHtml(org.name)}</h6>
           <small class="text-muted">${escapeHtml(org.id)}</small>
         </div>
-        ${org.types && org.types.length > 0 ? `<small class="text-muted">${org.types.map(t => escapeHtml(t)).join(', ')}</small>` : ''}
+        <div class="mb-1 d-flex align-items-center flex-wrap">
+            ${org.types && org.types.length > 0 ? `<small class="text-muted me-2">${org.types.map(t => escapeHtml(t)).join(', ')}</small>` : ''}
+            ${countryHtml}
+            ${websiteHtml}
+        </div>
+        ${aliasesHtml}
       `;
 
       item.addEventListener('click', function () {

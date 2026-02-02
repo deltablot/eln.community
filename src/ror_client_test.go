@@ -71,11 +71,7 @@ func TestExtractRorID(t *testing.T) {
 
 func TestGetDisplayName(t *testing.T) {
 	// Test with ror_display type
-	names1 := []struct {
-		Lang  *string  `json:"lang"`
-		Types []string `json:"types"`
-		Value string   `json:"value"`
-	}{
+	names1 := []RorName{
 		{Lang: nil, Types: []string{"label"}, Value: "Label Name"},
 		{Lang: nil, Types: []string{"ror_display"}, Value: "Display Name"},
 	}
@@ -85,11 +81,7 @@ func TestGetDisplayName(t *testing.T) {
 	}
 
 	// Test with only label
-	names2 := []struct {
-		Lang  *string  `json:"lang"`
-		Types []string `json:"types"`
-		Value string   `json:"value"`
-	}{
+	names2 := []RorName{
 		{Lang: nil, Types: []string{"label"}, Value: "Label Name"},
 	}
 	result2 := getDisplayName(names2)
@@ -98,11 +90,7 @@ func TestGetDisplayName(t *testing.T) {
 	}
 
 	// Test with only first name
-	names3 := []struct {
-		Lang  *string  `json:"lang"`
-		Types []string `json:"types"`
-		Value string   `json:"value"`
-	}{
+	names3 := []RorName{
 		{Lang: nil, Types: []string{"other"}, Value: "First Name"},
 	}
 	result3 := getDisplayName(names3)

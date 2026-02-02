@@ -9,34 +9,63 @@ import (
 
 // RorOrganization represents a ROR organization from the API
 type RorOrganization struct {
-	ID    string   `json:"id"`
-	Name  string   `json:"name"`
-	Types []string `json:"types,omitempty"`
+	ID      string      `json:"id"`
+	Name    string      `json:"name"`
+	Types   []string    `json:"types,omitempty"`
+	Country *RorCountry `json:"country,omitempty"`
+	Links   []string    `json:"links,omitempty"`
+	Aliases []string    `json:"aliases,omitempty"`
+}
+
+// RorCountry represents the country information from ROR API
+type RorCountry struct {
+	CountryName string `json:"country_name"`
+	CountryCode string `json:"country_code"`
+}
+
+// RorName represents a name entry from ROR API
+type RorName struct {
+	Lang  *string  `json:"lang"`
+	Types []string `json:"types"`
+	Value string   `json:"value"`
+}
+
+// RorGeonamesDetails represents the geonames details within location from ROR API
+type RorGeonamesDetails struct {
+	CountryName string `json:"country_name"`
+	CountryCode string `json:"country_code"`
+}
+
+// RorLocation represents a location from ROR API
+type RorLocation struct {
+	GeonamesDetails *RorGeonamesDetails `json:"geonames_details"`
+}
+
+// RorLink represents a link entry from ROR API
+type RorLink struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
 }
 
 // RorSearchResponse represents the response from ROR API search
 type RorSearchResponse struct {
 	NumberOfResults int `json:"number_of_results"`
 	Items           []struct {
-		ID    string `json:"id"`
-		Names []struct {
-			Lang  *string  `json:"lang"`
-			Types []string `json:"types"`
-			Value string   `json:"value"`
-		} `json:"names"`
-		Types []string `json:"types"`
+		ID        string        `json:"id"`
+		Names     []RorName     `json:"names"`
+		Types     []string      `json:"types"`
+		Locations []RorLocation `json:"locations"`
+		Links     []RorLink     `json:"links"`
 	} `json:"items"`
 }
 
 // RorDetailResponse represents the response from ROR API for a single organization
 type RorDetailResponse struct {
-	ID    string `json:"id"`
-	Names []struct {
-		Lang  *string  `json:"lang"`
-		Types []string `json:"types"`
-		Value string   `json:"value"`
-	} `json:"names"`
-	Types []string `json:"types"`
+	ID        string        `json:"id"`
+	Names     []RorName     `json:"names"`
+	Types     []string      `json:"types"`
+	Locations []RorLocation `json:"locations"`
+	Links     []RorLink     `json:"links"`
 }
 
 // RorHandler handles ROR-related HTTP requests
