@@ -11,6 +11,11 @@
     <div class="card h-100 organization-card">
       <div class="card-body">
         <h5 class="card-title">{{ .Name }}</h5>
+        {{- if .CountryName}}
+        <p class="card-text text-muted mb-1">
+          <small><i class="bi bi-geo-alt"></i> {{ .CountryName }}</small>
+        </p>
+        {{- end}}
         <p class="card-text text-muted">
           <small>{{ .RecordCount }} template{{ if ne .RecordCount 1 }}s{{ end }}</small>
         </p>

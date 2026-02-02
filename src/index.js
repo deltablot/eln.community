@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Redirect to browse page after toast hides
             successToast.addEventListener('hidden.bs.toast', function () {
               window.location.href = '/browse';
-            }, {once: true});
+            }, { once: true });
 
             toast.show();
           }
@@ -347,7 +347,7 @@ function sanitizeHTML(html) {
 function openHtmlInNewTab(base64Content, entityId) {
   try {
     const htmlContent = decodeURIComponent(escape(atob(base64Content)));
-    const blob = new Blob([htmlContent], {type: 'text/html'});
+    const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
 
     // Create a temporary link and trigger download instead of popup
@@ -424,10 +424,10 @@ function renderRoCrate(data) {
   }
 
   const graph = data['@graph'];
-  
+
   // Types to exclude from display
   const excludedTypes = ['CreateAction', 'CreativeWork', 'PropertyValue', 'SoftwareApplication', 'Thing'];
-  
+
   // Build a lookup map for resolving references (e.g., Person by ID)
   const entityMap = {};
   graph.forEach(entity => {
@@ -435,7 +435,7 @@ function renderRoCrate(data) {
       entityMap[entity['@id']] = entity;
     }
   });
-  
+
   // Helper to resolve author name from Person entity
   function resolveAuthorName(authorRef) {
     if (!authorRef) return null;
@@ -451,7 +451,7 @@ function renderRoCrate(data) {
     }
     return null;
   }
-  
+
   // Helper to resolve category/about name from Thing entity
   function resolveCategoryName(aboutRef) {
     if (!aboutRef) return null;
@@ -462,7 +462,7 @@ function renderRoCrate(data) {
     }
     return null;
   }
-  
+
   // Find all Dataset entities (excluding root "./")
   const datasets = graph.filter(entity => {
     if (!entity || typeof entity !== 'object') return false;
@@ -470,23 +470,23 @@ function renderRoCrate(data) {
     const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
     return types.includes('Dataset');
   });
-  
+
   // Find Comment entities
   const comments = graph.filter(entity => {
     if (!entity || typeof entity !== 'object') return false;
     const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
     return types.includes('Comment');
   });
-  
+
   // Find Organization entities
   const organizations = graph.filter(entity => {
     if (!entity || typeof entity !== 'object') return false;
     const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
     return types.includes('Organization');
   });
-  
+
   let html = '';
-  
+
   // Render Datasets
   if (datasets.length > 0) {
     html += '<h5 class="mb-3">Datasets</h5>';
@@ -494,7 +494,7 @@ function renderRoCrate(data) {
       html += renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName);
     });
   }
-  
+
   // Render Comments
   if (comments.length > 0) {
     html += '<h5 class="mt-4 mb-3">Comments</h5>';
@@ -502,7 +502,7 @@ function renderRoCrate(data) {
       html += renderCommentCard(comment, resolveAuthorName);
     });
   }
-  
+
   // Render Organizations
   if (organizations.length > 0) {
     html += '<h5 class="mt-4 mb-3">Organizations</h5>';
@@ -510,11 +510,11 @@ function renderRoCrate(data) {
       html += renderOrganizationCard(org);
     });
   }
-  
+
   if (html === '') {
     html = '<p class="text-muted">No displayable metadata found</p>';
   }
-  
+
   return html;
 }
 
@@ -529,13 +529,13 @@ function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
   const dateCreated = dataset.dateCreated ? formatDisplayDate(dataset.dateCreated) : null;
   const keywords = dataset.keywords;
   const url = dataset.url;
-  
+
   let html = '<div class="card mb-3">';
   html += '<div class="card-body">';
-  
+
   // Name
   html += `<h6 class="card-title fw-semibold mb-2">${escapeHtml(name)}</h6>`;
-  
+
   // Author
   if (author) {
     html += `<div class="mb-1"><i class="bi bi-person me-2 text-secondary"></i>`;
@@ -545,27 +545,27 @@ function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
     }
     html += '</div>';
   }
-  
+
   // Category
   if (category) {
     html += `<div class="mb-1"><i class="bi bi-folder me-2 text-secondary"></i>`;
     html += `<span class="text-muted">Category:</span> <span class="badge bg-secondary">${escapeHtml(category)}</span></div>`;
   }
-  
+
   // Status
   if (status) {
-    const statusClass = status.toLowerCase().includes('success') ? 'bg-success' : 
-                        status.toLowerCase().includes('fail') ? 'bg-danger' : 'bg-info';
+    const statusClass = status.toLowerCase().includes('success') ? 'bg-success' :
+      status.toLowerCase().includes('fail') ? 'bg-danger' : 'bg-info';
     html += `<div class="mb-1"><i class="bi bi-flag me-2 text-secondary"></i>`;
     html += `<span class="text-muted">Status:</span> <span class="badge ${statusClass}">${escapeHtml(status)}</span></div>`;
   }
-  
+
   // Date Created
   if (dateCreated) {
     html += `<div class="mb-1"><i class="bi bi-calendar me-2 text-secondary"></i>`;
     html += `<span class="text-muted">Created:</span> <span>${escapeHtml(dateCreated)}</span></div>`;
   }
-  
+
   // Keywords/Tags
   if (keywords) {
     const tags = typeof keywords === 'string' ? keywords.split(',').map(t => t.trim()) : keywords;
@@ -578,13 +578,13 @@ function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
     });
     html += '</div>';
   }
-  
+
   // URL
   if (url) {
     html += `<div class="mb-1"><i class="bi bi-link me-2 text-secondary"></i>`;
     html += `<span class="text-muted">URL:</span> <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">${escapeHtml(url)}</a></div>`;
   }
-  
+
   html += '</div></div>';
   return html;
 }
@@ -596,13 +596,13 @@ function renderCommentCard(comment, resolveAuthorName) {
   const author = resolveAuthorName(comment.author);
   const text = comment.text || '';
   const dateCreated = comment.dateCreated ? formatDisplayDate(comment.dateCreated) : null;
-  
+
   let html = '<div class="card mb-2 border-start border-primary border-3">';
   html += '<div class="card-body py-2">';
-  
+
   // Comment text
   html += `<p class="mb-2">${escapeHtml(text)}</p>`;
-  
+
   // Author and date
   html += '<div class="small text-muted">';
   if (author) {
@@ -612,7 +612,7 @@ function renderCommentCard(comment, resolveAuthorName) {
     html += ` <i class="bi bi-clock ms-2 me-1"></i>${escapeHtml(dateCreated)}`;
   }
   html += '</div>';
-  
+
   html += '</div></div>';
   return html;
 }
@@ -624,23 +624,23 @@ function renderOrganizationCard(org) {
   const name = org.name || 'Unnamed Organization';
   const url = org.url;
   const slogan = org.slogan;
-  
+
   let html = '<div class="card mb-2">';
   html += '<div class="card-body py-2">';
-  
+
   // Name
   html += `<h6 class="card-title fw-semibold mb-1">${escapeHtml(name)}</h6>`;
-  
+
   // Slogan
   if (slogan) {
     html += `<p class="small text-muted mb-1">${escapeHtml(slogan)}</p>`;
   }
-  
+
   // URL
   if (url) {
     html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="small text-decoration-none">${escapeHtml(url)}</a>`;
   }
-  
+
   html += '</div></div>';
   return html;
 }
@@ -651,9 +651,9 @@ function renderOrganizationCard(org) {
 function formatDisplayDate(dateStr) {
   try {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -758,11 +758,11 @@ function renderStructuredRecordView(roCrateData) {
   const commonInfoContainer = document.getElementById('common-info-container');
   if (commonInfoContainer && extractedData.commonInfo) {
     // Only update if we have meaningful data from RO-Crate
-    const hasRoCrateData = extractedData.commonInfo.owner || 
-                           extractedData.commonInfo.team || 
-                           extractedData.commonInfo.tags.length > 0 ||
-                           extractedData.commonInfo.startDate;
-    
+    const hasRoCrateData = extractedData.commonInfo.owner ||
+      extractedData.commonInfo.team ||
+      extractedData.commonInfo.tags.length > 0 ||
+      extractedData.commonInfo.startDate;
+
     if (hasRoCrateData) {
       commonInfoContainer.innerHTML = renderCommonInfoBlock(extractedData.commonInfo);
     }
@@ -772,10 +772,10 @@ function renderStructuredRecordView(roCrateData) {
   // Render Main Text Block
   const mainTextContainer = document.getElementById('main-text-container');
   if (mainTextContainer) {
-    const hasMainText = extractedData.mainText.introduction || 
-                        extractedData.mainText.experimentalDesign || 
-                        extractedData.mainText.results;
-    
+    const hasMainText = extractedData.mainText.introduction ||
+      extractedData.mainText.experimentalDesign ||
+      extractedData.mainText.results;
+
     if (hasMainText) {
       mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
     } else {
@@ -788,11 +788,11 @@ function renderStructuredRecordView(roCrateData) {
   const extraFieldsContainer = document.getElementById('extra-fields-container');
   if (extraFieldsContainer) {
     const hasExtraFields = extractedData.extraFields.attachedFiles.length > 0 ||
-                           extractedData.extraFields.experimentLinks.length > 0 ||
-                           extractedData.extraFields.resourceLinks.length > 0 ||
-                           extractedData.extraFields.compounds.length > 0 ||
-                           extractedData.extraFields.storage.length > 0;
-    
+      extractedData.extraFields.experimentLinks.length > 0 ||
+      extractedData.extraFields.resourceLinks.length > 0 ||
+      extractedData.extraFields.compounds.length > 0 ||
+      extractedData.extraFields.storage.length > 0;
+
     if (hasExtraFields) {
       extraFieldsContainer.innerHTML = renderExtraFieldsBlock(extractedData.extraFields);
     } else {
@@ -922,7 +922,7 @@ function initializeEditForm() {
           const recordId = this.action.split('/').pop();
           successToast.addEventListener('hidden.bs.toast', function () {
             window.location.href = '/record/' + recordId;
-          }, {once: true});
+          }, { once: true });
 
           toast.show();
         } else {
@@ -999,7 +999,7 @@ function initializeLicenseCheckbox() {
     if (fileInput.files && fileInput.files.length > 0 && !licenseCheckbox.checked) {
       e.preventDefault();
       e.stopPropagation();
-      
+
       // Show error toast
       const errorToast = document.getElementById('errorToast');
       const errorToastBody = document.getElementById('errorToastBody');
@@ -1008,7 +1008,7 @@ function initializeLicenseCheckbox() {
         const toast = new bootstrap.Toast(errorToast);
         toast.show();
       }
-      
+
       // Focus on the checkbox
       licenseCheckbox.focus();
       return false;
@@ -1073,7 +1073,7 @@ function initializeDeleteButton() {
           // Redirect to browse page after toast hides
           successToast.addEventListener('hidden.bs.toast', function () {
             window.location.href = '/browse';
-          }, {once: true});
+          }, { once: true });
 
           toast.show();
         } else {
@@ -1215,29 +1215,29 @@ async function searchRorOrganizations(query, resultsId, selectedId, hiddenInputI
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'list-group-item list-group-item-action';
-      
+
       // Prepare country badge
       let countryHtml = '';
       if (org.country && org.country.country_name) {
         countryHtml = `<span class="badge bg-light text-dark border me-2">${escapeHtml(org.country.country_name)}</span>`;
       }
-      
+
       // Prepare website link
       let websiteHtml = '';
       if (org.links && org.links.length > 0) {
         const url = org.links[0];
         if (url && (url.startsWith('http') || url.startsWith('https'))) {
-           websiteHtml = `<a href="${escapeHtml(url)}" target="_blank" class="text-decoration-none small me-2" onclick="event.stopPropagation()"><span class="bi bi-globe"></span> Website</a>`;
+          websiteHtml = `<a href="${escapeHtml(url)}" target="_blank" class="text-decoration-none small me-2" onclick="event.stopPropagation()"><span class="bi bi-globe"></span> Website</a>`;
         }
       }
 
       // Prepare aliases
       let aliasesHtml = '';
       if (org.aliases && org.aliases.length > 0) {
-          const displayedAliases = org.aliases.slice(0, 3).join(', ');
-          const moreCount = org.aliases.length - 3;
-          const moreText = moreCount > 0 ? ` (+${moreCount} more)` : '';
-          aliasesHtml = `<div class="small text-muted text-truncate mt-1" title="${escapeHtml(org.aliases.join(', '))}"><em>AKA: ${escapeHtml(displayedAliases)}${moreText}</em></div>`;
+        const displayedAliases = org.aliases.slice(0, 3).join(', ');
+        const moreCount = org.aliases.length - 3;
+        const moreText = moreCount > 0 ? ` (+${moreCount} more)` : '';
+        aliasesHtml = `<div class="small text-muted text-truncate mt-1" title="${escapeHtml(org.aliases.join(', '))}"><em>AKA: ${escapeHtml(displayedAliases)}${moreText}</em></div>`;
       }
 
       item.innerHTML = `
@@ -1281,8 +1281,14 @@ function addRorOrganization(org, selectedId, hiddenInputId) {
   badge.type = 'button';
   badge.className = 'btn btn-primary me-2 mb-2 ror-badge';
   badge.setAttribute('data-ror-id', org.id);
+
+  let countryText = '';
+  if (org.country && org.country.country_name) {
+    countryText = ` <small class="opacity-75">(${escapeHtml(org.country.country_name)})</small>`;
+  }
+
   badge.innerHTML = `
-    <span class="ror-name">${escapeHtml(org.name)}</span>
+    <span class="ror-name">${escapeHtml(org.name)}</span>${countryText}
     <span class="badge bg-light text-dark ms-2">×</span>
   `;
 
@@ -1326,6 +1332,13 @@ async function loadExistingRorNames(selectedId) {
         const nameSpan = badge.querySelector('.ror-name');
         if (nameSpan) {
           nameSpan.textContent = org.name;
+
+          if (org.country && org.country.country_name) {
+            const countrySpan = document.createElement('small');
+            countrySpan.className = 'opacity-75 ms-1';
+            countrySpan.textContent = `(${org.country.country_name})`;
+            nameSpan.after(countrySpan);
+          }
         }
       }
     });
@@ -1360,8 +1373,14 @@ async function loadRorNames() {
     // Build display HTML
     let html = '';
     organizations.forEach((org, index) => {
-      if (index > 0) html += ', ';
-      html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank' rel='noopener noreferrer'>${escapeHtml(org.name)}</a>`;
+      if (index > 0) html += '<br>';
+
+      let countryText = '';
+      if (org.country && org.country.country_name) {
+        countryText = ` <span class="text-muted small">(${escapeHtml(org.country.country_name)})</span>`;
+      }
+
+      html += `<a href='https://ror.org/${escapeHtml(org.id)}' target='_blank' rel='noopener noreferrer'>${escapeHtml(org.name)}</a>${countryText}`;
     });
 
     displayElement.innerHTML = html;
@@ -1417,7 +1436,13 @@ async function loadRorNamesForBrowse() {
         const org = orgMap.get(rorId.trim());
         if (org) {
           if (index > 0) html += ', ';
-          html += `<a href='/browse?ror=${encodeURIComponent(org.id)}' class='ror-filter-link' title='Filter by ${escapeHtml(org.name)}'>${escapeHtml(org.name)}</a>`;
+
+          let countryText = '';
+          if (org.country && org.country.country_name) {
+            countryText = ` <span class="text-muted small">(${escapeHtml(org.country.country_name)})</span>`;
+          }
+
+          html += `<span class="ror-item"><a href='/browse?ror=${encodeURIComponent(org.id)}' class='ror-filter-link' title='Filter by ${escapeHtml(org.name)}'>${escapeHtml(org.name)}</a>${countryText}</span>`;
         }
       });
 
@@ -1569,7 +1594,7 @@ function initializePagination() {
     link.addEventListener('click', function (e) {
       e.preventDefault();
       const page = this.getAttribute('data-page');
-      navigateToBrowse({page: page});
+      navigateToBrowse({ page: page });
     });
   });
 
@@ -1577,7 +1602,7 @@ function initializePagination() {
   const pageSizeSelect = document.getElementById('pageSizeSelect');
   if (pageSizeSelect) {
     pageSizeSelect.addEventListener('change', function () {
-      navigateToBrowse({pageSize: this.value, page: '1'});
+      navigateToBrowse({ pageSize: this.value, page: '1' });
     });
   }
 }
@@ -1647,14 +1672,14 @@ function initializeBrowseSearch() {
 
   // Handle search button click
   searchButton.addEventListener('click', function () {
-    navigateToBrowse({page: '1'});
+    navigateToBrowse({ page: '1' });
   });
 
   // Handle Enter key in search input
   searchInput.addEventListener('keypress', function (e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      navigateToBrowse({page: '1'});
+      navigateToBrowse({ page: '1' });
     }
   });
 
@@ -1663,7 +1688,7 @@ function initializeBrowseSearch() {
     rorInput.addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault();
-        navigateToBrowse({page: '1'});
+        navigateToBrowse({ page: '1' });
       }
     });
   }
@@ -1933,9 +1958,9 @@ function initializeCategoryMultiselect() {
       const categoryIds = Array.from(selectedCategories);
       if (categoryIds.length > 0) {
         // Send multiple categories as comma-separated values
-        navigateToBrowse({category: categoryIds.join(','), page: '1'});
+        navigateToBrowse({ category: categoryIds.join(','), page: '1' });
       } else {
-        navigateToBrowse({category: '', page: '1'});
+        navigateToBrowse({ category: '', page: '1' });
       }
     });
   }
@@ -1966,7 +1991,7 @@ function initializeCategoryMultiselect() {
       // Only navigate if on browse page (has Apply button)
       const applyBtn = document.getElementById('categoryApplyBtn');
       if (applyBtn) {
-        navigateToBrowse({category: '', page: '1'});
+        navigateToBrowse({ category: '', page: '1' });
       }
     });
   }
@@ -2046,10 +2071,10 @@ function initializeCategoryTree() {
       const existingBadge = selectedCategoriesBadges.querySelector(`[data-category-id="${categoryId}"]`);
       if (existingBadge) {
         // Remove if already selected (clear filter)
-        navigateToBrowse({category: '', page: '1'});
+        navigateToBrowse({ category: '', page: '1' });
       } else {
         // Navigate with selected category
-        navigateToBrowse({category: categoryId, page: '1'});
+        navigateToBrowse({ category: categoryId, page: '1' });
       }
     });
   });
@@ -2060,7 +2085,7 @@ function initializeCategoryTree() {
       const badge = e.target.closest('.category-badge');
       if (badge) {
         // Navigate without category filter
-        navigateToBrowse({category: '', page: '1'});
+        navigateToBrowse({ category: '', page: '1' });
       }
     });
   }
@@ -2183,12 +2208,12 @@ function initializeVersionHistory() {
           option.value = version.version;
           const date = new Date(version.archived_at);
           // Format date with time: "Jan 02, 2006 15:04"
-          const formattedDate = date.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: '2-digit', 
-            year: 'numeric' 
-          }) + ' ' + date.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
+          const formattedDate = date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+          }) + ' ' + date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
             minute: '2-digit',
             hour12: false
           });
@@ -2438,7 +2463,7 @@ function initializeBrowseGrid() {
     cacheBlockSize: 10,
     maxBlocksInCache: 10,
     datasource: {
-      getRows: async function(params) {
+      getRows: async function (params) {
         const page = Math.floor(params.startRow / 10) + 1;
         const pageSize = params.endRow - params.startRow;
 
@@ -2465,7 +2490,7 @@ function initializeBrowseGrid() {
               urlParams.set('filterNameType', nameFilter.type || 'contains');
             }
           }
-          
+
           if (params.filterModel.uploaderName) {
             const authorFilter = params.filterModel.uploaderName;
             if (authorFilter.filter) {
@@ -2473,7 +2498,7 @@ function initializeBrowseGrid() {
               urlParams.set('filterAuthorType', authorFilter.type || 'contains');
             }
           }
-          
+
           // Handle number filter (downloadCount)
           if (params.filterModel.downloadCount) {
             const downloadFilter = params.filterModel.downloadCount;
@@ -2520,7 +2545,7 @@ function initializeBrowseGrid() {
 // Moderation functionality
 function initializeModerationButtons() {
   // Use event delegation for moderation buttons
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', function (e) {
     const button = e.target.closest('.moderation-btn');
     if (!button) return;
 
