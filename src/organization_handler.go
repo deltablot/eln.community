@@ -18,6 +18,7 @@ type OrganizationHandler struct {
 type OrganizationInfo struct {
 	ID          string
 	Name        string
+	CountryName string
 	RecordCount int
 }
 
@@ -45,22 +46,37 @@ func (h *OrganizationHandler) GetOrganizationsPage(w http.ResponseWriter, r *htt
 	// Get organization details and count records for each
 	organizations := make([]OrganizationInfo, 0, len(rorIds))
 	for _, rorId := range rorIds {
-		// Get organization name from cache or API
+		// Get organization details from API (includes country)
 		var orgName string
-		if h.rorNameCache != nil {
-			if name, found := h.rorNameCache.Get(rorId); found {
-				orgName = name
-			}
-		}
+		var countryName string
 
-		// Fallback to API if not in cache
-		if orgName == "" && h.rorClient != nil {
+		if h.rorClient != nil {
 			if org, err := h.rorClient.GetOrganization(rorId); err == nil {
 				orgName = org.Name
+				if org.Country != nil {
+					countryName = org.Country.CountryName
+				}
 			} else {
-				log.Printf("Error fetching organization name for %s: %v", rorId, err)
-				orgName = rorId // Fallback to ID
+				log.Printf("Error fetching organization for %s: %v", rorId, err)
+				// Fallback to name cache
+				if h.rorNameCache != nil {
+					if name, found := h.rorNameCache.Get(rorId); found {
+						orgName = name
+					}
+				}
+				if orgName == "" {
+					orgName = rorId // Final fallback to ID
+				}
 			}
+		} else if h.rorNameCache != nil {
+			// No ROR client, use name cache only
+			if name, found := h.rorNameCache.Get(rorId); found {
+				orgName = name
+			} else {
+				orgName = rorId
+			}
+		} else {
+			orgName = rorId
 		}
 
 		// Count records for this organization
@@ -75,6 +91,7 @@ func (h *OrganizationHandler) GetOrganizationsPage(w http.ResponseWriter, r *htt
 			organizations = append(organizations, OrganizationInfo{
 				ID:          rorId,
 				Name:        orgName,
+				CountryName: countryName,
 				RecordCount: count,
 			})
 		}

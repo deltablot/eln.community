@@ -72,11 +72,17 @@ func (c *RorClient) SearchOrganizations(query string) ([]RorOrganization, error)
 	for _, item := range rorResp.Items {
 		rorID := extractRorID(item.ID)
 		displayName := getDisplayName(item.Names)
+		aliases := getAliases(item.Names, displayName)
+		links := extractLinks(item.Links)
+		country := extractCountry(item.Locations)
 
 		organizations = append(organizations, RorOrganization{
-			ID:    rorID,
-			Name:  displayName,
-			Types: item.Types,
+			ID:      rorID,
+			Name:    displayName,
+			Types:   item.Types,
+			Country: country,
+			Links:   links,
+			Aliases: aliases,
 		})
 	}
 
@@ -174,10 +180,18 @@ func (c *RorClient) fetchOrganization(rorID string) (RorOrganization, error) {
 		return RorOrganization{}, fmt.Errorf("failed to parse JSON for %s: %w", rorID, err)
 	}
 
+	displayName := getDisplayName(rorResp.Names)
+	aliases := getAliases(rorResp.Names, displayName)
+	links := extractLinks(rorResp.Links)
+	country := extractCountry(rorResp.Locations)
+
 	org := RorOrganization{
-		ID:    rorID,
-		Name:  getDisplayName(rorResp.Names),
-		Types: rorResp.Types,
+		ID:      rorID,
+		Name:    displayName,
+		Types:   rorResp.Types,
+		Country: country,
+		Links:   links,
+		Aliases: aliases,
 	}
 
 	return org, nil
@@ -228,11 +242,7 @@ func extractRorID(rorURL string) string {
 }
 
 // getDisplayName finds the best display name from the names array
-func getDisplayName(names []struct {
-	Lang  *string  `json:"lang"`
-	Types []string `json:"types"`
-	Value string   `json:"value"`
-}) string {
+func getDisplayName(names []RorName) string {
 	// Priority: ror_display > label > first name
 	var labelName, firstName string
 
@@ -255,4 +265,41 @@ func getDisplayName(names []struct {
 		return labelName
 	}
 	return firstName
+}
+
+// getAliases finds all other names excluding the display name
+func getAliases(names []RorName, displayName string) []string {
+	var aliases []string
+	seen := make(map[string]bool)
+	seen[displayName] = true
+
+	for _, name := range names {
+		if !seen[name.Value] {
+			aliases = append(aliases, name.Value)
+			seen[name.Value] = true
+		}
+	}
+	return aliases
+}
+
+// extractLinks extracts link values from RorLink objects
+func extractLinks(links []RorLink) []string {
+	var results []string
+	for _, link := range links {
+		if link.Value != "" {
+			results = append(results, link.Value)
+		}
+	}
+	return results
+}
+
+// extractCountry extracts country info from locations
+func extractCountry(locations []RorLocation) *RorCountry {
+	if len(locations) > 0 && locations[0].GeonamesDetails != nil {
+		return &RorCountry{
+			CountryName: locations[0].GeonamesDetails.CountryName,
+			CountryCode: locations[0].GeonamesDetails.CountryCode,
+		}
+	}
+	return nil
 }
