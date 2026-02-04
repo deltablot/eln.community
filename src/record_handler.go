@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/lib/pq"
 )
 
 type RecordHandler struct {
@@ -182,6 +183,23 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	// Create record using repository
 	err = h.recordRepo.Create(ctx, tx, &record, key)
 	if err != nil {
+		// Check if this is a PostgreSQL unique constraint violation
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) {
+			if pqErr.Code == "23505" { // unique_violation
+				if strings.Contains(pqErr.Message, "sha256") || strings.Contains(pqErr.Detail, "sha256") {
+					http.Error(w, "Error uploading .eln file: This file already exists in the repository.", http.StatusConflict)
+					return
+				}
+				if strings.Contains(pqErr.Message, "name") || strings.Contains(pqErr.Detail, "name") {
+					http.Error(w, "Error uploading .eln file: An entry with this name already exists.", http.StatusConflict)
+					return
+				}
+				// Generic duplicate key error
+				http.Error(w, "Error uploading .eln file: A duplicate entry already exists.", http.StatusConflict)
+				return
+			}
+		}
 		http.Error(w, fmt.Sprintf("Error inserting record in database: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -1505,6 +1523,22 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		)
 	}
 	if err != nil {
+		// Check if this is a PostgreSQL unique constraint violation
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == "23505" { // unique_violation
+				if strings.Contains(pqErr.Message, "sha256") || strings.Contains(pqErr.Detail, "sha256") {
+					http.Error(w, "Error uploading new version: This file already exists in the repository.", http.StatusConflict)
+					return
+				}
+				if strings.Contains(pqErr.Message, "name") || strings.Contains(pqErr.Detail, "name") {
+					http.Error(w, "Error updating entry: An entry with this name already exists.", http.StatusConflict)
+					return
+				}
+				// Generic duplicate key error
+				http.Error(w, "Error updating entry: A duplicate entry already exists.", http.StatusConflict)
+				return
+			}
+		}
 		http.Error(w, fmt.Sprintf("Error updating record: %v", err), http.StatusInternalServerError)
 		return
 	}
