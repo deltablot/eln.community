@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 var (
@@ -19,6 +21,7 @@ type RecordRepository interface {
 	GetAllByRorIDsPaginated(ctx context.Context, rorIDs []string, limit, offset int, orderBy, sortOrder string, filters map[string]interface{}) ([]Record, int, error)
 	GetAllByOrcidPaginated(ctx context.Context, orcid string, limit, offset int) ([]Record, int, error)
 	SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int, orderBy, sortOrder string, filters map[string]interface{}) ([]Record, int, error)
+	SearchPaginatedWithRorIDs(ctx context.Context, query string, categoryID int64, rorIDs []string, limit, offset int, orderBy, sortOrder string, filters map[string]interface{}) ([]Record, int, error)
 	GetByID(ctx context.Context, id string) (*Record, error)
 	Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error
 	Update(ctx context.Context, tx *sql.Tx, record *Record) error
@@ -584,6 +587,233 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			LIMIT $2 OFFSET $3
 		`, orderByClause)
 		args = []interface{}{"%" + query + "%", limit, offset}
+	}
+
+	// Get total count
+	var totalCount int
+	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := r.db.QueryContext(ctx, sqlQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var records []Record
+	for rows.Next() {
+		var record Record
+		if err := rows.Scan(
+			&record.Id,
+			&record.Sha256,
+			&record.Name,
+			&record.Metadata,
+			&record.CreatedAt,
+			&record.ModifiedAt,
+			&record.UploaderName,
+			&record.UploaderOrcid,
+			&record.DownloadCount,
+		); err != nil {
+			return nil, 0, err
+		}
+
+		// Get categories for this record
+		categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
+		if err != nil {
+			return nil, 0, err
+		}
+		record.Categories = categories
+
+		// Get ROR IDs for this record
+		rorIds, err := r.rorRepo.GetRecordRorIds(ctx, record.Id)
+		if err != nil {
+			return nil, 0, err
+		}
+		record.RorIds = rorIds
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return records, totalCount, nil
+}
+
+// SearchPaginatedWithRorIDs retrieves records based on search query with pagination and organization name matching
+// This method extends SearchPaginated by also searching for records associated with specific ROR IDs (from organization name matches)
+func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context, query string, categoryID int64, rorIDs []string, limit, offset int, orderBy, sortOrder string, filters map[string]interface{}) ([]Record, int, error) {
+	var countQuery string
+	var sqlQuery string
+	var args []interface{}
+	var countArgs []interface{}
+
+	// Build ORDER BY clause with SQL injection protection
+	orderByClause := fmt.Sprintf("ORDER BY r.%s %s", orderBy, strings.ToUpper(sortOrder))
+
+	if categoryID > 0 {
+		// Count query for specific category
+		if len(rorIDs) > 0 {
+			countQuery = `
+				SELECT COUNT(DISTINCT r.id)
+				FROM records r
+				JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = 'approved' AND rc.category_id = $1 AND (
+					r.name ILIKE $2 OR
+					r.metadata::text ILIKE $2 OR
+					r.uploader_name ILIKE $2 OR
+					r.uploader_orcid ILIKE $2 OR
+					rr.ror ILIKE $2 OR
+					c.name ILIKE $2 OR
+					rr.ror = ANY($3)
+				)
+			`
+			countArgs = []interface{}{categoryID, "%" + query + "%", pq.Array(rorIDs)}
+		} else {
+			countQuery = `
+				SELECT COUNT(DISTINCT r.id)
+				FROM records r
+				JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = 'approved' AND rc.category_id = $1 AND (
+					r.name ILIKE $2 OR
+					r.metadata::text ILIKE $2 OR
+					r.uploader_name ILIKE $2 OR
+					r.uploader_orcid ILIKE $2 OR
+					rr.ror ILIKE $2 OR
+					c.name ILIKE $2
+				)
+			`
+			countArgs = []interface{}{categoryID, "%" + query + "%"}
+		}
+
+		// Search within a specific category
+		if len(rorIDs) > 0 {
+			sqlQuery = fmt.Sprintf(`
+				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				FROM records r
+				JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = 'approved' AND rc.category_id = $1 AND (
+					r.name ILIKE $2 OR
+					r.metadata::text ILIKE $2 OR
+					r.uploader_name ILIKE $2 OR
+					r.uploader_orcid ILIKE $2 OR
+					rr.ror ILIKE $2 OR
+					c.name ILIKE $2 OR
+					rr.ror = ANY($3)
+				)
+				%s
+				LIMIT $4 OFFSET $5
+			`, orderByClause)
+			args = []interface{}{categoryID, "%" + query + "%", pq.Array(rorIDs), limit, offset}
+		} else {
+			sqlQuery = fmt.Sprintf(`
+				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				FROM records r
+				JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = 'approved' AND rc.category_id = $1 AND (
+					r.name ILIKE $2 OR
+					r.metadata::text ILIKE $2 OR
+					r.uploader_name ILIKE $2 OR
+					r.uploader_orcid ILIKE $2 OR
+					rr.ror ILIKE $2 OR
+					c.name ILIKE $2
+				)
+				%s
+				LIMIT $3 OFFSET $4
+			`, orderByClause)
+			args = []interface{}{categoryID, "%" + query + "%", limit, offset}
+		}
+	} else {
+		// Count query for all records
+		if len(rorIDs) > 0 {
+			countQuery = `
+				SELECT COUNT(DISTINCT r.id)
+				FROM records r
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = 'approved' AND (
+					r.name ILIKE $1 OR
+					r.metadata::text ILIKE $1 OR
+					r.uploader_name ILIKE $1 OR
+					r.uploader_orcid ILIKE $1 OR
+					rr.ror ILIKE $1 OR
+					c.name ILIKE $1 OR
+					rr.ror = ANY($2)
+				)
+			`
+			countArgs = []interface{}{"%" + query + "%", pq.Array(rorIDs)}
+		} else {
+			countQuery = `
+				SELECT COUNT(DISTINCT r.id)
+				FROM records r
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = 'approved' AND (
+					r.name ILIKE $1 OR
+					r.metadata::text ILIKE $1 OR
+					r.uploader_name ILIKE $1 OR
+					r.uploader_orcid ILIKE $1 OR
+					rr.ror ILIKE $1 OR
+					c.name ILIKE $1
+				)
+			`
+			countArgs = []interface{}{"%" + query + "%"}
+		}
+
+		// Search across all records
+		if len(rorIDs) > 0 {
+			sqlQuery = fmt.Sprintf(`
+				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				FROM records r
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = 'approved' AND (
+					r.name ILIKE $1 OR
+					r.metadata::text ILIKE $1 OR
+					r.uploader_name ILIKE $1 OR
+					r.uploader_orcid ILIKE $1 OR
+					rr.ror ILIKE $1 OR
+					c.name ILIKE $1 OR
+					rr.ror = ANY($2)
+				)
+				%s
+				LIMIT $3 OFFSET $4
+			`, orderByClause)
+			args = []interface{}{"%" + query + "%", pq.Array(rorIDs), limit, offset}
+		} else {
+			sqlQuery = fmt.Sprintf(`
+				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				FROM records r
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = 'approved' AND (
+					r.name ILIKE $1 OR
+					r.metadata::text ILIKE $1 OR
+					r.uploader_name ILIKE $1 OR
+					r.uploader_orcid ILIKE $1 OR
+					rr.ror ILIKE $1 OR
+					c.name ILIKE $1
+				)
+				%s
+				LIMIT $2 OFFSET $3
+			`, orderByClause)
+			args = []interface{}{"%" + query + "%", limit, offset}
+		}
 	}
 
 	// Get total count

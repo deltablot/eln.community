@@ -940,7 +940,20 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 		records = []Record{}
 		totalCount = 0
 	} else if searchQuery != "" {
-		records, totalCount, err = h.recordRepo.SearchPaginated(ctx, searchQuery, selectedCategoryID, pageSize, offset, orderByClause, sortOrder, filters)
+		// Check if search query matches any organization names
+		var searchRorIDs []string
+		if h.rorNameCache != nil {
+			matchingOrgs := h.rorNameCache.Search(searchQuery)
+			if len(matchingOrgs) > 0 {
+				searchRorIDs = make([]string, len(matchingOrgs))
+				for i, org := range matchingOrgs {
+					searchRorIDs[i] = org.ID
+				}
+				log.Printf("API search query '%s' matched %d organizations", searchQuery, len(matchingOrgs))
+			}
+		}
+
+		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(ctx, searchQuery, selectedCategoryID, searchRorIDs, pageSize, offset, orderByClause, sortOrder, filters)
 	} else if len(rorIDs) > 0 {
 		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, pageSize, offset, orderByClause, sortOrder, filters)
 	} else if len(selectedCategoryIDs) > 0 {
@@ -1190,8 +1203,21 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		records = []Record{}
 		totalCount = 0
 	} else if searchQuery != "" {
-		// Search with optional category filter
-		records, totalCount, err = h.recordRepo.SearchPaginated(r.Context(), searchQuery, selectedCategoryID, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
+		// Check if search query matches any organization names
+		var searchRorIDs []string
+		if h.rorNameCache != nil {
+			matchingOrgs := h.rorNameCache.Search(searchQuery)
+			if len(matchingOrgs) > 0 {
+				searchRorIDs = make([]string, len(matchingOrgs))
+				for i, org := range matchingOrgs {
+					searchRorIDs[i] = org.ID
+				}
+				log.Printf("Search query '%s' matched %d organizations", searchQuery, len(matchingOrgs))
+			}
+		}
+
+		// Search with optional category filter and organization matches
+		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(r.Context(), searchQuery, selectedCategoryID, searchRorIDs, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
 		if err != nil {
 			log.Printf("Error in GetBrowsePage searching for '%s': %v", searchQuery, err)
 			http.Error(w, "Error searching records", http.StatusInternalServerError)
