@@ -25,6 +25,11 @@ import (
 	"github.com/lib/pq"
 )
 
+const (
+	// PostgreSQL error codes
+	pqErrCodeUniqueViolation = "23505"
+)
+
 type RecordHandler struct {
 	recordRepo   RecordRepository
 	categoryRepo CategoryRepository
@@ -186,7 +191,7 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		// Check if this is a PostgreSQL unique constraint violation
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) {
-			if pqErr.Code == "23505" { // unique_violation
+			if pqErr.Code == pqErrCodeUniqueViolation {
 				if strings.Contains(pqErr.Message, "sha256") || strings.Contains(pqErr.Detail, "sha256") {
 					http.Error(w, "Error uploading .eln file: This file already exists in the repository.", http.StatusConflict)
 					return
@@ -1525,7 +1530,7 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	if err != nil {
 		// Check if this is a PostgreSQL unique constraint violation
 		if pqErr, ok := err.(*pq.Error); ok {
-			if pqErr.Code == "23505" { // unique_violation
+			if pqErr.Code == pqErrCodeUniqueViolation {
 				if strings.Contains(pqErr.Message, "sha256") || strings.Contains(pqErr.Detail, "sha256") {
 					http.Error(w, "Error uploading new version: This file already exists in the repository.", http.StatusConflict)
 					return
