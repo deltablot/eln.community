@@ -105,8 +105,12 @@ func (c *RorNameCache) getAllRorIdsFromDB(ctx context.Context) ([]string, error)
 	return c.rorRepo.GetAllUniqueRorIds(ctx)
 }
 
-// Search searches for organizations by name with wildcard support
+// Search searches for organizations by name with fuzzy/partial matching support
 // Returns a list of matching ROR IDs and their names
+// Supports:
+// - Partial word matching (e.g., "Humbo" matches "Humboldt University")
+// - Case-insensitive matching
+// - Multiple word matching
 func (c *RorNameCache) Search(query string) []RorOrganization {
 	if query == "" {
 		return []RorOrganization{}
@@ -120,7 +124,39 @@ func (c *RorNameCache) Search(query string) []RorOrganization {
 	var results []RorOrganization
 	for rorID, name := range c.cache {
 		nameLower := strings.ToLower(name)
+
+		// Check for direct substring match
 		if strings.Contains(nameLower, query) {
+			results = append(results, RorOrganization{
+				ID:   rorID,
+				Name: name,
+			})
+			continue
+		}
+
+		// Check for word-by-word partial matching
+		// This allows "Humbo" to match "Humboldt University"
+		queryWords := strings.Fields(query)
+		nameWords := strings.Fields(nameLower)
+
+		matchCount := 0
+		for _, qWord := range queryWords {
+			for _, nWord := range nameWords {
+				// Check if any name word starts with the query word (prefix match)
+				if strings.HasPrefix(nWord, qWord) {
+					matchCount++
+					break
+				}
+				// Also check if query word is contained in name word
+				if strings.Contains(nWord, qWord) {
+					matchCount++
+					break
+				}
+			}
+		}
+
+		// If all query words matched at least one name word, include it
+		if matchCount == len(queryWords) {
 			results = append(results, RorOrganization{
 				ID:   rorID,
 				Name: name,
