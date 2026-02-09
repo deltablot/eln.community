@@ -49,23 +49,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         if (response.ok) {
-          // Show success toast
-          const successToast = document.getElementById('successToast');
-          if (successToast) {
-            const toast = new bootstrap.Toast(successToast, {
-              delay: 3000,
-              autohide: true
-            });
-
-            // Redirect to browse page after toast hides
-            successToast.addEventListener('hidden.bs.toast', function () {
-              window.location.href = '/browse';
-            }, { once: true });
-
-            toast.show();
+          // Hide the form and show success message
+          const formContainer = document.getElementById('uploadFormContainer');
+          const successMessage = document.getElementById('uploadSuccessMessage');
+          
+          if (formContainer && successMessage) {
+            formContainer.classList.add('d-none');
+            successMessage.classList.remove('d-none');
+            // Scroll to top to ensure message is visible
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }
-
-          this.reset();
         } else {
           // Show error toast
           const errorText = await response.text();
@@ -77,6 +70,13 @@ document.addEventListener('DOMContentLoaded', function () {
             toast.show();
           }
           console.error('Upload failed:', errorText);
+          
+          // Re-enable submit button on error
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            spinner?.classList.add('d-none');
+            if (btnText) btnText.textContent = 'Send';
+          }
         }
       } catch (error) {
         // Show error toast for network/other errors
@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', function () {
           toast.show();
         }
         console.error('Upload error:', error);
-      } finally {
-        // Reset button state
+        
+        // Re-enable submit button on error
         if (submitBtn) {
           submitBtn.disabled = false;
           spinner?.classList.add('d-none');
@@ -908,29 +908,24 @@ function initializeEditForm() {
       });
 
       if (response.ok) {
-        // Show success toast
-        const successToast = document.getElementById('successToast');
-        const successToastBody = successToast?.querySelector('.toast-body');
-        if (successToast && successToastBody) {
-          successToastBody.textContent = 'Entry updated successfully!';
-          const toast = new bootstrap.Toast(successToast, {
-            delay: 2000,
-            autohide: true
-          });
-
-          // Redirect to record page after toast hides
-          const recordId = this.action.split('/').pop();
-          successToast.addEventListener('hidden.bs.toast', function () {
-            window.location.href = '/record/' + recordId;
-          }, { once: true });
-
-          toast.show();
+        const formContainer = document.getElementById('editFormContainer');
+        
+        if (hasFile) {
+          // New version uploaded - show moderation message
+          const successMessage = document.getElementById('uploadSuccessMessage');
+          if (formContainer && successMessage) {
+            formContainer.classList.add('d-none');
+            successMessage.classList.remove('d-none');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
         } else {
-          // Fallback redirect if no toast
-          const recordId = this.action.split('/').pop();
-          setTimeout(() => {
-            window.location.href = '/record/' + recordId;
-          }, 1000);
+          // Metadata update only - show simple success message
+          const successMessage = document.getElementById('updateSuccessMessage');
+          if (formContainer && successMessage) {
+            formContainer.classList.add('d-none');
+            successMessage.classList.remove('d-none');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
         }
       } else {
         // Show error toast
