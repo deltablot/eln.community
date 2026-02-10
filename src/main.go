@@ -460,7 +460,7 @@ func main() {
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
 	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorNameCache, rorClient)
 	historyRepo := NewPostgresHistoryRepository(db)
-	historyHandler := NewHistoryHandler(historyRepo)
+	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
 
 	// Initialize moderation handler

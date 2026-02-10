@@ -123,8 +123,14 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 		return err
 	}
 
+	// Set a session variable to tell the trigger to skip (avoid duplicate history entries)
+	// The pending version is already in history, so we don't need the trigger to archive it again
+	_, err = tx.ExecContext(ctx, `SET LOCAL app.skip_audit_trigger = 'true'`)
+	if err != nil {
+		return err
+	}
+
 	// Update the main record with the pending version data
-	// The trigger will automatically archive the old version to history
 	_, err = tx.ExecContext(ctx,
 		`UPDATE records 
 		 SET s3_key = $2, name = $3, sha256 = $4, metadata = $5, moderation_status = 'approved', modified_at = NOW()
