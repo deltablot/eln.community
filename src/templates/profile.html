@@ -66,13 +66,17 @@
           </td>
           <td>
             {{ if eq .ModerationStatus "pending_review" }}
-            <span class="badge bg-warning text-dark">Pending</span>
+            <span class="badge bg-warning text-dark">Pending Review</span>
+            {{ else if eq .ModerationStatus "pending" }}
+            <span class="badge bg-warning text-dark">Pending Version</span>
             {{ else if eq .ModerationStatus "approved" }}
             <span class="badge bg-success">Approved</span>
             {{ else if eq .ModerationStatus "rejected" }}
             <span class="badge bg-danger">Rejected</span>
+            {{ else if eq .ModerationStatus "flagged" }}
+            <span class="badge bg-warning text-dark">Flagged</span>
             {{ else }}
-            <span class="badge bg-secondary">-</span>
+            <span class="badge bg-secondary">Unknown</span>
             {{ end }}
           </td>
           <td>

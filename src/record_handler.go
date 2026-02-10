@@ -732,17 +732,37 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Check permissions for non-approved versions
+		if historyRecord.ModerationStatus != StatusApproved {
+			// Get current user
+			orcid, isAuthenticated := sessionManager.Get(ctx, "orcid").(string)
+			if !isAuthenticated {
+				http.Error(w, "This version is not publicly available", http.StatusForbidden)
+				return
+			}
+
+			// Check if user is admin or owner
+			isAdmin, _ := h.adminRepo.IsAdmin(ctx, orcid)
+			isOwner := historyRecord.UploaderOrcid == orcid
+
+			if !isAdmin && !isOwner {
+				http.Error(w, "This version is not publicly available", http.StatusForbidden)
+				return
+			}
+		}
+
 		// Convert RecordHistory to Record for display
 		record = &Record{
-			Id:            historyRecord.RecordId,
-			Name:          historyRecord.Name,
-			Sha256:        historyRecord.Sha256,
-			Metadata:      historyRecord.Metadata,
-			CreatedAt:     historyRecord.CreatedAt,
-			ModifiedAt:    historyRecord.ModifiedAt,
-			UploaderName:  historyRecord.UploaderName,
-			UploaderOrcid: historyRecord.UploaderOrcid,
-			DownloadCount: historyRecord.DownloadCount,
+			Id:               historyRecord.RecordId,
+			Name:             historyRecord.Name,
+			Sha256:           historyRecord.Sha256,
+			Metadata:         historyRecord.Metadata,
+			CreatedAt:        historyRecord.CreatedAt,
+			ModifiedAt:       historyRecord.ModifiedAt,
+			UploaderName:     historyRecord.UploaderName,
+			UploaderOrcid:    historyRecord.UploaderOrcid,
+			DownloadCount:    historyRecord.DownloadCount,
+			ModerationStatus: historyRecord.ModerationStatus,
 		}
 		isHistorical = true
 		historyVersion = version
@@ -1513,39 +1533,62 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 	defer tx.Rollback()
 
-	// Update record (this will trigger the history table via database trigger)
+	// Update record
 	if hasNewFile {
-		// Update with new file info
+		// For new file uploads, insert into history as pending version instead of updating main record
+		// Get next version number
+		var nextVersion int
+		err = tx.QueryRowContext(ctx,
+			`SELECT COALESCE(MAX(version), 0) + 1 FROM record_history WHERE record_id = $1`,
+			updatedRecord.Id,
+		).Scan(&nextVersion)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error getting next version: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Insert new version into history with pending status
 		_, err = tx.ExecContext(ctx,
-			`UPDATE records SET name = $2, sha256 = $3, metadata = $4, s3_key = $5, modified_at = now() WHERE id = $1`,
-			updatedRecord.Id, updatedRecord.Name, updatedRecord.Sha256, updatedRecord.Metadata, newS3Key,
+			`INSERT INTO record_history (
+				record_id, version, s3_key, name, sha256, metadata,
+				uploader_name, uploader_orcid, download_count,
+				created_at, modified_at, moderation_status, change_type
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, $9, 'pending', 'PENDING_VERSION')`,
+			updatedRecord.Id, nextVersion, newS3Key, updatedRecord.Name, updatedRecord.Sha256, updatedRecord.Metadata,
+			existingRecord.UploaderName, existingRecord.UploaderOrcid, existingRecord.CreatedAt,
 		)
+		if err != nil {
+			// Check if this is a PostgreSQL unique constraint violation
+			if pqErr, ok := err.(*pq.Error); ok {
+				if pqErr.Code == pqErrCodeUniqueViolation {
+					if strings.Contains(pqErr.Message, "sha256") || strings.Contains(pqErr.Detail, "sha256") {
+						http.Error(w, "Error uploading new version: This file already exists in the repository.", http.StatusConflict)
+						return
+					}
+				}
+			}
+			http.Error(w, fmt.Sprintf("Error inserting pending version: %v", err), http.StatusInternalServerError)
+			return
+		}
 	} else {
-		// Update only name
+		// Update only name (no moderation needed for metadata-only updates)
 		_, err = tx.ExecContext(ctx,
 			`UPDATE records SET name = $2, modified_at = now() WHERE id = $1`,
 			updatedRecord.Id, updatedRecord.Name,
 		)
-	}
-	if err != nil {
-		// Check if this is a PostgreSQL unique constraint violation
-		if pqErr, ok := err.(*pq.Error); ok {
-			if pqErr.Code == pqErrCodeUniqueViolation {
-				if strings.Contains(pqErr.Message, "sha256") || strings.Contains(pqErr.Detail, "sha256") {
-					http.Error(w, "Error uploading new version: This file already exists in the repository.", http.StatusConflict)
-					return
+		if err != nil {
+			// Check if this is a PostgreSQL unique constraint violation
+			if pqErr, ok := err.(*pq.Error); ok {
+				if pqErr.Code == pqErrCodeUniqueViolation {
+					if strings.Contains(pqErr.Message, "name") || strings.Contains(pqErr.Detail, "name") {
+						http.Error(w, "Error updating entry: An entry with this name already exists.", http.StatusConflict)
+						return
+					}
 				}
-				if strings.Contains(pqErr.Message, "name") || strings.Contains(pqErr.Detail, "name") {
-					http.Error(w, "Error updating entry: An entry with this name already exists.", http.StatusConflict)
-					return
-				}
-				// Generic duplicate key error
-				http.Error(w, "Error updating entry: A duplicate entry already exists.", http.StatusConflict)
-				return
 			}
+			http.Error(w, fmt.Sprintf("Error updating record: %v", err), http.StatusInternalServerError)
+			return
 		}
-		http.Error(w, fmt.Sprintf("Error updating record: %v", err), http.StatusInternalServerError)
-		return
 	}
 
 	// Update ROR associations

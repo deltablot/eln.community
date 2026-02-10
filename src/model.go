@@ -25,21 +25,22 @@ type Record struct {
 
 // RecordHistory represents a historical version of a record
 type RecordHistory struct {
-	HistoryId     int64           `json:"history_id"`
-	RecordId      string          `json:"record_id"`
-	Version       int             `json:"version"`
-	S3Key         string          `json:"-"`
-	Name          string          `json:"name"`
-	Sha256        string          `json:"sha256"`
-	Metadata      json.RawMessage `json:"metadata"`
-	UploaderName  string          `json:"uploader_name"`
-	UploaderOrcid string          `json:"uploader_orcid"`
-	DownloadCount int             `json:"download_count"`
-	CreatedAt     time.Time       `json:"created_at"`
-	ModifiedAt    time.Time       `json:"modified_at"`
-	ArchivedAt    time.Time       `json:"archived_at"`
-	ChangeType    string          `json:"change_type"`
-	License       string          `json:"license"`
+	HistoryId        int64            `json:"history_id"`
+	RecordId         string           `json:"record_id"`
+	Version          int              `json:"version"`
+	S3Key            string           `json:"-"`
+	Name             string           `json:"name"`
+	Sha256           string           `json:"sha256"`
+	Metadata         json.RawMessage  `json:"metadata"`
+	UploaderName     string           `json:"uploader_name"`
+	UploaderOrcid    string           `json:"uploader_orcid"`
+	DownloadCount    int              `json:"download_count"`
+	CreatedAt        time.Time        `json:"created_at"`
+	ModifiedAt       time.Time        `json:"modified_at"`
+	ArchivedAt       time.Time        `json:"archived_at"`
+	ChangeType       string           `json:"change_type"`
+	ModerationStatus ModerationStatus `json:"moderation_status,omitempty"`
+	License          string           `json:"license"`
 }
 
 type Category struct {

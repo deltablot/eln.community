@@ -2212,7 +2212,18 @@ function initializeVersionHistory() {
             minute: '2-digit',
             hour12: false
           });
-          option.textContent = `Version ${version.version} - ${version.name} (${formattedDate})`;
+          
+          // Add moderation status indicator
+          let statusText = '';
+          if (version.moderation_status === 'pending') {
+            statusText = ' [Pending Moderation]';
+          } else if (version.moderation_status === 'rejected') {
+            statusText = ' [Rejected]';
+          } else if (version.moderation_status === 'flagged') {
+            statusText = ' [Flagged]';
+          }
+          
+          option.textContent = `Version ${version.version} - ${version.name} (${formattedDate})${statusText}`;
 
           // Select this option if it matches current version
           if (currentVersion === version.version.toString()) {
