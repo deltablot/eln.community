@@ -1,3 +1,6 @@
+-- Rollback version-based moderation system
+-- This reverts all changes made in the version-based moderation migration
+
 -- Drop the triggers
 DROP TRIGGER IF EXISTS trigger_record_audit ON records;
 DROP TRIGGER IF EXISTS trigger_record_delete_audit ON records;
@@ -6,7 +9,7 @@ DROP TRIGGER IF EXISTS trigger_record_delete_audit ON records;
 DROP FUNCTION IF EXISTS record_audit_trigger();
 DROP FUNCTION IF EXISTS record_delete_audit_trigger();
 
--- Recreate the old functions without moderation_status
+-- Recreate the old functions without moderation_status, content-only detection, or skip flag
 CREATE OR REPLACE FUNCTION record_audit_trigger()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -32,11 +35,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_record_audit
-BEFORE UPDATE ON records
-FOR EACH ROW
-EXECUTE FUNCTION record_audit_trigger();
-
 CREATE OR REPLACE FUNCTION record_delete_audit_trigger()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -60,10 +58,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Recreate the triggers
+CREATE TRIGGER trigger_record_audit
+BEFORE UPDATE ON records
+FOR EACH ROW
+EXECUTE FUNCTION record_audit_trigger();
+
 CREATE TRIGGER trigger_record_delete_audit
 BEFORE DELETE ON records
 FOR EACH ROW
 EXECUTE FUNCTION record_delete_audit_trigger();
+
+-- Remove version_name column from moderation_actions
+ALTER TABLE moderation_actions DROP COLUMN IF EXISTS version_name;
 
 -- Remove moderation_status column from record_history
 ALTER TABLE record_history DROP COLUMN IF EXISTS moderation_status;
