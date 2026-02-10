@@ -20,12 +20,13 @@ const (
 
 // ModerationAction represents an admin action on a record
 type ModerationAction struct {
-	ID         int64
-	RecordID   string
-	AdminOrcid string
-	Action     string // "approve", "reject", "flag"
-	Reason     string
-	CreatedAt  time.Time
+	ID          int64
+	RecordID    string
+	AdminOrcid  string
+	Action      string // "approve", "reject", "flag"
+	Reason      string
+	VersionName string // Name of the version that was moderated
+	CreatedAt   time.Time
 }
 
 // PendingItem represents an item in the moderation queue
@@ -448,9 +449,9 @@ func (r *PostgresModerationRepository) getRecordsByStatus(ctx context.Context, s
 
 func (r *PostgresModerationRepository) LogModerationAction(ctx context.Context, action ModerationAction) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO moderation_actions (record_id, admin_orcid, action, reason, created_at)
-		 VALUES ($1, $2, $3, $4, $5)`,
-		action.RecordID, action.AdminOrcid, action.Action, action.Reason, time.Now(),
+		`INSERT INTO moderation_actions (record_id, admin_orcid, action, reason, version_name, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		action.RecordID, action.AdminOrcid, action.Action, action.Reason, action.VersionName, time.Now(),
 	)
 	return err
 }
@@ -497,9 +498,10 @@ type ModerationHistoryEntry struct {
 // GetRecentModerationHistory returns recent moderation actions with record names
 func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Context, limit int) ([]ModerationHistoryEntry, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT ma.id, ma.record_id, ma.admin_orcid, ma.action, ma.reason, ma.created_at, r.name
+		`SELECT ma.id, ma.record_id, ma.admin_orcid, ma.action, ma.reason, ma.created_at, 
+		        COALESCE(NULLIF(ma.version_name, ''), r.name) as display_name
 		 FROM moderation_actions ma
-		 JOIN records r ON ma.record_id = r.id
+		 LEFT JOIN records r ON ma.record_id = r.id
 		 ORDER BY ma.created_at DESC
 		 LIMIT $1`,
 		limit,

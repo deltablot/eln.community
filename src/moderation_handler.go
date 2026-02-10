@@ -160,6 +160,31 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Get the version name before moderation (for logging)
+	versionName := ""
+
+	// Try to get pending version name first
+	var pendingName string
+	err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
+		`SELECT name FROM record_history 
+		 WHERE record_id = $1 AND moderation_status = 'pending' AND change_type = 'PENDING_VERSION'
+		 ORDER BY version DESC LIMIT 1`,
+		id,
+	).Scan(&pendingName)
+	if err == nil {
+		versionName = pendingName
+	} else {
+		// No pending version, get main record name
+		err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
+			`SELECT name FROM records WHERE id = $1`,
+			id,
+		).Scan(&versionName)
+		if err != nil {
+			errorLogger.Printf("Error getting record name for logging: %v", err)
+			versionName = "" // Continue anyway
+		}
+	}
+
 	// Validate action
 	var newStatus ModerationStatus
 	switch req.Action {
@@ -191,10 +216,11 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Log moderation action
 	action := ModerationAction{
-		RecordID:   id,
-		AdminOrcid: orcid,
-		Action:     req.Action,
-		Reason:     req.Reason,
+		RecordID:    id,
+		AdminOrcid:  orcid,
+		Action:      req.Action,
+		Reason:      req.Reason,
+		VersionName: versionName,
 	}
 	if err := h.moderationRepo.LogModerationAction(ctx, action); err != nil {
 		errorLogger.Printf("Error logging moderation action: %v", err)
