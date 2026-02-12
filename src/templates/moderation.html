@@ -25,29 +25,38 @@
 <div class="container py-4">
     <h1 class="mb-4">Moderation Queue</h1>
     
-    {{if eq (len .Records) 0}}
+    {{if eq (len .Items) 0}}
         <div class="alert alert-success text-center">
-            <p class="mb-0 fs-5">✓ No records pending review</p>
+            <p class="mb-0 fs-5">✓ No items pending review</p>
         </div>
     {{else}}
         <p class="text-muted mb-4">
-            Showing {{len .Records}} of {{.TotalCount}} pending records
+            Showing {{len .Items}} of {{.TotalCount}} pending items
         </p>
 
         <div class="row g-4">
-            {{range .Records}}
+            {{range .Items}}
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
+                            <div class="flex-grow-1">
+                                {{if .IsNewEntry}}
+                                <span class="badge bg-info text-dark mb-2">New Entry</span>
+                                {{else}}
+                                <span class="badge bg-warning text-dark mb-2">New Version (v{{.Version}})</span>
+                                <div class="text-muted small mb-2">
+                                    <strong>Current approved version:</strong> {{.CurrentVersion}}
+                                </div>
+                                {{end}}
                                 <h5 class="card-title mb-2">
-                                    <a href="/record/{{.Id}}" class="text-decoration-none">{{.Name}}</a>
+                                    <a href="/record/{{.RecordID}}" class="text-decoration-none">{{.Name}}</a>
                                 </h5>
                                 <div class="text-muted small">
                                     <p class="mb-1"><strong>Uploader:</strong> {{.UploaderName}} ({{.UploaderOrcid}})</p>
                                     <p class="mb-1"><strong>Uploaded:</strong> {{.CreatedAt.Format "2006-01-02 15:04:05"}}</p>
-                                    <p class="mb-1"><strong>ID:</strong> <code>{{.Id}}</code></p>
+                                    <p class="mb-1"><strong>ID:</strong> <code>{{.RecordID}}</code></p>
+                                    <p class="mb-1"><strong>SHA256:</strong> <code class="small">{{.Sha256}}</code></p>
                                     {{if .Categories}}
                                     <p class="mb-0"><strong>Categories:</strong> 
                                         {{range $i, $cat := .Categories}}
@@ -68,17 +77,22 @@
 
                         <div class="d-flex flex-row gap-2 flex-wrap">
                             <button class="btn btn-success moderation-btn"
-                                    data-record-id="{{.Id}}"
+                                    data-record-id="{{.RecordID}}"
                                     data-action="approve">
                                 <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
-                                <span class="btn-text">✓ Approve</span>
+                                <span class="btn-text">✓ Approve{{if not .IsNewEntry}} Version{{end}}</span>
                             </button>
                             <button class="btn btn-danger moderation-btn"
-                                    data-record-id="{{.Id}}"
+                                    data-record-id="{{.RecordID}}"
                                     data-action="reject">
                                 <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
-                                <span class="btn-text">✗ Reject</span>
+                                <span class="btn-text">✗ Reject{{if not .IsNewEntry}} Version{{end}}</span>
                             </button>
+                            {{if not .IsNewEntry}}
+                            <a href="/record/{{.RecordID}}" class="btn btn-outline-secondary">
+                                View Current Version
+                            </a>
+                            {{end}}
                         </div>
                     </div>
                 </div>

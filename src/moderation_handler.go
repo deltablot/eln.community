@@ -49,16 +49,16 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 	pageSize := 20
 	offset := (page - 1) * pageSize
 
-	// Get pending records
-	records, totalCount, err := h.moderationRepo.GetPendingRecords(ctx, pageSize, offset)
+	// Get pending items (both new entries and pending versions)
+	items, totalCount, err := h.moderationRepo.GetPendingItems(ctx, pageSize, offset)
 	if err != nil {
-		http.Error(w, "Error fetching pending records", http.StatusInternalServerError)
+		http.Error(w, "Error fetching pending items", http.StatusInternalServerError)
 		return
 	}
 
-	// Prettify metadata for each record
-	for i := range records {
-		records[i].MetadataPretty = prettyJSON(records[i].Metadata)
+	// Prettify metadata for each item
+	for i := range items {
+		items[i].MetadataPretty = prettyJSON(items[i].Metadata)
 	}
 
 	// Get recent moderation history
@@ -95,7 +95,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 	data := struct {
 		App         App
 		User        *User
-		Records     []Record
+		Items       []PendingItem
 		History     []ModerationHistoryEntry
 		CurrentPage string
 		Page        int
@@ -104,7 +104,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 	}{
 		App:         app,
 		User:        user,
-		Records:     records,
+		Items:       items,
 		History:     history,
 		CurrentPage: "moderation",
 		Page:        page,
@@ -160,32 +160,67 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Get the version name before moderation (for logging)
+	versionName := ""
+
+	// Try to get pending version name first
+	var pendingName string
+	err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
+		`SELECT name FROM record_history 
+		 WHERE record_id = $1 AND moderation_status = 'pending' AND change_type = 'PENDING_VERSION'
+		 ORDER BY version DESC LIMIT 1`,
+		id,
+	).Scan(&pendingName)
+	if err == nil {
+		versionName = pendingName
+	} else {
+		// No pending version, get main record name
+		err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
+			`SELECT name FROM records WHERE id = $1`,
+			id,
+		).Scan(&versionName)
+		if err != nil {
+			errorLogger.Printf("Error getting record name for logging: %v", err)
+			versionName = "" // Continue anyway
+		}
+	}
+
 	// Validate action
 	var newStatus ModerationStatus
 	switch req.Action {
 	case "approve":
 		newStatus = StatusApproved
+		// Check if there's a pending version to approve
+		if err := h.moderationRepo.ApprovePendingVersion(ctx, id); err != nil {
+			http.Error(w, "Error approving record/version", http.StatusInternalServerError)
+			return
+		}
 	case "reject":
 		newStatus = StatusRejected
+		// Check if there's a pending version to reject
+		if err := h.moderationRepo.RejectPendingVersion(ctx, id); err != nil {
+			http.Error(w, "Error rejecting record/version", http.StatusInternalServerError)
+			return
+		}
 	case "flag":
 		newStatus = StatusFlagged
+		// Update record status
+		if err := h.moderationRepo.SetRecordStatus(ctx, id, newStatus); err != nil {
+			http.Error(w, "Error updating record status", http.StatusInternalServerError)
+			return
+		}
 	default:
 		http.Error(w, "Invalid action. Must be 'approve', 'reject', or 'flag'", http.StatusBadRequest)
 		return
 	}
 
-	// Update record status
-	if err := h.moderationRepo.SetRecordStatus(ctx, id, newStatus); err != nil {
-		http.Error(w, "Error updating record status", http.StatusInternalServerError)
-		return
-	}
-
 	// Log moderation action
 	action := ModerationAction{
-		RecordID:   id,
-		AdminOrcid: orcid,
-		Action:     req.Action,
-		Reason:     req.Reason,
+		RecordID:    id,
+		AdminOrcid:  orcid,
+		Action:      req.Action,
+		Reason:      req.Reason,
+		VersionName: versionName,
 	}
 	if err := h.moderationRepo.LogModerationAction(ctx, action); err != nil {
 		errorLogger.Printf("Error logging moderation action: %v", err)

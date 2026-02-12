@@ -26,7 +26,7 @@ func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID str
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT history_id, record_id, version, s3_key, name, sha256, metadata,
 		       uploader_name, uploader_orcid, download_count,
-		       created_at, modified_at, archived_at, change_type, license
+		       created_at, modified_at, archived_at, change_type, moderation_status, license
 		FROM record_history
 		WHERE record_id = $1
 		ORDER BY version DESC
@@ -39,13 +39,15 @@ func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID str
 	var history []RecordHistory
 	for rows.Next() {
 		var h RecordHistory
+		var moderationStatus string
 		if err := rows.Scan(
 			&h.HistoryId, &h.RecordId, &h.Version, &h.S3Key, &h.Name, &h.Sha256, &h.Metadata,
 			&h.UploaderName, &h.UploaderOrcid, &h.DownloadCount,
-			&h.CreatedAt, &h.ModifiedAt, &h.ArchivedAt, &h.ChangeType, &h.License,
+			&h.CreatedAt, &h.ModifiedAt, &h.ArchivedAt, &h.ChangeType, &moderationStatus, &h.License,
 		); err != nil {
 			return nil, err
 		}
+		h.ModerationStatus = ModerationStatus(moderationStatus)
 		history = append(history, h)
 	}
 
@@ -55,16 +57,17 @@ func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID str
 // GetVersion retrieves a specific version from history
 func (r *PostgresHistoryRepository) GetVersion(ctx context.Context, recordID string, version int) (*RecordHistory, error) {
 	var h RecordHistory
+	var moderationStatus string
 	err := r.db.QueryRowContext(ctx, `
 		SELECT history_id, record_id, version, s3_key, name, sha256, metadata,
 		       uploader_name, uploader_orcid, download_count,
-		       created_at, modified_at, archived_at, change_type, license
+		       created_at, modified_at, archived_at, change_type, moderation_status, license
 		FROM record_history
 		WHERE record_id = $1 AND version = $2
 	`, recordID, version).Scan(
 		&h.HistoryId, &h.RecordId, &h.Version, &h.S3Key, &h.Name, &h.Sha256, &h.Metadata,
 		&h.UploaderName, &h.UploaderOrcid, &h.DownloadCount,
-		&h.CreatedAt, &h.ModifiedAt, &h.ArchivedAt, &h.ChangeType, &h.License,
+		&h.CreatedAt, &h.ModifiedAt, &h.ArchivedAt, &h.ChangeType, &moderationStatus, &h.License,
 	)
 
 	if err == sql.ErrNoRows {
@@ -74,5 +77,6 @@ func (r *PostgresHistoryRepository) GetVersion(ctx context.Context, recordID str
 		return nil, err
 	}
 
+	h.ModerationStatus = ModerationStatus(moderationStatus)
 	return &h, nil
 }

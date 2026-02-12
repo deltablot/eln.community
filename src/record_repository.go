@@ -941,12 +941,23 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 		return nil, 0, err
 	}
 
-	// Get paginated records
+	// Get paginated records with pending version check
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status
-		FROM records
-		WHERE uploader_orcid = $1
-		ORDER BY created_at DESC
+		SELECT 
+			r.id, r.name, r.sha256, r.metadata, r.created_at, r.modified_at, 
+			r.uploader_name, r.uploader_orcid, r.download_count, r.moderation_status,
+			CASE 
+				WHEN EXISTS (
+					SELECT 1 FROM record_history rh 
+					WHERE rh.record_id = r.id 
+					AND rh.moderation_status = 'pending' 
+					AND rh.change_type = 'PENDING_VERSION'
+				) THEN 'pending'
+				ELSE r.moderation_status
+			END as effective_status
+		FROM records r
+		WHERE r.uploader_orcid = $1
+		ORDER BY r.created_at DESC
 		LIMIT $2 OFFSET $3
 	`, orcid, limit, offset)
 	if err != nil {
@@ -958,6 +969,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 	for rows.Next() {
 		var rec Record
 		var moderationStatus string
+		var effectiveStatus string
 		err := rows.Scan(
 			&rec.Id,
 			&rec.Name,
@@ -969,11 +981,13 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 			&rec.UploaderOrcid,
 			&rec.DownloadCount,
 			&moderationStatus,
+			&effectiveStatus,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
-		rec.ModerationStatus = ModerationStatus(moderationStatus)
+		// Use effective status which considers pending versions
+		rec.ModerationStatus = ModerationStatus(effectiveStatus)
 
 		// Fetch categories for this record
 		categories, err := r.categoryRepo.GetRecordCategories(ctx, rec.Id)
