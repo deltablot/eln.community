@@ -223,6 +223,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Record, error) {
 	var record Record
 	var moderationStatus string
+	var archiveReason sql.NullString
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status, license, archived_at, archive_reason
 		FROM records
@@ -240,7 +241,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 		&moderationStatus,
 		&record.License,
 		&record.ArchivedAt,
-		&record.ArchiveReason,
+		&archiveReason,
 	)
 
 	if err == sql.ErrNoRows {
@@ -251,6 +252,9 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 	}
 
 	record.ModerationStatus = ModerationStatus(moderationStatus)
+	if archiveReason.Valid {
+		record.ArchiveReason = archiveReason.String
+	}
 
 	// Get categories for this record
 	categories, err := r.categoryRepo.GetRecordCategories(ctx, record.Id)
