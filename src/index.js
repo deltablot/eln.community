@@ -2252,6 +2252,56 @@ function initializeVersionHistory() {
       console.error('Error loading version history:', err);
       versionCount.textContent = 'Error loading';
     });
+
+  // Handle "Get permalink" button
+  const permalinkBtn = document.getElementById('get-permalink-btn');
+  if (permalinkBtn) {
+    permalinkBtn.addEventListener('click', () => {
+      const selectedVersion = versionSelector.value;
+      let permalinkUrl;
+      
+      if (selectedVersion === 'current') {
+        // For current version, we need to get the actual version number
+        // The current version is the latest archived version + 1, or 1 if no versions exist
+        fetch(`/api/v1/records/${recordId}/versions`)
+          .then(response => response.json())
+          .then(data => {
+            const versions = data.versions || [];
+            const currentVersionNumber = versions.length > 0 ? Math.max(...versions.map(v => v.version)) + 1 : 1;
+            permalinkUrl = `${window.location.origin}/record/${recordId}?version=${currentVersionNumber}`;
+            copyPermalinkToClipboard(permalinkUrl);
+          })
+          .catch(err => {
+            console.error('Error getting current version:', err);
+            alert('Failed to generate permalink. Please try again.');
+          });
+      } else {
+        // For historical versions, use the selected version number
+        permalinkUrl = `${window.location.origin}/record/${recordId}?version=${selectedVersion}`;
+        copyPermalinkToClipboard(permalinkUrl);
+      }
+    });
+  }
+
+  function copyPermalinkToClipboard(url) {
+    navigator.clipboard.writeText(url).then(() => {
+      // Show success feedback
+      const originalText = permalinkBtn.innerHTML;
+      permalinkBtn.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
+      permalinkBtn.classList.remove('btn-outline-primary');
+      permalinkBtn.classList.add('btn-success');
+      
+      setTimeout(() => {
+        permalinkBtn.innerHTML = originalText;
+        permalinkBtn.classList.remove('btn-success');
+        permalinkBtn.classList.add('btn-outline-primary');
+      }, 2000);
+    }).catch(err => {
+      console.error('Failed to copy permalink:', err);
+      // Fallback: show the URL in a prompt
+      prompt('Copy this permalink:', url);
+    });
+  }
 }
 
 // Initialize version history when DOM is loaded
