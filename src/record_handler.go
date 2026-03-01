@@ -316,6 +316,12 @@ func (h *RecordHandler) GetRecordMetadata(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Block downloads on archived records
+	if record.IsArchived() {
+		http.Error(w, "This record has been archived and is not available for download", http.StatusForbidden)
+		return
+	}
+
 	// Create a human-friendly filename using the record name
 	sanitizedName := sanitizeFilename(record.Name)
 	filename := fmt.Sprintf("%s-metadata.json", sanitizedName)
@@ -344,6 +350,12 @@ func (h *RecordHandler) GetRecordZIP(w http.ResponseWriter, r *http.Request, id 
 			http.Error(w, "Database error", http.StatusInternalServerError)
 			log.Printf("db error fetching record for %s: %v", id, err)
 		}
+		return
+	}
+
+	// Block downloads on archived records
+	if record.IsArchived() {
+		http.Error(w, "This record has been archived and is not available for download", http.StatusForbidden)
 		return
 	}
 
@@ -428,12 +440,14 @@ func (h *RecordHandler) Router(w http.ResponseWriter, r *http.Request) {
 		h.CreateRecord(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && strings.HasSuffix(path, "/download") && r.Method == "POST":
 		h.handleIncrementDownload(w, r)
+	case strings.HasPrefix(path, "/api/v1/record/") && strings.HasSuffix(path, "/unarchive") && r.Method == "POST":
+		h.handleUnarchiveRecord(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && r.Method == "GET":
 		h.handleGetRecord(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && (r.Method == "PUT" || r.Method == "PATCH" || r.Method == "POST"):
 		h.handleUpdateRecord(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && r.Method == "DELETE":
-		h.handleDeleteRecord(w, r)
+		h.handleArchiveRecord(w, r)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -541,7 +555,7 @@ func (h *RecordHandler) handleUpdateRecord(w http.ResponseWriter, r *http.Reques
 		}
 
 		if r.FormValue("_method") == "DELETE" {
-			h.DeleteRecord(w, r, id)
+			h.ArchiveRecord(w, r, id)
 			return
 		}
 	}
@@ -549,8 +563,8 @@ func (h *RecordHandler) handleUpdateRecord(w http.ResponseWriter, r *http.Reques
 	h.UpdateRecord(w, r, id)
 }
 
-// handleDeleteRecord processes DELETE requests for individual records
-func (h *RecordHandler) handleDeleteRecord(w http.ResponseWriter, r *http.Request) {
+// handleArchiveRecord processes DELETE requests as archive (soft delete)
+func (h *RecordHandler) handleArchiveRecord(w http.ResponseWriter, r *http.Request) {
 	const prefix = "/api/v1/record/"
 	if !strings.HasPrefix(r.URL.Path, prefix) {
 		http.NotFound(w, r)
@@ -565,7 +579,27 @@ func (h *RecordHandler) handleDeleteRecord(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.DeleteRecord(w, r, id)
+	h.ArchiveRecord(w, r, id)
+}
+
+// handleUnarchiveRecord processes POST requests to unarchive a record
+func (h *RecordHandler) handleUnarchiveRecord(w http.ResponseWriter, r *http.Request) {
+	const prefix = "/api/v1/record/"
+	const suffix = "/unarchive"
+	if !strings.HasPrefix(r.URL.Path, prefix) || !strings.HasSuffix(r.URL.Path, suffix) {
+		http.NotFound(w, r)
+		return
+	}
+
+	raw := strings.TrimPrefix(r.URL.Path, prefix)
+	id := strings.TrimSuffix(raw, suffix)
+
+	if !uuidv7Regex.MatchString(id) {
+		http.Error(w, "Invalid id format", http.StatusBadRequest)
+		return
+	}
+
+	h.UnarchiveRecord(w, r, id)
 }
 
 // uploadToS3 handles S3 upload logic
@@ -803,10 +837,14 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	isArchived := record.IsArchived()
+
 	data := RecordPageData{
 		App:            app,
 		Record:         *record,
-		CanEdit:        canEdit && !isHistorical, // Can't edit historical versions
+		CanEdit:        canEdit && !isHistorical && !isArchived, // Can't edit historical or archived records
+		CanArchive:     canEdit,                                 // Same permission as edit (owner or admin)
+		IsArchived:     isArchived,
 		User:           user,
 		CurrentPage:    "",
 		IsHistorical:   isHistorical,
@@ -1637,8 +1675,8 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	http.Redirect(w, r, fmt.Sprintf("/record/%s", id), http.StatusSeeOther)
 }
 
-// DeleteRecord handles DELETE requests to remove a record
-func (h *RecordHandler) DeleteRecord(w http.ResponseWriter, r *http.Request, id string) {
+// ArchiveRecord handles archive (soft delete) requests for a record
+func (h *RecordHandler) ArchiveRecord(w http.ResponseWriter, r *http.Request, id string) {
 	ctx := r.Context()
 
 	// Check if user is authenticated
@@ -1648,7 +1686,7 @@ func (h *RecordHandler) DeleteRecord(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	// Get the existing record to check ownership and get S3 key
+	// Get the existing record to check ownership
 	existingRecord, err := h.recordRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrRecordNotFound) {
@@ -1667,46 +1705,71 @@ func (h *RecordHandler) DeleteRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 
 	if existingRecord.UploaderOrcid != orcid && !isAdmin {
-		http.Error(w, "You can only delete your own records", http.StatusForbidden)
+		http.Error(w, "You can only archive your own records", http.StatusForbidden)
 		return
 	}
 
-	// Get S3 key for file deletion
-	s3Key, err := h.recordRepo.GetS3Key(ctx, id)
+	// Parse archive reason from form
+	reason := strings.TrimSpace(r.FormValue("archive_reason"))
+	if reason == "" {
+		http.Error(w, "Archive reason is required", http.StatusBadRequest)
+		return
+	}
+
+	// Archive the record (soft delete)
+	err = h.recordRepo.Archive(ctx, id, reason)
 	if err != nil {
-		http.Error(w, "Error getting S3 key", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error archiving record: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Start transaction
-	tx, err := db.BeginTx(ctx, nil)
+	// Redirect to record page
+	http.Redirect(w, r, fmt.Sprintf("/record/%s", id), http.StatusSeeOther)
+}
+
+// UnarchiveRecord handles unarchive requests for a record
+func (h *RecordHandler) UnarchiveRecord(w http.ResponseWriter, r *http.Request, id string) {
+	ctx := r.Context()
+
+	// Check if user is authenticated
+	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
+	if !okO {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get the existing record to check ownership
+	existingRecord, err := h.recordRepo.GetByID(ctx, id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error starting transaction: %v", err), http.StatusInternalServerError)
+		if errors.Is(err, ErrRecordNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+		}
 		return
 	}
-	defer tx.Rollback()
 
-	// Delete from database
-	err = h.recordRepo.Delete(ctx, tx, id)
+	// Check if user owns this record or is admin
+	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error deleting record: %v", err), http.StatusInternalServerError)
+		http.Error(w, "Error checking admin status", http.StatusInternalServerError)
 		return
 	}
 
-	// Commit transaction
-	if err = tx.Commit(); err != nil {
-		http.Error(w, fmt.Sprintf("Error committing transaction: %v", err), http.StatusInternalServerError)
+	if existingRecord.UploaderOrcid != orcid && !isAdmin {
+		http.Error(w, "You can only unarchive your own records", http.StatusForbidden)
 		return
 	}
 
-	// Delete from S3
-	if err := h.deleteFromS3(s3Key); err != nil {
-		log.Printf("Warning: Failed to delete S3 object %s: %v", s3Key, err)
-		// Don't fail the request if S3 deletion fails
+	// Unarchive the record
+	err = h.recordRepo.Unarchive(ctx, id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error unarchiving record: %v", err), http.StatusInternalServerError)
+		return
 	}
 
-	// Redirect to browse page
-	http.Redirect(w, r, "/browse", http.StatusSeeOther)
+	// Redirect to record page
+	http.Redirect(w, r, fmt.Sprintf("/record/%s", id), http.StatusSeeOther)
 }
 
 // GetEditPage handles GET requests for the edit form
@@ -1749,6 +1812,12 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 		return
 	}
 
+	// Redirect to record page if archived (prevent editing)
+	if record.IsArchived() {
+		http.Redirect(w, r, fmt.Sprintf("/record/%s", id), http.StatusSeeOther)
+		return
+	}
+
 	// Get all categories for the dropdown
 	categories, err := h.categoryRepo.GetAllHierarchical(ctx)
 	if err != nil {
@@ -1783,22 +1852,3 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 	}
 }
 
-// deleteFromS3 handles S3 file deletion
-func (h *RecordHandler) deleteFromS3(key string) error {
-	s3Client, err := newS3Client()
-	if err != nil {
-		return fmt.Errorf("failed to configure S3 client: %w", err)
-	}
-
-	bucketName := os.Getenv("BUCKET_NAME")
-	if bucketName == "" {
-		return fmt.Errorf("BUCKET_NAME not set")
-	}
-
-	_, err = s3Client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(key),
-	})
-
-	return err
-}

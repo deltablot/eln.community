@@ -21,6 +21,13 @@ type Record struct {
 	DownloadCount    int              `json:"download_count"`
 	ModerationStatus ModerationStatus `json:"moderation_status,omitempty"`
 	License          string           `json:"license"`
+	ArchivedAt       *time.Time       `json:"archived_at,omitempty"`
+	ArchiveReason    string           `json:"archive_reason,omitempty"`
+}
+
+// IsArchived returns true if the record has been archived
+func (r *Record) IsArchived() bool {
+	return r.ArchivedAt != nil
 }
 
 // RecordHistory represents a historical version of a record
@@ -67,6 +74,8 @@ type RecordPageData struct {
 	App
 	Record         Record
 	CanEdit        bool
+	CanArchive     bool
+	IsArchived     bool
 	User           *User
 	CurrentPage    string
 	IsHistorical   bool

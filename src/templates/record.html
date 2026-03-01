@@ -1,9 +1,21 @@
 {{ define "title" }}{{ .Record.Name }}{{ end }}
 
 {{ define "content" }}
+{{ if .IsArchived }}
+<div class="alert alert-danger" role="alert">
+  <strong>This entry has been archived.</strong>
+  {{ if .Record.ArchiveReason }}<br>Reason: {{ .Record.ArchiveReason }}{{ end }}
+  {{ if .CanArchive }}
+  <form method="post" action="/api/v1/record/{{ .Record.Id }}/unarchive" class="d-inline ms-2">
+    <button type="submit" class="btn btn-warning btn-sm">Unarchive</button>
+  </form>
+  {{ end }}
+</div>
+{{ end }}
+
 {{ if .IsHistorical }}
 <div class="alert alert-warning alert-dismissible fade show" role="alert">
-  <strong>Historical Version {{ .HistoryVersion }}</strong> - You are viewing an archived version of this record. 
+  <strong>Historical Version {{ .HistoryVersion }}</strong> - You are viewing an archived version of this record.
   <a href="/record/{{ .Record.Id }}" class="alert-link">View current version</a>
   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
@@ -107,8 +119,10 @@
   <h4 class="mb-0">RO-Crate Metadata</h4>
   <div class="d-flex align-items-center gap-3">
     <span>Downloads: <span id="download-count">{{ .Record.DownloadCount }}</span></span>
+    {{ if not .IsArchived }}
     <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.json">Download Metadata</a>
     <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.eln" id="download-eln-btn" data-record-id="{{ .Record.Id }}">Download ELN File</a>
+    {{ end }}
   </div>
 </div>
 <div id="ro-crate-viewer">

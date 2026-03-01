@@ -67,7 +67,9 @@
             {{ end }}
           </td>
           <td>
-            {{ if eq .ModerationStatus "pending_review" }}
+            {{ if .ArchivedAt }}
+            <span class="badge bg-danger">Archived</span>
+            {{ else if eq .ModerationStatus "pending_review" }}
             <span class="badge bg-warning text-dark">Pending Review</span>
             {{ else if eq .ModerationStatus "pending" }}
             <span class="badge bg-warning text-dark">Pending Version</span>
@@ -88,8 +90,10 @@
           </td>
           <td class="text-end">
             <a class="btn btn-sm btn-primary me-1" href="/record/{{ .Id }}">View</a>
+            {{ if not .ArchivedAt }}
             <a class="btn btn-sm btn-outline-secondary me-1" href="/api/v1/record/{{ .Id }}.eln">Download</a>
             <a class="btn btn-sm btn-outline-primary" href="/api/v1/record/{{ .Id }}/edit">Edit</a>
+            {{ end }}
           </td>
         </tr>
         {{ end }}

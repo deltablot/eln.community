@@ -1011,39 +1011,56 @@ function initializeLicenseCheckbox() {
   }, true); // Use capture phase to run before other submit handlers
 }
 
-// Handle delete button click
-function initializeDeleteButton() {
-  const deleteBtn = document.getElementById('deleteBtn');
-  const deleteForm = document.querySelector('form.delete-record-form');
-  const deleteModal = document.getElementById('deleteConfirmModal');
-  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+// Handle archive button click
+function initializeArchiveButton() {
+  const archiveBtn = document.getElementById('archiveBtn');
+  const archiveForm = document.querySelector('form.archive-record-form');
+  const archiveModal = document.getElementById('archiveConfirmModal');
+  const confirmArchiveBtn = document.getElementById('confirmArchiveBtn');
+  const archiveReasonInput = document.getElementById('archiveReason');
+  const archiveReasonHidden = document.getElementById('archiveReasonHidden');
 
-  if (!deleteBtn || !deleteForm || !deleteModal || !confirmDeleteBtn) {
+  if (!archiveBtn || !archiveForm || !archiveModal || !confirmArchiveBtn) {
     return; // Not on edit page
   }
 
-  // Show modal when delete button is clicked
-  deleteBtn.addEventListener('click', function (e) {
+  // Enable/disable confirm button based on reason textarea
+  if (archiveReasonInput) {
+    archiveReasonInput.addEventListener('input', function () {
+      confirmArchiveBtn.disabled = this.value.trim().length === 0;
+    });
+  }
+
+  // Show modal when archive button is clicked
+  archiveBtn.addEventListener('click', function (e) {
     e.preventDefault();
-    const modal = new bootstrap.Modal(deleteModal);
+    const modal = new bootstrap.Modal(archiveModal);
     modal.show();
   });
 
-  // Handle actual delete when confirmed
-  confirmDeleteBtn.addEventListener('click', async function (e) {
+  // Handle actual archive when confirmed
+  confirmArchiveBtn.addEventListener('click', async function (e) {
     e.preventDefault();
 
-    const modal = bootstrap.Modal.getInstance(deleteModal);
-    const originalText = confirmDeleteBtn.textContent;
-    confirmDeleteBtn.disabled = true;
-    confirmDeleteBtn.textContent = 'Deleting...';
+    // Copy reason to hidden form field
+    if (archiveReasonInput && archiveReasonHidden) {
+      archiveReasonHidden.value = archiveReasonInput.value.trim();
+    }
+
+    const modal = bootstrap.Modal.getInstance(archiveModal);
+    const originalText = confirmArchiveBtn.textContent;
+    confirmArchiveBtn.disabled = true;
+    confirmArchiveBtn.textContent = 'Archiving...';
 
     // Convert form data to URL-encoded format
-    const formData = new FormData(deleteForm);
+    const formData = new FormData(archiveForm);
     const urlEncodedData = new URLSearchParams(formData).toString();
 
+    // Extract the record ID from the form action URL
+    const recordId = archiveForm.action.split('/api/v1/record/')[1];
+
     try {
-      const response = await fetch(deleteForm.action, {
+      const response = await fetch(archiveForm.action, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -1055,28 +1072,8 @@ function initializeDeleteButton() {
         // Hide modal
         modal.hide();
 
-        // Show success toast
-        const successToast = document.getElementById('successToast');
-        const successToastBody = successToast?.querySelector('.toast-body');
-        if (successToast && successToastBody) {
-          successToastBody.textContent = 'Entry deleted successfully!';
-          const toast = new bootstrap.Toast(successToast, {
-            delay: 2000,
-            autohide: true
-          });
-
-          // Redirect to browse page after toast hides
-          successToast.addEventListener('hidden.bs.toast', function () {
-            window.location.href = '/browse';
-          }, { once: true });
-
-          toast.show();
-        } else {
-          // Fallback redirect if no toast
-          setTimeout(() => {
-            window.location.href = '/browse';
-          }, 1000);
-        }
+        // Redirect to record page
+        window.location.href = '/record/' + recordId;
       } else {
         // Hide modal
         modal.hide();
@@ -1086,15 +1083,15 @@ function initializeDeleteButton() {
         const errorToast = document.getElementById('errorToast');
         const errorToastBody = document.getElementById('errorToastBody');
         if (errorToast && errorToastBody) {
-          errorToastBody.textContent = errorText || 'Delete failed. Please try again.';
+          errorToastBody.textContent = errorText || 'Archive failed. Please try again.';
           const toast = new bootstrap.Toast(errorToast);
           toast.show();
         }
-        console.error('Delete failed:', errorText);
+        console.error('Archive failed:', errorText);
 
         // Reset button state
-        confirmDeleteBtn.disabled = false;
-        confirmDeleteBtn.textContent = originalText;
+        confirmArchiveBtn.disabled = false;
+        confirmArchiveBtn.textContent = originalText;
       }
     } catch (error) {
       // Hide modal
@@ -1108,11 +1105,11 @@ function initializeDeleteButton() {
         const toast = new bootstrap.Toast(errorToast);
         toast.show();
       }
-      console.error('Delete error:', error);
+      console.error('Archive error:', error);
 
       // Reset button state
-      confirmDeleteBtn.disabled = false;
-      confirmDeleteBtn.textContent = originalText;
+      confirmArchiveBtn.disabled = false;
+      confirmArchiveBtn.textContent = originalText;
     }
   });
 }
@@ -1120,7 +1117,7 @@ function initializeDeleteButton() {
 // Initialize edit and delete forms when DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
   initializeEditForm();
-  initializeDeleteButton();
+  initializeArchiveButton();
   initializeLicenseCheckbox();
 });
 
