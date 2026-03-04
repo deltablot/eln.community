@@ -42,7 +42,7 @@ import (
 
 //go:generate bash build.sh
 
-//go:embed dist/index.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
+//go:embed dist/index.js* dist/comments.js* dist/moderation-comments.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
 var staticFiles embed.FS
 
 var (
@@ -467,6 +467,10 @@ func main() {
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
 	moderationHandler := NewModerationHandler(moderationRepo, adminRepo)
 
+	// Initialize comment handler
+	commentRepo := NewPostgresCommentRepository(db)
+	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo)
+
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
 	mux.HandleFunc("GET /api/v1/record/", recordHandler.Router)
@@ -490,6 +494,14 @@ func main() {
 	// Moderation API routes
 	mux.HandleFunc("/api/v1/moderation/", moderationHandler.Router)
 
+	// Comment API routes
+	mux.HandleFunc("POST /api/v1/records/{id}/comments", commentHandler.createComment)
+	mux.HandleFunc("GET /api/v1/records/{id}/comments", commentHandler.getComments)
+	mux.HandleFunc("GET /api/v1/moderation/comments", commentHandler.getPendingComments)
+	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/approve", commentHandler.approveComment)
+	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", commentHandler.rejectComment)
+	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteComment)
+
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))
 	mux.Handle("/organizations", securityHeaders(http.HandlerFunc(organizationHandler.GetOrganizationsPage)))
@@ -503,6 +515,8 @@ func main() {
 
 	// TODO use DEV env var to serve files directly to avoid recompilation
 	mux.HandleFunc("GET /index.js", serveAsset)
+	mux.HandleFunc("GET /comments.js", serveAsset)
+	mux.HandleFunc("GET /moderation-comments.js", serveAsset)
 	mux.HandleFunc("GET /robots.txt", serveAsset)
 	//http.HandleFunc("GET /index.css", serveAsset)
 	mux.HandleFunc("GET /main.css", serveAsset)

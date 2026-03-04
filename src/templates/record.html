@@ -175,6 +175,59 @@
   </div>
 </div>
 
+<hr class="section-divider mt-4">
+
+<!-- Comments Section -->
+<div class="mt-4" id="comments-section">
+  <h4 class="mb-3">
+    <i class="bi bi-chat-left-text me-2"></i>Comments
+    <span class="badge bg-secondary" id="comment-count">0</span>
+  </h4>
+
+  {{ if .User }}
+  <!-- Comment Form -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Add a Comment</h5>
+      <form id="comment-form">
+        <div class="mb-3">
+          <label for="comment-content" class="form-label">Your comment (plain text only)</label>
+          <textarea 
+            class="form-control" 
+            id="comment-content" 
+            rows="4" 
+            maxlength="5000" 
+            placeholder="Share your thoughts about this entry..."
+            required></textarea>
+          <div class="form-text">
+            <span id="char-count">0</span> / 5000 characters
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="submit-comment-btn">
+          <i class="bi bi-send me-1"></i>Post Comment
+        </button>
+      </form>
+    </div>
+  </div>
+  {{ else }}
+  <!-- Login prompt -->
+  <div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i>
+    <a href="/auth/login" class="alert-link">Sign in</a> to post a comment.
+  </div>
+  {{ end }}
+
+  <!-- Comments List -->
+  <div id="comments-list">
+    <div class="text-center p-4">
+      <div class="spinner-border spinner-border-sm" role="status">
+        <span class="visually-hidden">Loading comments...</span>
+      </div>
+      <p class="mt-2 text-muted">Loading comments...</p>
+    </div>
+  </div>
+</div>
+
 <!-- Pass JSON data safely to JavaScript -->
 <script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
 <script type="application/json" id="record-id-data">{{ toJson .Record.Id }}</script>
@@ -193,5 +246,7 @@
 <script src="/record-extractor.js"></script>
 <!-- Load main JavaScript file -->
 <script src="/index.js"></script>
+<!-- Load comments functionality -->
+<script type="module" src="/comments.js"></script>
 
 {{ end }}
