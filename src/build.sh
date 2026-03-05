@@ -15,6 +15,8 @@ yarn run esbuild \
   --bundle \
   --outdir=$DIST_DIR \
   $SRC_DIR/index.js \
+  $SRC_DIR/comments.js \
+  $SRC_DIR/moderation-comments.js \
   $SRC_DIR/main.css \
   --loader:.css=css
 
