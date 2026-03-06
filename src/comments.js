@@ -72,13 +72,25 @@ async function loadComments(recordId) {
     const response = await fetch(`/api/v1/records/${recordId}/comments`);
     
     if (!response.ok) {
+      // If 404, treat as no comments (endpoint might not exist yet)
+      if (response.status === 404) {
+        commentCount.textContent = '0';
+        commentsList.innerHTML = `
+          <div class="text-center p-4 text-muted">
+            <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
+            <p class="mt-2">No comments yet. Be the first to comment!</p>
+          </div>
+        `;
+        return;
+      }
       throw new Error('Failed to load comments');
     }
 
     const comments = await response.json();
     
-    // Update count
-    commentCount.textContent = comments.length;
+    // Update count - only count approved comments for public display
+    const approvedComments = comments.filter(c => c.moderation_status === 'approved');
+    commentCount.textContent = approvedComments.length;
 
     // Render comments
     if (comments.length === 0) {
@@ -89,7 +101,28 @@ async function loadComments(recordId) {
         </div>
       `;
     } else {
-      commentsList.innerHTML = comments.map(renderComment).join('');
+      const commentsHtml = comments.map(renderComment).join('');
+      
+      // Show admin notice if there are pending/rejected comments
+      const pendingCount = comments.filter(c => c.moderation_status === 'pending_review').length;
+      const rejectedCount = comments.filter(c => c.moderation_status === 'rejected').length;
+      
+      let adminNotice = '';
+      if (pendingCount > 0 || rejectedCount > 0) {
+        const notices = [];
+        if (pendingCount > 0) notices.push(`${pendingCount} pending review`);
+        if (rejectedCount > 0) notices.push(`${rejectedCount} rejected`);
+        
+        adminNotice = `
+          <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Admin View:</strong> You are seeing all comments including ${notices.join(' and ')}.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        `;
+      }
+      
+      commentsList.innerHTML = adminNotice + commentsHtml;
     }
   } catch (error) {
     console.error('Error loading comments:', error);
