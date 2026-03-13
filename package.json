@@ -3,5 +3,11 @@
   "packageManager": "yarn@4.6.0",
   "dependencies": {
     "esbuild": "^0.25.2"
+  },
+  "devDependencies": {
+    "cypress": "^15.11.0"
+  },
+  "scripts": {
+      "cy:open": "yarn cypress open"
   }
 }
