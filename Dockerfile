@@ -16,7 +16,7 @@ RUN apk add --no-cache brotli bash
 WORKDIR /home/node
 USER node
 COPY --chown=node:node src src
-COPY package.json src/
+COPY --chown=node:node package.json src/
 COPY yarn.lock src/
 WORKDIR /home/node/src
 RUN yarn install
