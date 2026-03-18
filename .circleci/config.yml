@@ -1,0 +1,18 @@
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+        name: build local
+          command: |
+            echo 'Hello World'
+            echo 'This is the delivery pipeline'
+      - run:
+        name: second steps
+          command: |
+            ls -local
+            echo 'the files in the repo'
+
