@@ -8,7 +8,7 @@ jobs:
       - run:
         name: build local
           command: |
-            echo 'Hello World'
+            echo 'Test pipeline'
             echo 'This is the delivery pipeline'
       - run:
         name: second steps
