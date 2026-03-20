@@ -1,5 +1,5 @@
 describe('about.html', () => {
-  it('visit about', () => {
+  it('visit about test', () => {
       cy.visit('/about')
       cy.url().should('include', '/about')
       cy.get('nav').should('exist')
