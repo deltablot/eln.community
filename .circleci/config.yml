@@ -7,9 +7,3 @@ jobs:
       - checkout
       - run:
         name: build local
-      - run:
-        name: second steps
-          command: |
-            ls -local
-            echo 'the files in the repo'
-
