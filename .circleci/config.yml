@@ -21,6 +21,9 @@ jobs:
       - run:
           name: "Seeding database"
           command: echo 'Hello world'
+      - run:
+          name: "second step"
+          command: ls
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
