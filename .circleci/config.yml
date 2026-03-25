@@ -32,6 +32,12 @@ commands:
           command: |
             docker exec -it eln-community-dev cli db seed
 
+  start_cypress:
+    steps:
+      - run:
+        name: start cypress
+        command: yarn cypress run
+
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
 jobs:
@@ -52,6 +58,23 @@ jobs:
             - cypress.config.ts
             - src/
 
+  cypress_e2e_tests:
+    executor: eln-executor
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: docker29
+      - start_cypress
+      - run:
+          name: create folders
+          command: mkdir -p cypress/{screenshots,videos}
+      - run:
+          name: run Cypress e2e tests on Chrome
+          command: yarn cypress open
+      - store_artifacts:
+          path: cypress
+          destination: cypress
+
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
 workflows:
@@ -60,3 +83,6 @@ workflows:
   build_and_test:
     jobs:
       - prepare_workspace
+      - cypress_e2e_tests:
+          requires:
+            - prepare_workspace
