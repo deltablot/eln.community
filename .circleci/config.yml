@@ -40,7 +40,7 @@ commands:
           command: |
             sudo apt update
             sudo apt install yarn
-            yatn --version
+            yarn --version
 
   build_cypress:
     steps:
