@@ -35,6 +35,9 @@ commands:
   start_cypress:
     steps:
       - run:
+          name: install yarn
+          command: yarn install
+      - run:
           name: start cypress
           command: yarn cypress run
 
