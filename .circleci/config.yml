@@ -46,7 +46,7 @@ commands:
     steps:
       - run:
           name: build cypress
-          command: yarn install cypress
+          command: yarn add cypress
 
   start_cypress:
     steps:
