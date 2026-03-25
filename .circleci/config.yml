@@ -32,13 +32,21 @@ commands:
           command: |
             docker exec -it eln-community-dev cli db seed
 
+  install_dependencies:
+    description: install yarn
+    steps:
+      - run:
+          name: install yarn
+          command: |
+            sudo apt update
+            sudo apt install yarn
+            yatn --version
+
   build_cypress:
     steps:
       - run:
           name: build cypress
-          command: |
-            yarn install
-            yarn add cypress --dev
+          command: yarn install cypress
 
   start_cypress:
     steps:
@@ -66,20 +74,30 @@ jobs:
             - cypress.config.ts
             - src/
 
+  go_unit_tests:
+    executor: eln-executor
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: docker29
+      - attach_workspace:
+          at: .
+      - build
+
   cypress_e2e_tests:
     executor: eln-executor
     steps:
       - checkout
       - setup_remote_docker:
           version: docker29
+      - attach_workspace:
+          at: .
+      - build
       - build_cypress
       - start_cypress
       - run:
           name: create folders
           command: mkdir -p cypress/{screenshots,videos}
-      - run:
-          name: run Cypress e2e tests on Chrome
-          command: yarn cypress open
       - store_artifacts:
           path: cypress
           destination: cypress
@@ -92,6 +110,9 @@ workflows:
   build_and_test:
     jobs:
       - prepare_workspace
+      - go_unit_tests:
+          requires:
+            - prepare_workspace
       - cypress_e2e_tests:
           requires:
             - prepare_workspace
