@@ -15,37 +15,38 @@ executors:
 
 # See https://circleci.com/docs/reusing-config/#authoring-reusable-commands
 commands:
+
   build:
     description: build containers
     steps:
       - run:
-        name: build containers
-        command: docker build -t ghcr.io/deltablot/eln-community .
+          name: build containers
+          command: |
+            docker build -t ghcr.io/deltablot/eln-community .
+
   seed:
     description: seeding database
     steps:
       - run:
-        name: Seeding database
-        command: docker exec -it eln-community-dev cli db seed
+          name: Seeding database
+          command: |
+            docker exec -it eln-community-dev cli db seed
 
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
 jobs:
   prepare_workspace:
-  executor: eln-executor
-  # Add steps to the job
-  # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
-  steps:
-    # Checkout the code as the first step.
-    - checkout
-    - setup_remote_docker:
-      version: docker29
-    - run:
-        name: "Seeding database"
-        command: echo 'Hello world'
-    - run:
-        name: "second step"
-        command: ls
+    executor: eln-executor
+    # Add steps to the job
+    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
+    steps:
+      # Checkout the code as the first step.
+      - checkout
+      - setup_remote_docker:
+          version: docker29
+      - run:
+          name: "Seeding database"
+          command: echo 'Hello world'
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
@@ -53,4 +54,4 @@ workflows:
   build-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
     # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - build
+      -prepare_workspace
