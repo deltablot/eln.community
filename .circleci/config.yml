@@ -21,7 +21,7 @@ jobs:
       - checkout
       - run:
           name: "Seeding database"
-          command: docker exec -it eln-community-dev cli db seed
+          command: docker build -t ghcr.io/deltablot/eln-community .
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
