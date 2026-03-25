@@ -44,9 +44,13 @@ jobs:
       - checkout
       - setup_remote_docker:
           version: docker29
-      - run:
-          name: "Seeding database"
-          command: echo 'Hello world'
+      - persist_to_workspace:
+          root: .
+          paths:
+            - tests/
+            - cypress/
+            - cypress.config.ts
+            - src/
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
