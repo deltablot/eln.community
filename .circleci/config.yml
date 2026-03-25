@@ -32,11 +32,16 @@ commands:
           command: |
             docker exec -it eln-community-dev cli db seed
 
-  start_cypress:
+  build_cypress:
     steps:
       - run:
-          name: install yarn
-          command: yarn install
+          name: build cypress
+          command: |
+            yarn install
+            yarn add cypress --dev
+
+  start_cypress:
+    steps:
       - run:
           name: start cypress
           command: yarn cypress run
@@ -67,6 +72,7 @@ jobs:
       - checkout
       - setup_remote_docker:
           version: docker29
+      - build_cypress
       - start_cypress
       - run:
           name: create folders
