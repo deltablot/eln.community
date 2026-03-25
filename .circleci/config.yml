@@ -92,6 +92,7 @@ jobs:
           version: docker29
       - attach_workspace:
           at: .
+      - install_dependencies
       - build
       - build_cypress
       - start_cypress
