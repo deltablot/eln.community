@@ -76,7 +76,7 @@ docker compose -f docker-compose-dev.yml up -d
 The default `make local` command now includes live reload using [Air](https://github.com/air-verse/air) - any changes to Go files will automatically trigger a rebuild and restart.
 
 > **Note**: For ORCID authentication, register your application at [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to `{SITE_URL}/auth/callback`.<br>
-To launch the app in local mode, you should add the local address with an [alias](https://askubuntu.com/questions/191440/configure-hosts-file-to-use-aliases) because ORCID does not allow localhost addresses: `{LOCALHOST_ALIAS}:<port>/auth/callback`
+To launch the app in local mode, you should add the local address with an [alias](https://askubuntu.com/questions/191440/configure-hosts-file-to-use-aliases) because ORCID does not allow localhost addresses, then configure the redirect URI to `{LOCALHOST_ALIAS}:<port>/auth/callback`
 
 ## 📚 Documentation
 
