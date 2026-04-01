@@ -38,7 +38,7 @@ cd eln-community
 # 2. Create a docker-compose-dev.yml with your configuration
 cp docker-compose-dev.yml docker-compose.yml
 # Set SITE_URL, ORCID credentials, and S3 settings
-# Your ORCID credentials are available at [ORCID Developer Tools](https://orcid.org/developer-tools)
+# Your ORCID credentials are available at https://orcid.org/developer-tools
 
 # 3. Build and start everything
 make local
