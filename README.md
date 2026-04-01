@@ -28,14 +28,17 @@ A community platform for sharing Electronic Lab Notebook (ELN) archives, experim
 ## 🚀 Quick Start
 
 ### Option 1: Using Makefile (Recommended)
+To launch the project correctly, you need an ORCID ID. If you don't have one, go to [orcid.org](https://orcid.org) and create an account.
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/deltablot/eln-community.git
 cd eln-community
 
-# 2. Edit docker-compose-dev.yml with your configuration
+# 2. Create a docker-compose-dev.yml with your configuration
+cp docker-compose-dev.yml docker-compose.yml
 # Set SITE_URL, ORCID credentials, and S3 settings
+# Your ORCID credentials are available at [ORCID Developer Tools](https://orcid.org/developer-tools)
 
 # 3. Build and start everything
 make local
@@ -68,15 +71,17 @@ docker compose -f docker-compose-dev.yml up -d
 - `make down` - Stop all services
 - `make logs` - View logs from all services
 - `make clean` - Clean up containers, volumes, and images
+- `make cli:seed` - Create a fake database 
 
 The default `make local` command now includes live reload using [Air](https://github.com/air-verse/air) - any changes to Go files will automatically trigger a rebuild and restart.
 
-> **Note**: For ORCID authentication, register your application at [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to `{SITE_URL}/auth/orcid/callback`.
+> **Note**: For ORCID authentication, register your application at [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to `{SITE_URL}/auth/callback`.<br>
+To launch the app in local mode, you should add the local address with an [alias](https://askubuntu.com/questions/191440/configure-hosts-file-to-use-aliases) because ORCID does not allow localhost addresses: `{LOCALHOST_ALIAS}:<port>/auth/callback`
 
 ## 📚 Documentation
 
 Comprehensive guides are available in the `/docs` folder:
 
-- **[📋 Installation Guide](docs/installation.md)** - Complete setup instructions for all environments
 - **[⚙️ Configuration Guide](docs/configuration.md)** - Environment variables and configuration options
+- **[📋 Installation Guide](docs/installation.md)** - Complete setup instructions for all environments
 
