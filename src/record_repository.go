@@ -163,7 +163,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 
 	// Build query with filters
 	query := fmt.Sprintf(`
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, license
+		SELECT id, sha256, name, description, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, license
 		FROM records r
 		WHERE moderation_status = 'approved' AND r.archived_at IS NULL%s
 		%s
@@ -184,6 +184,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 			&record.Id,
 			&record.Sha256,
 			&record.Name,
+			&record.Description,
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
@@ -225,13 +226,14 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 	var moderationStatus string
 	var archiveReason sql.NullString
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, sha256, name, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status, license, archived_at, archive_reason
+		SELECT id, sha256, name, description, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status, license, archived_at, archive_reason
 		FROM records
 		WHERE id = $1
 	`, id).Scan(
 		&record.Id,
 		&record.Sha256,
 		&record.Name,
+		&record.Description,
 		&record.Metadata,
 		&record.CreatedAt,
 		&record.ModifiedAt,
@@ -285,9 +287,9 @@ func (r *PostgresRecordRepository) Create(ctx context.Context, tx *sql.Tx, recor
 
 	// Insert the main record without ROR IDs
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO records (id, s3_key, sha256, name, metadata, uploader_name, uploader_orcid, moderation_status, license) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		record.Id, s3Key, record.Sha256, record.Name, record.Metadata,
+		`INSERT INTO records (id, s3_key, sha256, name, description, metadata, uploader_name, uploader_orcid, moderation_status, license)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		record.Id, s3Key, record.Sha256, record.Name, record.Description, record.Metadata,
 		record.UploaderName, record.UploaderOrcid, string(moderationStatus), record.License,
 	)
 	if err != nil {
@@ -381,6 +383,7 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 			&record.Id,
 			&record.Sha256,
 			&record.Name,
+			&record.Description,
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
@@ -453,7 +456,7 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 
 	// Get records
 	selectQuery := fmt.Sprintf(`
-		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+		SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
 		WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rr.ror IN (%s)%s
@@ -475,6 +478,7 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 			&record.Id,
 			&record.Sha256,
 			&record.Name,
+			&record.Description,
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
@@ -617,6 +621,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			&record.Id,
 			&record.Sha256,
 			&record.Name,
+			&record.Description,
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
@@ -784,7 +789,7 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 		// Search across all records
 		if len(rorIDs) > 0 {
 			sqlQuery = fmt.Sprintf(`
-				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 				FROM records r
 				LEFT JOIN records_ror rr ON r.id = rr.record_id
 				LEFT JOIN records_categories rc ON r.id = rc.record_id
@@ -844,6 +849,7 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 			&record.Id,
 			&record.Sha256,
 			&record.Name,
+			&record.Description,
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
@@ -882,8 +888,8 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 func (r *PostgresRecordRepository) Update(ctx context.Context, tx *sql.Tx, record *Record) error {
 	// Update the main record
 	_, err := tx.ExecContext(ctx,
-		`UPDATE records SET name = $2, modified_at = now() WHERE id = $1`,
-		record.Id, record.Name,
+		`UPDATE records SET name = $2, description = $3, modified_at = now() WHERE id = $1`,
+		record.Id, record.Name, record.Description,
 	)
 	if err != nil {
 		return err
@@ -927,7 +933,6 @@ func (r *PostgresRecordRepository) Delete(ctx context.Context, tx *sql.Tx, id st
 	if err != nil {
 		return err
 	}
-
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
@@ -996,7 +1001,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 	// Get paginated records with pending version check
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
-			r.id, r.name, r.sha256, r.metadata, r.created_at, r.modified_at,
+			r.id, r.name, r.description, r.sha256, r.metadata, r.created_at, r.modified_at,
 			r.uploader_name, r.uploader_orcid, r.download_count, r.moderation_status,
 			CASE
 				WHEN EXISTS (
@@ -1026,6 +1031,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 		err := rows.Scan(
 			&rec.Id,
 			&rec.Name,
+			&rec.Description,
 			&rec.Sha256,
 			&rec.Metadata,
 			&rec.CreatedAt,

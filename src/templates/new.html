@@ -133,6 +133,10 @@
     <input type='hidden' name='rors' id='rors-hidden-input-upload' value=''/>
   </label>
   <label class="form-label fw-bold">Upload .eln file
+    <div class="position-relative mt-2">
+        <textarea id='description' name='description' placeholder='Add a description' style='height: 50px'></textarea>
+      <div id="ror-search-results-upload" class="list-group position-absolute w-100 d-none"></div>
+    </div>
     <input type='file' name='file' class='form-control' accept=".eln" required/>
   </label>
   <div class="form-check mt-3">

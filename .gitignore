@@ -9,6 +9,7 @@ node_modules
 .idea
 .vscode
 data
+cli
 
 # Air live reload
 tmp/

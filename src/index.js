@@ -523,6 +523,7 @@ function renderRoCrate(data) {
  */
 function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
   const name = dataset.name || 'Unnamed Dataset';
+  const name = dataset.description || 'Unnamed Dataset';
   const author = resolveAuthorName(dataset.author);
   const category = resolveCategoryName(dataset.about);
   const status = dataset.creativeWorkStatus;
@@ -532,6 +533,9 @@ function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
 
   let html = '<div class="card mb-3">';
   html += '<div class="card-body">';
+
+  // Name
+  html += `<h6 class="card-title fw-semibold mb-2">${escapeHtml(name)}</h6>`;
 
   // Name
   html += `<h6 class="card-title fw-semibold mb-2">${escapeHtml(name)}</h6>`;

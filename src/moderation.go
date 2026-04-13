@@ -32,7 +32,8 @@ type ModerationAction struct {
 // PendingItem represents an item in the moderation queue
 type PendingItem struct {
 	RecordID       string          `json:"record_id"`
-	Name           string          `json:"name"`
+    Name           string          `json:"name"`
+	Description    string          `json:"description"`
 	Sha256         string          `json:"sha256"`
 	Metadata       json.RawMessage `json:"metadata"`
 	MetadataPretty string          `json:"-"`
@@ -105,16 +106,16 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 
 	// Get the pending version from history
 	var historyID int64
-	var s3Key, name, sha256 string
+	var s3Key, name, sha256, description string
 	var metadata []byte
 	err = tx.QueryRowContext(ctx,
-		`SELECT history_id, s3_key, name, sha256, metadata
+		`SELECT history_id, s3_key, name, sha256, metadata, description
 		 FROM record_history
 		 WHERE record_id = $1 AND moderation_status = 'pending' AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC
 		 LIMIT 1`,
 		recordID,
-	).Scan(&historyID, &s3Key, &name, &sha256, &metadata)
+	).Scan(&historyID, &s3Key, &name, &sha256, &metadata, &description)
 	if err == sql.ErrNoRows {
 		// No pending version, just approve the main record (status change only, no history entry)
 		return r.SetRecordStatus(ctx, recordID, StatusApproved)
@@ -132,10 +133,10 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 
 	// Update the main record with the pending version data
 	_, err = tx.ExecContext(ctx,
-		`UPDATE records 
-		 SET s3_key = $2, name = $3, sha256 = $4, metadata = $5, moderation_status = 'approved', modified_at = NOW()
+		`UPDATE records
+		 SET s3_key = $2, name = $3, sha256 = $4, metadata = $5, description = $6, moderation_status = 'approved', modified_at = NOW()
 		 WHERE id = $1`,
-		recordID, s3Key, name, sha256, metadata,
+		recordID, s3Key, name, sha256, metadata, description,
 	)
 	if err != nil {
 		return err
@@ -143,7 +144,7 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 
 	// Mark the pending version as approved in history
 	_, err = tx.ExecContext(ctx,
-		`UPDATE record_history 
+		`UPDATE record_history
 		 SET moderation_status = 'approved', change_type = 'UPDATE'
 		 WHERE history_id = $1`,
 		historyID,
@@ -159,15 +160,15 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 func (r *PostgresModerationRepository) RejectPendingVersion(ctx context.Context, recordID string) error {
 	// Update only the latest pending version in history to rejected
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE record_history 
+		`UPDATE record_history
 		 SET moderation_status = 'rejected'
 		 WHERE history_id = (
-			SELECT history_id 
-			FROM record_history 
-			WHERE record_id = $1 
-			AND moderation_status = 'pending' 
+			SELECT history_id
+			FROM record_history
+			WHERE record_id = $1
+			AND moderation_status = 'pending'
 			AND change_type = 'PENDING_VERSION'
-			ORDER BY version DESC 
+			ORDER BY version DESC
 			LIMIT 1
 		 )`,
 		recordID,
@@ -207,7 +208,7 @@ func (r *PostgresModerationRepository) GetPendingRecords(ctx context.Context, li
 
 	// Get records - combine main table pending records and records with pending versions
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT DISTINCT r.id, r.name, r.sha256, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count, r.moderation_status
+		`SELECT DISTINCT r.id, r.name, r.description, r.sha256, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count, r.moderation_status
 		 FROM records r
 		 LEFT JOIN record_history rh ON r.id = rh.record_id AND rh.moderation_status = 'pending' AND rh.change_type = 'PENDING_VERSION'
 		 WHERE r.moderation_status = $1 OR rh.record_id IS NOT NULL
@@ -227,6 +228,7 @@ func (r *PostgresModerationRepository) GetPendingRecords(ctx context.Context, li
 		err := rows.Scan(
 			&rec.Id,
 			&rec.Name,
+			&rec.Description,
 			&rec.Sha256,
 			&rec.Metadata,
 			&rec.CreatedAt,
@@ -267,15 +269,15 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 		`SELECT COUNT(*) FROM (
 			SELECT id FROM records WHERE moderation_status = $1
 			UNION ALL
-			SELECT DISTINCT record_id as id 
+			SELECT DISTINCT record_id as id
 			FROM record_history rh
-			WHERE rh.moderation_status = 'pending' 
+			WHERE rh.moderation_status = 'pending'
 			AND rh.change_type = 'PENDING_VERSION'
 			AND rh.version = (
-				SELECT MAX(version) 
-				FROM record_history rh2 
-				WHERE rh2.record_id = rh.record_id 
-				AND rh2.moderation_status = 'pending' 
+				SELECT MAX(version)
+				FROM record_history rh2
+				WHERE rh2.record_id = rh.record_id
+				AND rh2.moderation_status = 'pending'
 				AND rh2.change_type = 'PENDING_VERSION'
 			)
 		) AS pending_items`,
@@ -287,14 +289,15 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 
 	// Get pending items - both new entries and pending versions
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT 
-			record_id, name, sha256, metadata, created_at, modified_at, 
+		`SELECT
+			record_id, name, sha256, metadata, created_at, modified_at,
 			uploader_name, uploader_orcid, is_new_entry, version, current_version
 		FROM (
 			-- New entries (pending_review status in main table)
-			SELECT 
+			SELECT
 				r.id as record_id,
 				r.name,
+				r.description,
 				r.sha256,
 				r.metadata,
 				r.created_at,
@@ -306,13 +309,14 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 				'' as current_version
 			FROM records r
 			WHERE r.moderation_status = $1
-			
+
 			UNION ALL
-			
+
 			-- Latest pending version per record (in history table)
-			SELECT 
+			SELECT
 				rh.record_id,
 				rh.name,
+				rh.description,
 				rh.sha256,
 				rh.metadata,
 				rh.created_at,
@@ -324,13 +328,13 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 				r.name as current_version
 			FROM record_history rh
 			JOIN records r ON rh.record_id = r.id
-			WHERE rh.moderation_status = 'pending' 
+			WHERE rh.moderation_status = 'pending'
 			AND rh.change_type = 'PENDING_VERSION'
 			AND rh.version = (
-				SELECT MAX(version) 
-				FROM record_history rh2 
-				WHERE rh2.record_id = rh.record_id 
-				AND rh2.moderation_status = 'pending' 
+				SELECT MAX(version)
+				FROM record_history rh2
+				WHERE rh2.record_id = rh.record_id
+				AND rh2.moderation_status = 'pending'
 				AND rh2.change_type = 'PENDING_VERSION'
 			)
 		) AS pending_items
@@ -351,6 +355,7 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 		err := rows.Scan(
 			&item.RecordID,
 			&item.Name,
+			&item.Description,
 			&item.Sha256,
 			&item.Metadata,
 			&item.CreatedAt,
@@ -405,7 +410,7 @@ func (r *PostgresModerationRepository) getRecordsByStatus(ctx context.Context, s
 
 	// Get records
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, name, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
+		`SELECT id, name, description, sha256, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count
 		 FROM records
 		 WHERE moderation_status = $1
 		 ORDER BY created_at DESC
@@ -423,6 +428,7 @@ func (r *PostgresModerationRepository) getRecordsByStatus(ctx context.Context, s
 		err := rows.Scan(
 			&rec.Id,
 			&rec.Name,
+			&rec.Description,
 			&rec.Sha256,
 			&rec.Metadata,
 			&rec.CreatedAt,
@@ -504,7 +510,7 @@ type ModerationHistoryEntry struct {
 // GetRecentModerationHistory returns recent moderation actions with record names
 func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Context, limit int) ([]ModerationHistoryEntry, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT ma.id, ma.record_id, ma.admin_orcid, ma.action, ma.reason, ma.created_at, 
+		`SELECT ma.id, ma.record_id, ma.admin_orcid, ma.action, ma.reason, ma.created_at,
 		        COALESCE(NULLIF(ma.version_name, ''), r.name) as display_name
 		 FROM moderation_actions ma
 		 LEFT JOIN records r ON ma.record_id = r.id
