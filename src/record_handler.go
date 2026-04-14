@@ -167,8 +167,8 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 
     description := r.FormValue("description")
-	if len(description) > 350 {
-		http.Error(w, "Too many characters. 350 characters max.", http.StatusBadRequest)
+	if len(description) > 3500 {
+		http.Error(w, "Too many characters. 3500 characters max.", http.StatusBadRequest)
 		return
 	}
 
@@ -1083,7 +1083,6 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 		shortRecords = append(shortRecords, BrowseRecordShort{
 			Id:            rec.Id,
 			Name:          rec.Name,
-            // oui, c'est pour la liste de tous les records, ça peut être bien d'avoir la description
             Description:   rec.Description,
 			UploaderName:  rec.UploaderName,
 			UploaderOrcid: rec.UploaderOrcid,
@@ -1542,8 +1541,8 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 
 	description := r.FormValue("description")
-	if len(name) > 350 {
-		http.Error(w, "Too many characters. 350 characters max.", http.StatusBadRequest)
+	if len(name) > 3500 {
+		http.Error(w, "Too many characters. 3500 characters max.", http.StatusBadRequest)
 		return
 	}
 	// Update the record
@@ -1645,7 +1644,6 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 			return
 		}
 	}
-    // TO DO: Update only description
 
 	// Update ROR associations
 	_, err = tx.ExecContext(ctx, `DELETE FROM records_ror WHERE record_id = $1`, updatedRecord.Id)
