@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', function () {
           // Hide the form and show success message
           const formContainer = document.getElementById('uploadFormContainer');
           const successMessage = document.getElementById('uploadSuccessMessage');
-          
           if (formContainer && successMessage) {
             formContainer.classList.add('d-none');
             successMessage.classList.remove('d-none');
@@ -70,7 +69,6 @@ document.addEventListener('DOMContentLoaded', function () {
             toast.show();
           }
           console.error('Upload failed:', errorText);
-          
           // Re-enable submit button on error
           if (submitBtn) {
             submitBtn.disabled = false;
@@ -88,7 +86,6 @@ document.addEventListener('DOMContentLoaded', function () {
           toast.show();
         }
         console.error('Upload error:', error);
-        
         // Re-enable submit button on error
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -523,7 +520,7 @@ function renderRoCrate(data) {
  */
 function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
   const name = dataset.name || 'Unnamed Dataset';
-  const name = dataset.description || 'Unnamed Dataset';
+  const description = dataset.description || 'Unnamed Dataset';
   const author = resolveAuthorName(dataset.author);
   const category = resolveCategoryName(dataset.about);
   const status = dataset.creativeWorkStatus;

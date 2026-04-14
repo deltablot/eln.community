@@ -1,11 +1,13 @@
 :root {
     --black: #000004;
     --black-highlight: #4a2c63;
+    --ligth-gray: #949494;
     --medium: #634c76;
     --white: #fbfef9;
     --highlight: #f1e4f1;
     --blue: #0c6291;
     --red: #a63446;
+    --dangerred: #e6614c;
 }
 
 .container-fluid {
@@ -73,7 +75,7 @@ hr.long {
 }
 
 
-input {
+input:not([type="checkbox"]):not([type="radio"]) {
     border: 1px solid #ced4da;
     transition: box-shadow 0.2s ease;
     padding: 0.375rem 0.75rem;
@@ -694,9 +696,10 @@ footer {
     border-radius: 0.375rem;
     background: #fff;
     cursor: pointer;
-    display: flex;
+ /*   display: flex; 
     flex-wrap: wrap;
     gap: 0.25rem;
+    */
     align-items: center;
     position: relative;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
@@ -750,8 +753,9 @@ footer {
     opacity: 1;
 }
 
-.category-multiselect-placeholder {
-    color: #6c757d;
+.category-multiselect-placeholder, .form-placeholder, .form-placeholder::placeholder {
+    color: var(--ligth-gray);
+    font-weight: 300;
     flex: 1;
 }
 
@@ -1101,4 +1105,38 @@ footer {
     border-top: 1px solid #dee2e6;
     margin: 1.5rem 0;
     width: 100%;
+}
+
+/* required labels/input */
+.required-label::after {
+    color: var(--dangerred);
+   content: ' *';
+}
+
+.smallgray {
+   color: var(--ligth-gray);
+   font-size: 80%;
+}
+
+#selected-rors-upload:empty {
+  display: none;
+}
+
+#selected-rors-upload:not(:empty) {
+  margin-top: 0.25rem;
+}
+
+.form-check-input {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0;
+  flex: 0 0 auto;
+}
+
+.form-check-label {
+  line-height: 1.4;
+}
+
+#uploadFormContainer {
+  margin-top: 4.5rem;
 }

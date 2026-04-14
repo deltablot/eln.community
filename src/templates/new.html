@@ -39,9 +39,12 @@
 </div>
 
 <!-- Upload form -->
-<div id="uploadFormContainer">
-  <h1>Upload an Entry</h1>
-  <p>Share your ELN archives: experiments, protocols, templates, resources...</p>
+<div id="uploadFormContainer" class="mb-4">
+   <div class="text-center mb-4">
+    <h1 class="mb-2">Upload an Entry</h1>
+    <p class="mb-0">Share your ELN archives: experiments, protocols, templates, resources...</p>
+  </div>
+
   <form method='post' action='/api/v1/records' enctype='multipart/form-data'>
   {{ if .Categories }}
   <label class="form-label fw-bold">Select categories
@@ -111,40 +114,42 @@
     </div>
   </label>
   {{ end }}
-  <label class="form-label fw-bold">Name your entry
-    <input type='text' name='name' class='form-control mt-2' required/>
-  </label>
-  <label class="form-label fw-bold">Research Organization Registry (ROR)
-    <small class="form-text text-muted">Optional. Start typing to search for institutions. <a href="https://ror.org/"
-                                                                                              target="_blank">Learn more
-      about ROR</a></small>
 
-    <!-- Selected ROR organizations display -->
-    <div id="selected-rors-upload" class="mb-2 mt-2"></div>
-
-    <!-- Search input -->
-    <div class="position-relative mt-2">
-      <input type='text' id='ror-search-input-upload' class='form-control' placeholder='Search for institutions...'
-             autocomplete="off"/>
-      <div id="ror-search-results-upload" class="list-group position-absolute w-100 d-none"></div>
-    </div>
-
-    <!-- Hidden input to store ROR IDs -->
-    <input type='hidden' name='rors' id='rors-hidden-input-upload' value=''/>
+  <label for='entryName' class="form-label fw-bold required-label mt-3 mb-1">
+      Name your entry <span class='smallgray'>(required)</span>
   </label>
-  <label class="form-label fw-bold">Upload .eln file
-    <div class="position-relative mt-2">
-        <textarea id='description' name='description' placeholder='Add a description' style='height: 50px'></textarea>
-      <div id="ror-search-results-upload" class="list-group position-absolute w-100 d-none"></div>
-    </div>
-    <input type='file' name='file' class='form-control' accept=".eln" required/>
+  <input type='text' name='name' class='form-control form-placeholder' placeholder='Name' id='entryName' required/>
+
+  <label for="ror-search-input-upload" class="form-label fw-bold mt-3 mb-1">
+      Research Organization Registry (ROR)
   </label>
-  <div class="form-check mt-3">
-    <input class="form-check-input" type="checkbox" id="licenseAgreement" required>
-    <label class="form-check-label" for="licenseAgreement">
-      I agree to license this entry under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">Creative Commons Attribution 4.0 International (CC BY 4.0)</a>
-    </label>
+  <div class="small test-body-secondary mb-2">
+      <a href="https://ror.org/" target="_blank">Learn more about ROR</a>
   </div>
+  <div class="position-relative">
+    <input type='text' id='ror-search-input-upload' class='form-control form-placeholder' placeholder='Search for institutions' autocomplete="off"/>
+      <div id="ror-search-results-upload" class="list-group position-absolute w-100 d-none"></div>
+  </div>
+
+  <!-- Selected ROR organizations display -->
+  <div id="selected-rors-upload" class="flex-wrap gap-2"></div>
+  <input type="hidden" name="rors" id="rors-hidden-input-upload" value="" />
+
+  <label for="description" class="form-label fw-bold mt-3">Description</label>
+  <textarea id="description" name="description" class="form-control form-placeholder" placeholder="Add a description" style="height: 50px"></textarea>
+
+  <label for="elnFile" class="form-label fw-bold required-label mt-3 mb-1">
+      Upload .eln file <span class='smallgray'>(required)</span>
+  </label>
+  <input type="file" name="file" id="elnFile" class="form-control form-placeholder" accept=".eln" required />
+
+    <div class="form-check mt-3">
+      <input class="form-check-input" type="checkbox" id="licenseAgreement" required checked>
+      <label class="form-check-label" for="licenseAgreement">
+      I agree to license this entry under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">Creative Commons Attribution 4.0 International (CC BY 4.0)</a>
+      </label>
+    </div>
+
   <button type='submit' id='submitBtn' class='btn btn-primary mt-3'>
     <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
     <span class="btn-text">Send</span>
