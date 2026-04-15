@@ -1,7 +1,7 @@
 :root {
     --black: #000004;
     --black-highlight: #4a2c63;
-    --ligth-gray: #949494;
+    --light-gray: #949494;
     --medium: #634c76;
     --white: #fbfef9;
     --highlight: #f1e4f1;
@@ -753,8 +753,8 @@ footer {
     opacity: 1;
 }
 
-.category-multiselect-placeholder, .form-placeholder, .form-placeholder::placeholder {
-    color: var(--ligth-gray);
+.category-multiselect-placeholder {
+    color: var(--light-gray);
     font-weight: 300;
     flex: 1;
 }
@@ -1114,7 +1114,7 @@ footer {
 }
 
 .smallgray {
-   color: var(--ligth-gray);
+   color: var(--light-gray);
    font-size: 80%;
 }
 
@@ -1140,3 +1140,19 @@ footer {
 #uploadFormContainer {
   margin-top: 4.5rem;
 }
+
+.form-placeholder::placeholder {
+  color: var(--light-gray);
+  font-weight: 300;
+  opacity: 1;
+}
+
+#elnFile {
+  color: var(--light-gray);
+  font-weight: 300;
+}
+
+#elnFile:valid {
+  color: #000;
+}
+
