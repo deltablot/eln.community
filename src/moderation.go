@@ -290,7 +290,7 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 	// Get pending items - both new entries and pending versions
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT
-			record_id, name, sha256, metadata, created_at, modified_at,
+			record_id, name, description, sha256, metadata, created_at, modified_at,
 			uploader_name, uploader_orcid, is_new_entry, version, current_version
 		FROM (
 			-- New entries (pending_review status in main table)

@@ -28,6 +28,7 @@ import (
 const (
 	// PostgreSQL error codes
 	pqErrCodeUniqueViolation = "23505"
+    descriptionMaxLenght = 10000
 )
 
 type RecordHandler struct {
@@ -167,8 +168,8 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 
     description := r.FormValue("description")
-	if len(description) > 3500 {
-		http.Error(w, "Too many characters. 3500 characters max.", http.StatusBadRequest)
+	if len(description) > descriptionMaxLenght {
+        http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
 		return
 	}
 
@@ -1541,10 +1542,11 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 
 	description := r.FormValue("description")
-	if len(name) > 3500 {
-		http.Error(w, "Too many characters. 3500 characters max.", http.StatusBadRequest)
+	if len(description) > descriptionMaxLenght {
+        http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
 		return
 	}
+
 	// Update the record
 	updatedRecord := *existingRecord
 	updatedRecord.Name = name
@@ -1625,13 +1627,13 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 			return
 		}
 	} else {
-		// Update only name (no moderation needed for metadata-only updates)
+		// Update only name or description (no moderation needed for metadata-only updates)
 		_, err = tx.ExecContext(ctx,
 			`UPDATE records SET name = $2, description = $3, modified_at = now() WHERE id = $1`,
 			updatedRecord.Id, updatedRecord.Name, updatedRecord.Description,
 		)
 		if err != nil {
-			// Check if this is a PostgreSQL unique constraint violation
+			// Check if this is a PostgreSQL unique constraint violation on name only
 			if pqErr, ok := err.(*pq.Error); ok {
 				if pqErr.Code == pqErrCodeUniqueViolation {
 					if strings.Contains(pqErr.Message, "name") || strings.Contains(pqErr.Detail, "name") {
