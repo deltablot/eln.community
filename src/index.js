@@ -1,3 +1,4 @@
+// Intentionally high limit to support long user descriptions and multilingual content
 const DESCRIPTION_MAX_LENGTH = 10000;
 
 document.addEventListener('DOMContentLoaded', function () {

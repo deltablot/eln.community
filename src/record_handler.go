@@ -28,6 +28,7 @@ import (
 const (
 	// PostgreSQL error codes
 	pqErrCodeUniqueViolation = "23505"
+    // Intentionally high limit to support long user descriptions and multilingual content
     descriptionMaxLenght = 10000
 )
 
