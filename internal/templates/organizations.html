@@ -1,0 +1,36 @@
+{{ define "title" }}Organizations{{ end }}
+
+{{ define "content" }}
+<div class="row">
+  <h2 class="col-md-12">Organizations</h2>
+  <p class="text-muted">Browse templates by organization</p>
+</div>
+
+{{- if .Organizations}}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+  {{- range .Organizations}}
+  <div class="col">
+    <div class="card h-100 organization-card">
+      <div class="card-body">
+        <h5 class="card-title">{{ .Name }}</h5>
+        {{- if .CountryName}}
+        <p class="card-text text-muted mb-1">
+          <small><i class="bi bi-geo-alt"></i> {{ .CountryName }}</small>
+        </p>
+        {{- end}}
+        <p class="card-text text-muted">
+          <small>{{ .RecordCount }} template{{ if ne .RecordCount 1 }}s{{ end }}</small>
+        </p>
+        <a href="/browse?ror={{ .ID }}" class="btn btn-primary btn-sm">View Templates</a>
+      </div>
+    </div>
+  </div>
+  {{- end}}
+</div>
+{{- else}}
+<div class="alert alert-info" role="alert">
+  <p class="mb-0">No organizations found. Organizations will appear here once templates are uploaded with ROR
+    affiliations.</p>
+</div>
+{{- end}}
+{{ end }}

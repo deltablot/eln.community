@@ -2,13 +2,14 @@ files/
 .env
 .yarn/*
 .pnp.*
-src/dist/
+internal/dist/
 *.svg
 docker-compose.yml
 node_modules
 .idea
 .vscode
 data
+cli
 
 # Air live reload
 tmp/

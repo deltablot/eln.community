@@ -1,0 +1,195 @@
+{{define "title"}}Moderation Queue{{end}}
+
+{{define "content"}}
+<div class="toast-container position-fixed top-0 end-0 p-3">
+  <div id="successToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto text-success">Success</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body">
+      Action completed successfully!
+    </div>
+  </div>
+  <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto text-danger">Error</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="errorToastBody">
+      Action failed. Please try again.
+    </div>
+  </div>
+</div>
+
+<div class="container py-4">
+    <h1 class="mb-4">Moderation Queue</h1>
+    
+    {{if eq (len .Items) 0}}
+        <div class="alert alert-success text-center">
+            <p class="mb-0 fs-5">✓ No items pending review</p>
+        </div>
+    {{else}}
+        <p class="text-muted mb-4">
+            Showing {{len .Items}} of {{.TotalCount}} pending items
+        </p>
+
+        <div class="row g-4">
+            {{range .Items}}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="flex-grow-1">
+                                {{if .IsNewEntry}}
+                                <span class="badge bg-info text-dark mb-2">New Entry</span>
+                                {{else}}
+                                <span class="badge bg-warning text-dark mb-2">New Version (v{{.Version}})</span>
+                                <div class="text-muted small mb-2">
+                                    <strong>Current approved version:</strong> {{.CurrentVersion}}
+                                </div>
+                                {{end}}
+                                <h5 class="card-title mb-2">
+                                    <a href="/record/{{.RecordID}}" class="text-decoration-none">{{.Name}}</a>
+                                </h5>
+                                <div class="text-muted small">
+                                    <p class="mb-1"><strong>Uploader:</strong> {{.UploaderName}} ({{.UploaderOrcid}})</p>
+                                    <p class="mb-1"><strong>Uploaded:</strong> {{.CreatedAt.Format "2006-01-02 15:04:05"}}</p>
+                                    <p class="mb-1"><strong>ID:</strong> <code>{{.RecordID}}</code></p>
+                                    <p class="mb-1"><strong>SHA256:</strong> <code class="small">{{.Sha256}}</code></p>
+                                    {{if .Categories}}
+                                    <p class="mb-0"><strong>Categories:</strong> 
+                                        {{range $i, $cat := .Categories}}
+                                            {{if $i}}, {{end}}{{$cat.Name}}
+                                        {{end}}
+                                    </p>
+                                    {{end}}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <details class="bg-light rounded p-2">
+                                <summary class="cursor-pointer small fw-medium">View Metadata</summary>
+                                <pre class="mt-2 small overflow-auto mb-0" style="max-height: 300px;">{{.MetadataPretty}}</pre>
+                            </details>
+                        </div>
+
+                        <div class="d-flex flex-row gap-2 flex-wrap">
+                            <button class="btn btn-success moderation-btn"
+                                    data-record-id="{{.RecordID}}"
+                                    data-action="approve">
+                                <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+                                <span class="btn-text">✓ Approve{{if not .IsNewEntry}} Version{{end}}</span>
+                            </button>
+                            <button class="btn btn-danger moderation-btn"
+                                    data-record-id="{{.RecordID}}"
+                                    data-action="reject">
+                                <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+                                <span class="btn-text">✗ Reject{{if not .IsNewEntry}} Version{{end}}</span>
+                            </button>
+                            {{if not .IsNewEntry}}
+                            <a href="/record/{{.RecordID}}" class="btn btn-outline-secondary">
+                                View Current Version
+                            </a>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+
+        {{if gt .TotalPages 1}}
+        <nav class="mt-4" aria-label="Moderation pagination">
+            <ul class="pagination justify-content-center">
+                {{if gt .Page 1}}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{sub .Page 1}}">← Previous</a>
+                </li>
+                {{end}}
+                
+                <li class="page-item active">
+                    <span class="page-link">Page {{.Page}} of {{.TotalPages}}</span>
+                </li>
+                
+                {{if lt .Page .TotalPages}}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{add .Page 1}}">Next →</a>
+                </li>
+                {{end}}
+            </ul>
+        </nav>
+        {{end}}
+    {{end}}
+
+    <!-- Pending Comments Section -->
+    <div class="mt-5">
+        <h2 class="mb-4">
+            <i class="bi bi-chat-left-text me-2"></i>Pending Comments
+            <span class="badge bg-warning text-dark" id="pending-comments-count">0</span>
+        </h2>
+        <div id="pending-comments-container">
+            <div class="text-center p-4">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading pending comments...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Moderation History -->
+    <div class="mt-5">
+        <h2 class="mb-4">Moderation History</h2>
+        {{if .History}}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Record</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">Admin</th>
+                        <th scope="col">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .History}}
+                    <tr>
+                        <td>
+                            <a href="/record/{{.RecordID}}">{{.RecordName}}</a>
+                        </td>
+                        <td>
+                            {{if eq .Action "approve"}}
+                            <span class="badge bg-success">Approved</span>
+                            {{else if eq .Action "reject"}}
+                            <span class="badge bg-danger">Rejected</span>
+                            {{else if eq .Action "flag"}}
+                            <span class="badge bg-warning text-dark">Flagged</span>
+                            {{else}}
+                            <span class="badge bg-secondary">{{.Action}}</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            <a href="https://orcid.org/{{.AdminOrcid}}" target="_blank" rel="noopener noreferrer">
+                                {{.AdminOrcid}}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="text-muted">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="alert alert-info text-center">
+            <p class="mb-0">No moderation history yet.</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<script type="module" src="/moderation-comments.js"></script>
+{{end}}

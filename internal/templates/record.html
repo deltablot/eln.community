@@ -1,0 +1,252 @@
+{{ define "title" }}{{ .Record.Name }}{{ end }}
+
+{{ define "content" }}
+{{ if .IsArchived }}
+<div class="alert alert-danger" role="alert">
+  <strong>This entry has been archived.</strong>
+  {{ if .Record.ArchiveReason }}<br>Reason: {{ .Record.ArchiveReason }}{{ end }}
+  {{ if .CanArchive }}
+  <form method="post" action="/api/v1/record/{{ .Record.Id }}/unarchive" class="d-inline ms-2">
+    <button type="submit" class="btn btn-warning btn-sm">Unarchive</button>
+  </form>
+  {{ end }}
+</div>
+{{ end }}
+
+{{ if .IsHistorical }}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+  <strong>Historical Version {{ .HistoryVersion }}</strong> - You are viewing an archived version of this record.
+  <a href="/record/{{ .Record.Id }}" class="alert-link">View current version</a>
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{{ end }}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1>{{ .Record.Name }}</h1>
+  </div>
+  <div class="record-actions">
+    {{ if .CanEdit }}
+    <a class="btn btn-primary btn-sm" href="/api/v1/record/{{ .Record.Id }}/edit">Edit</a>
+    {{ end }}
+  </div>
+</div>
+
+<!-- Version Selector -->
+<div class="mb-3" id="version-selector-container">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <label for="version-selector" class="col-form-label">
+        Version:
+      </label>
+    </div>
+    <div class="col-auto">
+      <select class="form-select" id="version-selector" style="min-width: 300px;" data-current-version="{{ if .IsHistorical }}{{ .HistoryVersion }}{{ else }}current{{ end }}">
+        <option value="current" {{ if not .IsHistorical }}selected{{ end }}>Current ({{ .Record.ModifiedAt.Format "Jan 02, 2006 15:04" }})</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <span class="badge bg-secondary" id="version-count"></span>
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-outline-primary btn-sm" id="get-permalink-btn" title="Get a permanent link to this exact version">
+        <i class="bi bi-link-45deg"></i> Get permalink
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Common Info Block Container -->
+<div id="common-info-container" class="mb-4">
+  <!-- Will be populated by JavaScript with owner, team, tags, date -->
+  <div>
+    <div class="mb-2">
+      <i class="bi bi-calendar3 me-2 text-secondary"></i>
+      <span class="text-muted">Created at</span> 
+      <span class="fw-medium">{{ .Record.CreatedAt }}</span>
+    </div>
+    <div class="d-flex align-items-center flex-wrap mb-2">
+      <i class="bi bi-person me-2 text-secondary"></i>
+      <span class="text-muted me-2">Uploaded by</span>
+      <span>
+        <a href="https://orcid.org/{{ .Record.UploaderOrcid }}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">{{ .Record.UploaderName }}</a>
+      </span>
+    </div>
+    {{- if .Record.RorIds }}
+    <div class="d-flex align-items-center flex-wrap mb-2">
+      <i class="bi bi-people me-2 text-secondary"></i>
+      <span class="text-muted me-2">Organizations</span>
+      <span>
+        <span id="ror-organizations-loading">Loading...</span>
+        <span id="ror-organizations" class="d-none"></span>
+      </span>
+    </div>
+    {{- end }}
+    {{- if .Record.Categories }}
+    <div class="d-flex align-items-center flex-wrap mb-2">
+      <i class="bi bi-tags me-2 text-secondary"></i>
+      <span class="text-muted me-2">Categories</span>
+      <div class="d-inline-flex flex-wrap gap-1">
+        {{- range .Record.Categories }}
+        <span class="badge bg-primary">{{ .Name }}</span>
+        {{- end }}
+      </div>
+    </div>
+    {{- end }}
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- Main Text Block (Collapsible Accordion) -->
+<div id="main-text-container" class="mb-4">
+  <!-- Will be populated by JavaScript with Introduction, Experimental Design, Results -->
+</div>
+
+<!-- Extra Fields Block (Collapsible Accordion) -->
+<div id="extra-fields-container" class="mb-4">
+  <!-- Will be populated by JavaScript with files, links, compounds, storage, permissions -->
+</div>
+
+<!-- Other Metadata Block (Collapsible Accordion) -->
+<div id="other-metadata-container" class="mb-4">
+  <!-- Will be populated by JavaScript with unmapped entities -->
+</div>
+
+<hr class="section-divider">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">RO-Crate Metadata</h4>
+  <div class="d-flex align-items-center gap-3">
+    <span>Downloads: <span id="download-count">{{ .Record.DownloadCount }}</span></span>
+    {{ if not .IsArchived }}
+    <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.json">Download Metadata</a>
+    <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.eln" id="download-eln-btn" data-record-id="{{ .Record.Id }}">Download ELN File</a>
+    {{ end }}
+  </div>
+</div>
+<div id="ro-crate-viewer">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <button class="btn btn-primary btn-sm" id="view-formatted">Formatted View</button>
+      <button class="btn btn-outline-secondary btn-sm" id="view-raw">Raw JSON</button>
+    </div>
+  </div>
+
+  <div id="formatted-view">
+    <div id="ro-crate-content">
+      <div class="text-center p-4">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Parsing RO-Crate metadata...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="raw-view" class="hidden">
+    <pre class="bg-light p-3 rounded"><code>{{ .Record.MetadataPretty }}</code></pre>
+  </div>
+</div>
+
+<hr class="section-divider mt-4">
+
+<!-- License Information -->
+<div class="card bg-light mt-4">
+  <div class="card-body">
+    <h5 class="card-title">License</h5>
+    <p class="card-text mb-2">
+      This entry is licensed under 
+      {{ if eq .Record.License "CC-BY-4.0" }}
+      <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">
+        <strong>Creative Commons Attribution 4.0 International (CC BY 4.0)</strong>
+      </a>
+      {{ else }}
+      <strong>{{ .Record.License }}</strong>
+      {{ end }}
+    </p>
+    <p class="card-text text-muted small mb-0">
+      {{ if eq .Record.License "CC-BY-4.0" }}
+      You are free to share and adapt this material for any purpose, even commercially, as long as you give appropriate credit to the original author.
+      {{ else }}
+      Please refer to the license terms for usage rights.
+      {{ end }}
+    </p>
+  </div>
+</div>
+
+<hr class="section-divider mt-4">
+
+<!-- Comments Section -->
+<div class="mt-4" id="comments-section">
+  <h4 class="mb-3">
+    <i class="bi bi-chat-left-text me-2"></i>Comments
+    <span class="badge bg-secondary" id="comment-count">0</span>
+  </h4>
+
+  {{ if .User }}
+  <!-- Comment Form -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Add a Comment</h5>
+      <form id="comment-form">
+        <div class="mb-3">
+          <label for="comment-content" class="form-label">Your comment (plain text only)</label>
+          <textarea 
+            class="form-control" 
+            id="comment-content" 
+            rows="4" 
+            maxlength="5000" 
+            placeholder="Share your thoughts about this entry..."
+            required></textarea>
+          <div class="form-text">
+            <span id="char-count">0</span> / 5000 characters
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="submit-comment-btn">
+          <i class="bi bi-send me-1"></i>Post Comment
+        </button>
+      </form>
+    </div>
+  </div>
+  {{ else }}
+  <!-- Login prompt -->
+  <div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i>
+    <a href="/auth/login" class="alert-link">Sign in</a> to post a comment.
+  </div>
+  {{ end }}
+
+  <!-- Comments List -->
+  <div id="comments-list">
+    <div class="text-center p-4">
+      <div class="spinner-border spinner-border-sm" role="status">
+        <span class="visually-hidden">Loading comments...</span>
+      </div>
+      <p class="mt-2 text-muted">Loading comments...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Pass JSON data safely to JavaScript -->
+<script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>
+<script type="application/json" id="record-id-data">{{ toJson .Record.Id }}</script>
+<!-- Pass fallback data for when RO-Crate doesn't have the info -->
+<script type="application/json" id="record-fallback-data">{
+  "uploaderName": {{ toJson .Record.UploaderName }},
+  "uploaderOrcid": {{ toJson .Record.UploaderOrcid }},
+  "createdAt": {{ toJson .Record.CreatedAt }},
+  "categories": {{ if .Record.Categories }}{{ toJson .Record.Categories }}{{ else }}[]{{ end }}
+}</script>
+{{- if .Record.RorIds }}
+<script type="application/json" id="ror-ids-data">{{ toJson .Record.RorIds }}</script>
+{{- end }}
+
+<!-- Load record extractor module -->
+<script src="/record-extractor.js"></script>
+<!-- Load main JavaScript file -->
+<script src="/index.js"></script>
+<!-- Load comments functionality -->
+<script type="module" src="/comments.js"></script>
+
+{{ end }}
