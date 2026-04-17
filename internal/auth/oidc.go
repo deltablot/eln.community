@@ -128,8 +128,6 @@ func CallbackHandler(sm *scs.SessionManager, w http.ResponseWriter, r *http.Requ
 	}
 
 	// store orcid and name in session
-	//sessionManager.Put(ctx, "orcid", claims.Sub)
-	//sessionManager.Put(ctx, "name", strings.TrimSpace(profile.GivenName+" "+profile.FamilyName))
 	sm.Put(ctx, "orcid", claims.Sub)
 	sm.Put(ctx, "name", strings.TrimSpace(profile.GivenName+" "+profile.FamilyName))
 

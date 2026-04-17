@@ -460,7 +460,7 @@ func Run() error {
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()
 
-	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
+	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo, sessionManager, errorLogger)
 	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorNameCache, rorClient)
 	historyRepo := NewPostgresHistoryRepository(db)
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)

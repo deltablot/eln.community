@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+/*
 type Record struct {
 	CreatedAt time.Time       `json:"created_at"`
 	Id        string          `json:"id"`
@@ -49,7 +50,9 @@ type RecordHistory struct {
 	ModerationStatus ModerationStatus `json:"moderation_status,omitempty"`
 	License          string           `json:"license"`
 }
+*/
 
+/*
 type Category struct {
 	Id            int64      `json:"id"`
 	Name          string     `json:"name"`
@@ -58,6 +61,7 @@ type Category struct {
 	ModifiedAt    time.Time  `json:"modified_at"`
 	Subcategories []Category `json:"subcategories,omitempty"`
 }
+*/
 
 type User struct {
 	Name  string
@@ -70,6 +74,7 @@ type App struct {
 	Version     string
 }
 
+/*
 type RecordPageData struct {
 	App
 	Record         Record
@@ -81,3 +86,4 @@ type RecordPageData struct {
 	IsHistorical   bool
 	HistoryVersion int
 }
+*/
