@@ -28,6 +28,8 @@ import (
 const (
 	// PostgreSQL error codes
 	pqErrCodeUniqueViolation = "23505"
+    // Intentionally high limit to support long user descriptions and multilingual content
+    descriptionMaxLenght = 10000
 )
 
 type RecordHandler struct {
@@ -166,10 +168,17 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+    description := r.FormValue("description")
+	if len(description) > descriptionMaxLenght {
+        http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
+		return
+	}
+
 	record := Record{
 		Id:            id,
 		Sha256:        hashHex,
 		Name:          name,
+        Description:   description,
 		Metadata:      meta,
 		UploaderName:  user.Name,
 		UploaderOrcid: user.Orcid,
@@ -789,6 +798,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		record = &Record{
 			Id:               historyRecord.RecordId,
 			Name:             historyRecord.Name,
+            Description:      historyRecord.Description,
 			Sha256:           historyRecord.Sha256,
 			Metadata:         historyRecord.Metadata,
 			CreatedAt:        historyRecord.CreatedAt,
@@ -861,6 +871,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 type BrowseRecordShort struct {
 	Id            string            `json:"id"`
 	Name          string            `json:"name"`
+	Description   string            `json:"description"`
 	UploaderName  string            `json:"uploaderName"`
 	UploaderOrcid string            `json:"uploaderOrcid"`
 	Categories    []Category        `json:"categories"`
@@ -1074,6 +1085,7 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 		shortRecords = append(shortRecords, BrowseRecordShort{
 			Id:            rec.Id,
 			Name:          rec.Name,
+            Description:   rec.Description,
 			UploaderName:  rec.UploaderName,
 			UploaderOrcid: rec.UploaderOrcid,
 			Categories:    rec.Categories,
@@ -1530,9 +1542,16 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		}
 	}
 
+	description := r.FormValue("description")
+	if len(description) > descriptionMaxLenght {
+        http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
+		return
+	}
+
 	// Update the record
 	updatedRecord := *existingRecord
 	updatedRecord.Name = name
+	updatedRecord.Description = description
 	updatedRecord.RorIds = rorIds
 
 	// If new file uploaded, process it
@@ -1588,11 +1607,11 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		// Insert new version into history with pending status
 		_, err = tx.ExecContext(ctx,
 			`INSERT INTO record_history (
-				record_id, version, s3_key, name, sha256, metadata,
+				record_id, version, s3_key, name, description, sha256, metadata,
 				uploader_name, uploader_orcid, download_count,
 				created_at, modified_at, moderation_status, change_type
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, $9, 'pending', 'PENDING_VERSION')`,
-			updatedRecord.Id, nextVersion, newS3Key, updatedRecord.Name, updatedRecord.Sha256, updatedRecord.Metadata,
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, $10, 'pending', 'PENDING_VERSION')`,
+			updatedRecord.Id, nextVersion, newS3Key, updatedRecord.Name, updatedRecord.Description, updatedRecord.Sha256, updatedRecord.Metadata,
 			existingRecord.UploaderName, existingRecord.UploaderOrcid, existingRecord.CreatedAt,
 		)
 		if err != nil {
@@ -1609,13 +1628,13 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 			return
 		}
 	} else {
-		// Update only name (no moderation needed for metadata-only updates)
+		// Update only name or description (no moderation needed for metadata-only updates)
 		_, err = tx.ExecContext(ctx,
-			`UPDATE records SET name = $2, modified_at = now() WHERE id = $1`,
-			updatedRecord.Id, updatedRecord.Name,
+			`UPDATE records SET name = $2, description = $3, modified_at = now() WHERE id = $1`,
+			updatedRecord.Id, updatedRecord.Name, updatedRecord.Description,
 		)
 		if err != nil {
-			// Check if this is a PostgreSQL unique constraint violation
+			// Check if this is a PostgreSQL unique constraint violation on name only
 			if pqErr, ok := err.(*pq.Error); ok {
 				if pqErr.Code == pqErrCodeUniqueViolation {
 					if strings.Contains(pqErr.Message, "name") || strings.Contains(pqErr.Detail, "name") {

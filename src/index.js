@@ -1,3 +1,6 @@
+// Intentionally high limit to support long user descriptions and multilingual content
+const DESCRIPTION_MAX_LENGTH = 10000;
+
 document.addEventListener('DOMContentLoaded', function () {
 
   const errorDialog = document.getElementById('error-dialog');
@@ -52,7 +55,6 @@ document.addEventListener('DOMContentLoaded', function () {
           // Hide the form and show success message
           const formContainer = document.getElementById('uploadFormContainer');
           const successMessage = document.getElementById('uploadSuccessMessage');
-          
           if (formContainer && successMessage) {
             formContainer.classList.add('d-none');
             successMessage.classList.remove('d-none');
@@ -70,7 +72,6 @@ document.addEventListener('DOMContentLoaded', function () {
             toast.show();
           }
           console.error('Upload failed:', errorText);
-          
           // Re-enable submit button on error
           if (submitBtn) {
             submitBtn.disabled = false;
@@ -88,7 +89,6 @@ document.addEventListener('DOMContentLoaded', function () {
           toast.show();
         }
         console.error('Upload error:', error);
-        
         // Re-enable submit button on error
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -134,6 +134,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Format relative timestamps
   formatRelativeTimes();
+
+  const descriptionTextarea = document.getElementById('description');
+  const descriptionCount = document.getElementById('description-count');
+  const descriptionMax = document.getElementById('description-max');
+
+  if (!descriptionTextarea || !descriptionCount || !descriptionMax) return;
+
+  descriptionTextarea.maxLength = DESCRIPTION_MAX_LENGTH;
+  descriptionMax.textContent = DESCRIPTION_MAX_LENGTH;
+
+  const updateDescriptionCount = () => {
+      descriptionCount.textContent = Array.from(descriptionTextarea.value).length;
+  };
+
+  descriptionTextarea.addEventListener('input', updateDescriptionCount);
+  updateDescriptionCount();
 });
 
 // RO-Crate viewer functionality
@@ -1142,7 +1158,7 @@ function initializeRorAutocomplete(inputId, resultsId, selectedId, hiddenInputId
   searchInput.addEventListener('input', function (e) {
     const query = e.target.value.trim();
 
-    if (query.length < 2) {
+    if (query.length < 1) {
       searchResults.classList.add('d-none');
       searchResults.innerHTML = '';
       return;

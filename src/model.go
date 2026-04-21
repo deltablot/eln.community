@@ -13,6 +13,7 @@ type Record struct {
 	MetadataPretty   string           `json:"-"`
 	ModifiedAt       time.Time        `json:"modified_at"`
 	Name             string           `json:"name"`
+	Description      string           `json:"description"`
 	Sha256           string           `json:"sha256"`
 	UploaderName     string           `json:"uploader_name"`
 	UploaderOrcid    string           `json:"uploader_orcid"`
@@ -37,6 +38,7 @@ type RecordHistory struct {
 	Version          int              `json:"version"`
 	S3Key            string           `json:"-"`
 	Name             string           `json:"name"`
+	Description      string           `json:"description"`
 	Sha256           string           `json:"sha256"`
 	Metadata         json.RawMessage  `json:"metadata"`
 	UploaderName     string           `json:"uploader_name"`
