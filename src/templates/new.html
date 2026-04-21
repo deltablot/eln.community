@@ -46,8 +46,11 @@
       <p class="mb-0">Share your ELN archives: experiments, protocols, templates, resources...</p>
     </div>
     <label for="elnFile" class="form-label fw-bold required-label mt-3 mb-1">
-      Upload .eln file <span class="smallgray">(required)</span>
+        Upload <code>.eln</code> file <span class="smallgray">(required)</span>
     </label>
+    <div class="small test-body-secondary mb-2">
+        <span>The filename must not start with <code>.</code>, contain additional dots or include any of these characters: <code>&lt;&gt;:&quot;|?*/\</code></span>
+    </div>
     <input type="file" name="file" id="elnFile" class="form-control form-placeholder" accept=".eln" required />
 
     <label for="entryName" class="form-label fw-bold required-label mt-3 mb-1">

@@ -66,6 +66,9 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+    // Limit teh request body size to 32MB
+    r.Body = http.MaxBytesReader(w, r.Body, 32 << 20)
+
 	// Parse the multipart form with a maximum memory of 10 MB for file parts.
 	err := r.ParseMultipartForm(10 << 20) // 10MB
 	if err != nil {
@@ -80,6 +83,38 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+    filename := strings.TrimSpace(header.Filename)
+    filename = filepath.Base(filename)
+    infoLogger.Printf("uploaded filename: %s", filename)
+    if (filename == "" || filename[0] == '.') {
+        errorLogger.Printf("Invalid file: %s. Empty filename or hidden files are not allowed.", filename)
+        http.Error(w, "Error: invalid file. Hidden are not allowed", http.StatusBadRequest)
+		return
+	}
+    if strings.Count(filename, ".") != 1 {
+        errorLogger.Printf("Invalid file: %s. Multiple extensions are not allowed", filename)
+        http.Error(w, "Error: invalid file extension. Multiple extensions are not allowed", http.StatusBadRequest)
+		return
+	}
+    if strings.ToLower(filepath.Ext(filename)) != ".eln" {
+        errorLogger.Printf("Invalid file extension: %s", filename)
+        http.Error(w, "Error: invalid file extension", http.StatusBadRequest)
+		return
+	}
+    for _, r := range filename {
+        if (r <= 0x1F || r == 0x7F || r == '/' || r == '\\') {
+            errorLogger.Printf("Invalid file name: %q. Some characters are not allowed.", filename)
+            http.Error(w, "Error: invalid file name. Some characters are not allowed.", http.StatusBadRequest)
+		    return
+        }
+    }
+    dangerousChars := "<>:\"|?*"
+    if strings.ContainsAny(filename, dangerousChars) {
+        errorLogger.Printf("Invalid file name: %q. Some characters are not allowed.", filename)
+        http.Error(w, "Error: invalid file name. Some characters are not allowed.", http.StatusBadRequest)
+		return
+    }
 
 	maxBytes := app.MaxFileSize * 1024 * 1024
 	if header.Size > maxBytes {
