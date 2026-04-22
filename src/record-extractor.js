@@ -1,6 +1,6 @@
 /**
  * Record Data Extractor Module
- * 
+ *
  * Extracts and maps RO-Crate metadata to structured display blocks
  * for the redesigned record screen.
  */
@@ -22,7 +22,7 @@ function isUUID(str) {
 /**
  * Extract owner information from RO-Crate metadata
  * Looks for author/creator fields and extracts name and ORCID
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object|null} - Owner object with name and optional orcid, or null
@@ -36,15 +36,15 @@ function extractOwner(rootDataset, graph) {
 
   // Handle array of authors - take the first one
   const ref = Array.isArray(authorRef) ? authorRef[0] : authorRef;
-  
+
   if (!ref) return null;
 
   // If it's a direct object with name
   if (typeof ref === 'object' && ref.name) {
     return {
       name: ref.name,
-      orcid: ref['@id'] && ref['@id'].includes('orcid.org') 
-        ? ref['@id'].replace('https://orcid.org/', '') 
+      orcid: ref['@id'] && ref['@id'].includes('orcid.org')
+        ? ref['@id'].replace('https://orcid.org/', '')
         : undefined
     };
   }
@@ -73,7 +73,7 @@ function extractOwner(rootDataset, graph) {
 /**
  * Extract team/organization information from RO-Crate metadata
  * Looks for affiliation, sourceOrganization, or organization fields
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object|null} - Team object with name and optional rorId, or null
@@ -85,15 +85,15 @@ function extractTeam(rootDataset, graph) {
   const authorRef = rootDataset.author || rootDataset.creator;
   if (authorRef) {
     const ref = Array.isArray(authorRef) ? authorRef[0] : authorRef;
-    
+
     // Look up author entity to find affiliation
     if (ref && ref['@id']) {
       const authorEntity = graph.find(e => e['@id'] === ref['@id']);
       if (authorEntity && authorEntity.affiliation) {
-        const affiliationRef = Array.isArray(authorEntity.affiliation) 
-          ? authorEntity.affiliation[0] 
+        const affiliationRef = Array.isArray(authorEntity.affiliation)
+          ? authorEntity.affiliation[0]
           : authorEntity.affiliation;
-        
+
         if (affiliationRef) {
           // Direct object with name
           if (typeof affiliationRef === 'object' && affiliationRef.name) {
@@ -102,7 +102,7 @@ function extractTeam(rootDataset, graph) {
               rorId: extractRorId(affiliationRef['@id'])
             };
           }
-          
+
           // Reference to another entity
           if (affiliationRef['@id']) {
             const orgEntity = graph.find(e => e['@id'] === affiliationRef['@id']);
@@ -123,7 +123,7 @@ function extractTeam(rootDataset, graph) {
     const orgRef = Array.isArray(rootDataset.sourceOrganization)
       ? rootDataset.sourceOrganization[0]
       : rootDataset.sourceOrganization;
-    
+
     if (orgRef) {
       if (typeof orgRef === 'object' && orgRef.name) {
         return {
@@ -131,7 +131,7 @@ function extractTeam(rootDataset, graph) {
           rorId: extractRorId(orgRef['@id'])
         };
       }
-      
+
       if (orgRef['@id']) {
         const orgEntity = graph.find(e => e['@id'] === orgRef['@id']);
         if (orgEntity && orgEntity.name) {
@@ -154,18 +154,18 @@ function extractTeam(rootDataset, graph) {
  */
 function extractRorId(id) {
   if (!id || typeof id !== 'string') return undefined;
-  
+
   // Match ROR URL pattern
   const rorMatch = id.match(/ror\.org\/([a-z0-9]+)/i);
   if (rorMatch) return rorMatch[1];
-  
+
   return undefined;
 }
 
 /**
  * Extract tags from RO-Crate metadata
  * Looks for keywords or about fields
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {string[]} - Array of tag strings
@@ -215,7 +215,7 @@ function extractTags(rootDataset, graph) {
 /**
  * Extract start date from RO-Crate metadata
  * Looks for dateCreated or startDate fields
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @returns {string|null} - ISO date string or null
  */
@@ -224,7 +224,7 @@ function extractStartDate(rootDataset) {
 
   // Try dateCreated first, then startDate
   const dateValue = rootDataset.dateCreated || rootDataset.startDate || rootDataset.datePublished;
-  
+
   if (!dateValue) return null;
 
   // Return as-is if it's a string (should be ISO format)
@@ -238,7 +238,7 @@ function extractStartDate(rootDataset) {
 /**
  * Extract main text sections from RO-Crate metadata
  * Identifies entities by name containing "Introduction", "Experimental", "Results"
- * 
+ *
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object} - Object with introduction, experimentalDesign, and results fields
  */
@@ -274,7 +274,7 @@ function extractMainText(graph) {
 /**
  * Extract file attachments from RO-Crate metadata
  * Looks for hasPart relationships with File type
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Array} - Array of FileInfo objects
@@ -318,7 +318,7 @@ function extractFiles(rootDataset, graph) {
 /**
  * Extract links from RO-Crate metadata
  * Looks for mentions, isBasedOn, and citation fields
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object} - Object with experimentLinks and resourceLinks arrays
@@ -385,7 +385,7 @@ function extractLinks(rootDataset, graph) {
 /**
  * Collect unmapped entities from RO-Crate metadata
  * Returns entities that don't match known field mappings
- * 
+ *
  * @param {Array} graph - The @graph array from RO-Crate
  * @param {Object} rootDataset - The root dataset entity
  * @param {Object} extractedData - Already extracted data to identify mapped entities
@@ -432,7 +432,7 @@ function collectUnmappedEntities(graph, rootDataset, extractedData) {
   graph.forEach(entity => {
     if (!entity || !entity.name) return;
     const name = entity.name.toLowerCase();
-    if (name.includes('introduction') || name.includes('experimental') || 
+    if (name.includes('introduction') || name.includes('experimental') ||
         name.includes('method') || name.includes('result')) {
       mappedIds.add(entity['@id']);
     }
@@ -456,7 +456,7 @@ function collectUnmappedEntities(graph, rootDataset, extractedData) {
 
 /**
  * Main function to extract all record data from RO-Crate metadata
- * 
+ *
  * @param {Object} roCrateData - The complete RO-Crate JSON object
  * @returns {Object} - ExtractedRecordData object with all structured data
  */

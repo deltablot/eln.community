@@ -1147,3 +1147,7 @@ footer {
   color: #000;
 }
 
+.main-text-content {
+  white-space: pre-wrap;
+  margin-left: 0.5rem;
+}

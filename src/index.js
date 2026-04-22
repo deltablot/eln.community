@@ -305,7 +305,7 @@ function renderHtmlContent(htmlContent, entityId) {
         <small class="text-muted">${safeEntityId}</small>
       </div>
       <div class="user-content-container">
-        <iframe 
+        <iframe
           sandbox=""
           srcdoc="${escapedHTML}"
           title="HTML content from ${safeEntityId}"
@@ -442,7 +442,7 @@ function renderRoCrate(data) {
   const graph = data['@graph'];
 
   // Types to exclude from display
-  const excludedTypes = ['CreateAction', 'CreativeWork', 'PropertyValue', 'SoftwareApplication', 'Thing'];
+  const excludedTypes = ['CreateAction', 'CreativeWork', 'SoftwareApplication', 'Thing'];
 
   // Build a lookup map for resolving references (e.g., Person by ID)
   const entityMap = {};
@@ -460,9 +460,8 @@ function renderRoCrate(data) {
     if (person && person['@type'] === 'Person') {
       const givenName = person.givenName || '';
       const familyName = person.familyName || '';
-      const email = person.email || '';
       if (givenName || familyName) {
-        return { name: `${givenName} ${familyName}`.trim(), email };
+        return { name: `${givenName} ${familyName}`.trim()};
       }
     }
     return null;
@@ -501,6 +500,15 @@ function renderRoCrate(data) {
     return types.includes('Organization');
   });
 
+  // Find PropertyValue entities
+    /*
+  const organizations = graph.filter(entity => {
+    if (!entity || typeof entity !== 'object') return false;
+    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
+    return types.includes('PropertyValue');
+  });
+  */
+
   let html = '';
 
   // Render Datasets
@@ -534,6 +542,21 @@ function renderRoCrate(data) {
   return html;
 }
 
+function formatMainText(rawHtml) {
+  if (!rawHtml) return '';
+
+  const withBreaks = rawHtml
+    .replace(/<br>/g, '\n')
+    .replace(/<\/div>\s*<div>/gi, '\n\n')
+    .replace(/<div>/gi, '')
+    .replace(/<\/div>/gi, '');
+
+  const container = document.createElement('div');
+  container.innerHTML = withBreaks;
+
+  return escapeHtml(container.textContent.trim());
+}
+
 /**
  * Render a Dataset entity as a card
  */
@@ -545,6 +568,7 @@ function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
   const dateCreated = dataset.dateCreated ? formatDisplayDate(dataset.dateCreated) : null;
   const keywords = dataset.keywords;
   const url = dataset.url;
+  const mainText = dataset.text;
 
   let html = '<div class="card mb-3">';
   html += '<div class="card-body">';
@@ -556,9 +580,6 @@ function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
   if (author) {
     html += `<div class="mb-1"><i class="bi bi-person me-2 text-secondary"></i>`;
     html += `<span class="text-muted">Author:</span> <span>${escapeHtml(author.name)}</span>`;
-    if (author.email) {
-      html += ` <small class="text-muted">(${escapeHtml(author.email)})</small>`;
-    }
     html += '</div>';
   }
 
@@ -601,6 +622,13 @@ function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
     html += `<span class="text-muted">URL:</span> <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">${escapeHtml(url)}</a></div>`;
   }
 
+  // Main Text
+  if (mainText) {
+    html += `<div class="mb-1"><i class="bi bi-link me-2 text-secondary"></i>`;
+    html += `<span class="text-muted">Main Text:</span>
+      <div class="main-text-content">${escapeHtml(formatMainText(mainText))}</div>
+    </div>`;
+  }
   html += '</div></div>';
   return html;
 }
@@ -743,9 +771,10 @@ function initializeRoCrateViewer() {
 /**
  * Render the structured record view using the RecordExtractor module
  * Populates the Common Info, Main Text, Extra Fields, and Other Metadata containers
- * 
+ *
  * @param {Object} roCrateData - The parsed RO-Crate JSON data
  */
+// BE CAREFUL: module not loaded!
 function renderStructuredRecordView(roCrateData) {
   // Check if RecordExtractor is available
   if (typeof window.RecordExtractor === 'undefined') {
@@ -832,7 +861,7 @@ function renderStructuredRecordView(roCrateData) {
 /**
  * Get fallback data from the Record model (server-rendered data)
  * Used when RO-Crate metadata doesn't contain certain fields
- * 
+ *
  * @returns {Object} - Fallback data object
  */
 function getFallbackRecordData() {
@@ -861,7 +890,7 @@ function getFallbackRecordData() {
 
 /**
  * Apply fallback data to extracted data when RO-Crate fields are missing
- * 
+ *
  * @param {Object} extractedData - The extracted data from RO-Crate
  * @param {Object} fallbackData - The fallback data from Record model
  */
