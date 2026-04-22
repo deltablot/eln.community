@@ -92,11 +92,6 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "Error: invalid file. Hidden are not allowed", http.StatusBadRequest)
 		return
 	}
-    if strings.Count(filename, ".") != 1 {
-        errorLogger.Printf("Invalid file: %s. Multiple extensions are not allowed", filename)
-        http.Error(w, "Error: invalid file extension. Multiple extensions are not allowed", http.StatusBadRequest)
-		return
-	}
     if strings.ToLower(filepath.Ext(filename)) != ".eln" {
         errorLogger.Printf("Invalid file extension: %s", filename)
         http.Error(w, "Error: invalid file extension", http.StatusBadRequest)
