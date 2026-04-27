@@ -17,6 +17,7 @@ yarn run esbuild \
   $SRC_DIR/index.js \
   $SRC_DIR/comments.js \
   $SRC_DIR/moderation-comments.js \
+  $SRC_DIR/record-extractor.js \
   $SRC_DIR/main.css \
   --loader:.css=css
 

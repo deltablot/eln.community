@@ -1022,7 +1022,7 @@ function renderPermissionsSubsection(permissions) {
   const visibility = escapeHtmlForRenderer(perms.visibility || 'public');
   const canWrite = escapeHtmlForRenderer(perms.canWrite || 'owner');
 
-    <div class="mb-3">
+    `<div class="mb-3">
       <h6 class="fw-semibold text-secondary mb-3">
         <i class="bi bi-shield-lock me-2"></i>PERMISSIONS
       </h6>
@@ -1039,6 +1039,7 @@ function renderPermissionsSubsection(permissions) {
         </div>
       </div>
     </div>
+    `
   ;
 }
 
@@ -1291,3 +1292,4 @@ if (typeof window !== 'undefined') {
     escapeHtmlForRenderer
   };
 }
+
