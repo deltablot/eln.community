@@ -774,7 +774,6 @@ function initializeRoCrateViewer() {
  *
  * @param {Object} roCrateData - The parsed RO-Crate JSON data
  */
-// BE CAREFUL: module not loaded!
 function renderStructuredRecordView(roCrateData) {
   // Check if RecordExtractor is available
   if (typeof window.RecordExtractor === 'undefined') {

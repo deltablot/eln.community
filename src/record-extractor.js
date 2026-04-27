@@ -382,6 +382,8 @@ function extractLinks(rootDataset, graph) {
   return links;
 }
 
+
+
 /**
  * Collect unmapped entities from RO-Crate metadata
  * Returns entities that don't match known field mappings
@@ -1086,6 +1088,8 @@ function renderExtraFieldsBlock(extraFields) {
   subsectionsHtml += renderStorageSubsection(storage);
   subsectionsHtml += renderPermissionsSubsection(permissions);
 
+    console.log('subsectionsHtml');
+    console.log(subsectionsHtml);
   // Generate unique ID for accordion
   const accordionId = 'extraFieldsAccordion';
   const collapseId = 'extraFieldsCollapse';
@@ -1113,7 +1117,8 @@ function renderExtraFieldsBlock(extraFields) {
  * @param {Object} entity - RO-Crate entity object
  * @returns {string} - HTML string for the entity
  */
-function renderUnmappedEntity(entity) {
+/*
+function renderUnmappedEntityOld(entity) {
   if (!entity) return '';
 
   const entityId = entity['@id'] || 'Unknown';
@@ -1160,6 +1165,49 @@ function renderUnmappedEntity(entity) {
   html += '</div></div>';
   return html;
 }
+*/
+
+/**
+ * TO DO: edit function name renderExtraFields
+ * Render a single unmapped entity
+ * @param {Object} entity - RO-Crate entity object
+ * @returns {string} - HTML string for the entity
+ */
+function renderUnmappedEntity(entity) {
+  if (!entity) return '';
+
+  let metadata;
+
+  if (entity['@type'] == 'PropertyValue' && entity.propertyID == 'elabftw_metadata') {
+      metadata = JSON.parse(entity.value);
+      const extraFields = metadata.extra_fields || {};
+
+      return Object.entries(extraFields).map(([fieldName, fieldData]) => {
+          const value = fieldData?.value || '';
+          const type = fieldData?.type || '';
+          const description = fieldData?.description || '';
+          return `<div class="card mb-2 border">
+                    <div class="card-body py-2 bg-light">
+                      <div class="d-flex align-items-center flex-wrap gap-2">
+                        <strong>${escapeHtmlForRenderer(fieldName)}</strong>
+                         ${type ? `<span class="badge bg-secondary small">${escapeHtmlForRenderer(type)}</span>` : ''}
+          </div>
+
+          <dl class="row mb-0 mt-2 small">
+            <dt class="col-sm-3 text-muted fw-medium">value</dt>
+            <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(String(value))}</dd>
+
+            ${description ? `
+              <dt class="col-sm-3 text-muted fw-medium">description</dt>
+              <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(description)}</dd>
+            ` : ''}
+          </dl>
+        </div>
+      </div>`;
+    }).join('');
+  }
+    return '';
+}
 
 /**
  * Render the Other Metadata section for unmapped entities
@@ -1178,6 +1226,70 @@ function renderOtherMetadata(unmappedEntities) {
     if (!entity) return false;
     const entityId = entity['@id'] || '';
     const entityName = entity.name || '';
+
+    // Keep if has a meaningful name that's not a UUID
+    if (entityName && !isUUID(entityName)) return true;
+
+    // Keep if has a meaningful ID that's not a UUID
+    if (entityId && !isUUID(entityId) && !entityId.startsWith('#')) return true;
+
+    // Keep if has other meaningful properties
+    const excludeKeys = ['@id', '@type', 'name'];
+    const otherProps = Object.keys(entity).filter(key => !excludeKeys.includes(key));
+    return otherProps.some(key => {
+      const value = entity[key];
+      if (typeof value === 'string') return !isUUID(value);
+      return true;
+    });
+  });
+
+  if (meaningfulEntities.length === 0) {
+    return '';
+  }
+
+  // Generate unique ID for accordion
+  const accordionId = 'otherMetadataAccordion';
+  const collapseId = 'otherMetadataCollapse';
+
+  const entitiesHtml = meaningfulEntities.map(entity => renderUnmappedEntity(entity)).join('');
+
+  return `
+    <div class="accordion mb-3" id="${accordionId}">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed fw-semibold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="false" aria-controls="${collapseId}">
+            <i class="bi bi-three-dots me-2 text-secondary"></i>OTHER METADATA
+          </button>
+        </h2>
+        <div id="${collapseId}" class="accordion-collapse collapse" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">
+            ${entitiesHtml}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render the Other Metadata section for unmapped entities
+ * Displays RO-Crate entities that don't match known field mappings
+ *
+ * @param {Array} unmappedEntities - Array of RO-Crate entity objects
+ * @returns {string} - HTML string for the Other Metadata section
+ */
+/*
+function renderOtherMetadataOld(unmappedEntities) {
+  if (!unmappedEntities || !Array.isArray(unmappedEntities)) {
+    return '';
+  }
+
+  // Filter out entities that are just UUIDs with no meaningful content
+  const meaningfulEntities = unmappedEntities.filter(entity => {
+    if (!entity) return false;
+    const entityId = entity['@id'] || '';
+    const entityName = entity.name || '';
+    const entityValue = entity.value || '';
 
     // Keep if has a meaningful name that's not a UUID
     if (entityName && !isUUID(entityName)) return true;
@@ -1226,6 +1338,7 @@ function renderOtherMetadata(unmappedEntities) {
     </div>
   `;
 }
+*/
 
 // Export functions for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
