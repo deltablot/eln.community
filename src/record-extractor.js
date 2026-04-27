@@ -1206,7 +1206,73 @@ function renderUnmappedEntity(entity) {
       </div>`;
     }).join('');
   }
-    return '';
+  return '';
+}
+
+/**
+ * TO DO: edit function name renderSteps
+ * Render a single step
+ * @param {Object} entity - RO-Crate entity object
+ * @returns {string} - HTML string for the entity
+ */
+function renderUnmappedEntityBis(entity, allEntities) {
+  if (!entity && !allEntities) return '';
+
+  let metadata;
+
+  if (entity['@type'] == 'PropertyValue' && entity.propertyID == 'elabftw_metadata') {
+      metadata = JSON.parse(entity.value);
+      const extraFields = metadata.extra_fields || {};
+
+      return Object.entries(extraFields).map(([fieldName, fieldData]) => {
+          const value = fieldData?.value || '';
+          const type = fieldData?.type || '';
+          const description = fieldData?.description || '';
+          return `<div class="card mb-2 border">
+                    <div class="card-body py-2 bg-light">
+                      <div class="d-flex align-items-center flex-wrap gap-2">
+                        <strong>${escapeHtmlForRenderer(fieldName)}</strong>
+                         ${type ? `<span class="badge bg-secondary small">${escapeHtmlForRenderer(type)}</span>` : ''}
+                      </div>
+
+          <dl class="row mb-0 mt-2 small">
+            <dt class="col-sm-3 text-muted fw-medium">value</dt>
+            <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(String(value))}</dd>
+
+            ${description ? `
+              <dt class="col-sm-3 text-muted fw-medium">description</dt>
+              <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(description)}</dd>
+            ` : ''}
+          </dl>
+        </div>
+      </div>`;
+    }).join('');
+  }
+    if (entity['@type'] === 'HowToStep') {
+    const directionId = entity.itemListElement?.['@id'];
+    const direction = allEntities.find(e => e?.['@id'] === directionId);
+
+          return `<div class="card mb-2 border">
+                    <div class="card-body py-2 bg-light">
+                      <div class="d-flex align-items-center flex-wrap gap-2">
+                        <strong>Step ${escapeHtmlForRenderer(String(entity.position))}</strong>
+                      </div>
+
+          <dl class="row mb-0 mt-2 small">
+            <pclass="col-sm-3">${escapeHtmlForRenderer(direction?.text)}</p>
+          </dl>
+        </div>
+      </div>`;
+        /*
+    return `
+      <div>
+        <strong>Step ${escapeHtmlForRenderer(String(entity.position || ''))}</strong>
+        <p>${escapeHtmlForRenderer(direction?.text || '')}</p>
+      </div>
+    `;
+    */
+  }
+  return '';
 }
 
 /**
@@ -1251,7 +1317,7 @@ function renderOtherMetadata(unmappedEntities) {
   const accordionId = 'otherMetadataAccordion';
   const collapseId = 'otherMetadataCollapse';
 
-  const entitiesHtml = meaningfulEntities.map(entity => renderUnmappedEntity(entity)).join('');
+  const entitiesHtml = meaningfulEntities.map(entity => renderUnmappedEntityBis(entity, meaningfulEntities)).join('');
 
   return `
     <div class="accordion mb-3" id="${accordionId}">
