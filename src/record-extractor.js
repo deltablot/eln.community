@@ -375,6 +375,67 @@ function renderCustomFields(customFields) {
 }
 
 /**
+ * Extract steps from RO-Crate metadata
+ *
+ * @param {Array} graph - The @graph array from RO-Crate
+ * @returns {Array} - Array of FileInfo objects
+ */
+function extractSteps(graph) {
+  if (!Array.isArray(graph)) return [];
+
+  const steps = graph.filter(entity => entity?.['@type'] === 'HowToStep');
+  if (!steps) return [];
+
+  return steps.map(step => {
+    const directionId = step.itemListElement?.['@id'];
+    const direction = graph.find(element => element?.['@id'] === directionId);
+
+    return {
+      position: step.position || '',
+      creativeWorkStatus: step?.creativeWorkStatus || '',
+      text: direction?.text || '',
+    };
+  });
+}
+
+function renderSteps(steps) {
+  if (!Array.isArray(steps) || steps.length === 0) return '';
+
+  const accordionId = 'mainTextAccordion';
+  const collapseId = 'mainTextCollapse';
+
+  const stepsHtml = steps.map(step =>
+      `<div class="card mb-2 border">
+            <div class="card-body py-2 bg-light">
+              <div class="d-flex align-items-center flex-wrap gap-2">
+                 <strong>Step ${escapeHtmlForRenderer(String(step.position))}</strong>
+                 ${step.creativeWorkStatus ? `<span class="badge bg-secondary small">${escapeHtmlForRenderer(step.creativeWorkStatus)}</span>` : ''}
+              </div>
+              <dl class="row mb-0 mt-2 small">
+                <p>${escapeHtmlForRenderer(step?.text)}</p>
+              </dl>
+            </div>
+          </div>`).join('');
+
+  return `
+    <div class="accordion mb-3" id="${accordionId}">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button fw-semibold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="true" aria-controls="${collapseId}">
+            <i class="bi bi-file-text me-2 text-secondary"></i>STEPS
+          </button>
+        </h2>
+        <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">
+            ${stepsHtml}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Extract links from RO-Crate metadata
  * Looks for mentions, isBasedOn, and citation fields
  *
@@ -530,7 +591,7 @@ function extractRecordData(roCrateData) {
     extraFields: {
       customFields: [],
       attachedFiles: [],
-//      steps: [],
+      steps: [],
       experimentLinks: [],
       resourceLinks: [],
       compounds: [],
@@ -572,8 +633,8 @@ function extractRecordData(roCrateData) {
 
   // Extract extra fields
   result.extraFields.customFields = extractCustomFields(graph);
-    console.log(result.extraFields.customFields);
   result.extraFields.attachedFiles = extractFiles(rootDataset, graph);
+  result.extraFields.steps = extractSteps(graph);
   const links = extractLinks(rootDataset, graph);
   result.extraFields.experimentLinks = links.experimentLinks;
   result.extraFields.resourceLinks = links.resourceLinks;
@@ -1300,6 +1361,7 @@ if (typeof module !== 'undefined' && module.exports) {
     renderPermissionsSubsection,
     renderOtherMetadata,
     renderCustomFields,
+    renderSteps,
     renderUnmappedEntity,
     sanitizeHTML,
     formatDate,
@@ -1334,6 +1396,7 @@ if (typeof window !== 'undefined') {
     renderPermissionsSubsection,
     renderOtherMetadata,
     renderCustomFields,
+    renderSteps,
     renderUnmappedEntity,
     sanitizeHTML,
     formatDate,

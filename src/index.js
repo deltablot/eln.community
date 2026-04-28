@@ -759,6 +759,7 @@ function renderStructuredRecordView(roCrateData) {
     renderMainTextBlock,
     renderExtraFieldsBlock,
     renderCustomFields,
+    renderSteps,
   } = window.RecordExtractor;
 
   // Get fallback data from Record model
@@ -788,10 +789,7 @@ function renderStructuredRecordView(roCrateData) {
   // Render Main Text Block
   const mainTextContainer = document.getElementById('main-text-container');
   if (mainTextContainer) {
-      //console.log('HELLO 00');
-    const hasMainText = extractedData.mainText.introduction ||
-      extractedData.mainText.experimentalDesign ||
-      extractedData.mainText.results;
+    const hasMainText = extractedData.mainText.introduction;
 
     if (hasMainText) {
       mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
@@ -818,13 +816,22 @@ function renderStructuredRecordView(roCrateData) {
     }
   }
 
-  // Render Other Metadata Block
-  const otherMetadataContainer = document.getElementById('other-metadata-container');
-  if (otherMetadataContainer) {
-      otherMetadataContainer.innerHTML = renderCustomFields(extractedData.extraFields.customFields);
+  // Render Custom Fields
+  const customFieldContainer = document.getElementById('custom-field-container');
+  if (customFieldContainer) {
+      customFieldContainer.innerHTML = renderCustomFields(extractedData.extraFields.customFields);
     } else {
-      // Hide the container if no unmapped entities
-      otherMetadataContainer.style.display = 'none';
+      // Hide the container if no custom field
+      customFieldContainer.style.display = 'none';
+    }
+
+  // Render Steps
+  const stepsContainer = document.getElementById('steps-container');
+  if (stepsContainer) {
+      stepsContainer.innerHTML = renderSteps(extractedData.extraFields.steps);
+    } else {
+      // Hide the container if no steps
+      stepsContainer.style.display = 'none';
     }
 }
 
