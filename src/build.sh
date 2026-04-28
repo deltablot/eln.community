@@ -28,5 +28,3 @@ cp "$SRC_DIR"/favicon.ico "$DIST_DIR"
 for file in $DIST_DIR/*.{js,css,txt,ico}; do
   brotli --quality=11 --keep --output="$file.br" "$file"
 done
-
-

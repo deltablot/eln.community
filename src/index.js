@@ -743,7 +743,7 @@ function initializeRoCrateViewer() {
 /**
  * Render the structured record view using the RecordExtractor module
  * Populates the Common Info, Main Text, Extra Fields, and Other Metadata containers
- * 
+ *
  * @param {Object} roCrateData - The parsed RO-Crate JSON data
  */
 function renderStructuredRecordView(roCrateData) {
@@ -755,6 +755,7 @@ function renderStructuredRecordView(roCrateData) {
 
   const {
     extractRecordData,
+    extractCustomFields,
     renderCommonInfoBlock,
     renderMainTextBlock,
     renderExtraFieldsBlock,
@@ -788,16 +789,18 @@ function renderStructuredRecordView(roCrateData) {
   // Render Main Text Block
   const mainTextContainer = document.getElementById('main-text-container');
   if (mainTextContainer) {
+      console.log('HELLO 00');
     const hasMainText = extractedData.mainText.introduction ||
       extractedData.mainText.experimentalDesign ||
       extractedData.mainText.results;
 
-    if (hasMainText) {
+    //if (hasMainText) {
+      console.log('HELLO 01');
       mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
-    } else {
+   // } else {
       // Hide the container if no main text content
-      mainTextContainer.style.display = 'none';
-    }
+    //  mainTextContainer.style.display = 'none';
+   // }
   }
 
   // Render Extra Fields Block

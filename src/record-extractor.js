@@ -245,27 +245,14 @@ function extractStartDate(rootDataset) {
 function extractMainText(graph) {
   const mainText = {
     introduction: null,
-    experimentalDesign: null,
-    results: null
   };
 
   if (!Array.isArray(graph)) return mainText;
 
   graph.forEach(entity => {
-    if (!entity || !entity.name) return;
-
+    if (!entity || !entity.name || !entity.text) return;
     const name = entity.name.toLowerCase();
-    const content = entity.text || entity.description || entity.content;
-
-    if (!content) return;
-
-    if (name.includes('introduction')) {
-      mainText.introduction = content;
-    } else if (name.includes('experimental') || name.includes('method')) {
-      mainText.experimentalDesign = content;
-    } else if (name.includes('result')) {
-      mainText.results = content;
-    }
+    mainText.introduction = entity.text;
   });
 
   return mainText;
@@ -313,6 +300,49 @@ function extractFiles(rootDataset, graph) {
   });
 
   return files;
+}
+
+/**
+ * Extract custom fields from RO-Crate metadata
+ *
+ * @param {Object} rootDataset - The root dataset entity from RO-Crate
+ * @param {Array} graph - The @graph array from RO-Crate
+ * @returns {Array} - Array of FileInfo objects
+ */
+function extractCustomFields(entity) {
+    if (!entity) return '';
+
+  let metadata;
+
+  if (entity['@type'] == 'PropertyValue' && entity.propertyID == 'elabftw_metadata') {
+      metadata = JSON.parse(entity.value);
+      const extraFields = metadata.extra_fields || {};
+
+      return Object.entries(extraFields).map(([fieldName, fieldData]) => {
+          const value = fieldData?.value || '';
+          const type = fieldData?.type || '';
+          const description = fieldData?.description || '';
+          return `<div class="card mb-2 border">
+                    <div class="card-body py-2 bg-light">
+                      <div class="d-flex align-items-center flex-wrap gap-2">
+                        <strong>${escapeHtmlForRenderer(fieldName)}</strong>
+                         ${type ? `<span class="badge bg-secondary small">${escapeHtmlForRenderer(type)}</span>` : ''}
+          </div>
+
+          <dl class="row mb-0 mt-2 small">
+            <dt class="col-sm-3 text-muted fw-medium">value</dt>
+            <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(String(value))}</dd>
+
+            ${description ? `
+              <dt class="col-sm-3 text-muted fw-medium">description</dt>
+              <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(description)}</dd>
+            ` : ''}
+          </dl>
+        </div>
+      </div>`;
+    }).join('');
+  }
+    return '';
 }
 
 /**
@@ -432,10 +462,11 @@ function collectUnmappedEntities(graph, rootDataset, extractedData) {
   graph.forEach(entity => {
     if (!entity || !entity.name) return;
     const name = entity.name.toLowerCase();
-    if (name.includes('introduction') || name.includes('experimental') || 
+   /* if (name.includes('introduction') || name.includes('experimental') ||
         name.includes('method') || name.includes('result')) {
       mappedIds.add(entity['@id']);
     }
+    */
   });
 
   // Link entities
@@ -471,11 +502,13 @@ function extractRecordData(roCrateData) {
     },
     mainText: {
       introduction: null,
-      experimentalDesign: null,
-      results: null
+      //experimentalDesign: null,
+     // results: null
     },
     extraFields: {
+      customFields: [],
       attachedFiles: [],
+      steps: [],
       experimentLinks: [],
       resourceLinks: [],
       compounds: [],
@@ -516,6 +549,7 @@ function extractRecordData(roCrateData) {
   result.mainText = extractMainText(graph);
 
   // Extract extra fields
+  result.extraFields.customFields = extractCustomFields(rootDataset);
   result.extraFields.attachedFiles = extractFiles(rootDataset, graph);
   const links = extractLinks(rootDataset, graph);
   result.extraFields.experimentLinks = links.experimentLinks;
@@ -779,21 +813,23 @@ function renderMainTextBlock(mainText) {
   if (!mainText) {
     mainText = {
       introduction: null,
-      experimentalDesign: null,
-      results: null
+     // experimentalDesign: null,
+     // results: null
     };
   }
 
-  const { introduction, experimentalDesign, results } = mainText;
+  //const { introduction, experimentalDesign, results } = mainText;
+  const { introduction } = mainText;
 
   // Check if there's any content to display
-  const hasContent = introduction || experimentalDesign || results;
+  //const hasContent = introduction || experimentalDesign || results;
+  const hasContent = introduction;
 
   // Build the sections content
   let sectionsHtml = '';
   sectionsHtml += renderMainTextSection('Introduction', introduction);
-  sectionsHtml += renderMainTextSection('Experimental Design', experimentalDesign);
-  sectionsHtml += renderMainTextSection('Results', results);
+//  sectionsHtml += renderMainTextSection('Experimental Design', experimentalDesign);
+//  sectionsHtml += renderMainTextSection('Results', results);
 
   // If no content, show a message
   if (!hasContent) {
@@ -1234,6 +1270,7 @@ if (typeof module !== 'undefined' && module.exports) {
     extractTags,
     extractStartDate,
     extractMainText,
+    extractCustomFields,
     extractFiles,
     extractLinks,
     collectUnmappedEntities,
@@ -1267,6 +1304,7 @@ if (typeof window !== 'undefined') {
     extractTags,
     extractStartDate,
     extractMainText,
+    extractCustomFields,
     extractFiles,
     extractLinks,
     collectUnmappedEntities,
