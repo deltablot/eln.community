@@ -237,10 +237,10 @@ function extractStartDate(rootDataset) {
 
 /**
  * Extract main text sections from RO-Crate metadata
- * Identifies entities by name containing "Introduction", "Experimental", "Results"
+ * Identifies entities by name containing "Introduction"
  *
  * @param {Array} graph - The @graph array from RO-Crate
- * @returns {Object} - Object with introduction, experimentalDesign, and results fields
+ * @returns {Object} - Object with introduction
  */
 function extractMainText(graph) {
   const mainText = {
@@ -305,44 +305,73 @@ function extractFiles(rootDataset, graph) {
 /**
  * Extract custom fields from RO-Crate metadata
  *
- * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Array} - Array of FileInfo objects
  */
-function extractCustomFields(entity) {
-    if (!entity) return '';
+function extractCustomFields(graph) {
+  if (!Array.isArray(graph)) return [];
+
+  const customFields = graph.find((entity) =>
+    entity?.['@type'] === 'PropertyValue' && entity.propertyID === 'elabftw_metadata'
+  );
+  if (!customFields) return [];
 
   let metadata;
+  metadata = JSON.parse(customFields.value);
 
-  if (entity['@type'] == 'PropertyValue' && entity.propertyID == 'elabftw_metadata') {
-      metadata = JSON.parse(entity.value);
-      const extraFields = metadata.extra_fields || {};
+  const field = metadata.extra_fields || {};
+  return Object.entries(field).map(([fieldName, fieldData]) => ({
+      name: fieldName,
+      value: fieldData?.value || '',
+      type: fieldData?.type || '',
+      description: fieldData?.description || '',
+  }))
+}
 
-      return Object.entries(extraFields).map(([fieldName, fieldData]) => {
-          const value = fieldData?.value || '';
-          const type = fieldData?.type || '';
-          const description = fieldData?.description || '';
-          return `<div class="card mb-2 border">
-                    <div class="card-body py-2 bg-light">
-                      <div class="d-flex align-items-center flex-wrap gap-2">
-                        <strong>${escapeHtmlForRenderer(fieldName)}</strong>
-                         ${type ? `<span class="badge bg-secondary small">${escapeHtmlForRenderer(type)}</span>` : ''}
-          </div>
+function renderCustomFields(customFields) {
+  if (!Array.isArray(customFields) || customFields.length === 0) return '';
 
-          <dl class="row mb-0 mt-2 small">
-            <dt class="col-sm-3 text-muted fw-medium">value</dt>
-            <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(String(value))}</dd>
+  // Generate unique ID for accordion
+  const accordionId = 'mainTextAccordion';
+  const collapseId = 'mainTextCollapse';
 
-            ${description ? `
-              <dt class="col-sm-3 text-muted fw-medium">description</dt>
-              <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(description)}</dd>
-            ` : ''}
+  const customFieldsHtml = customFields.map(field =>
+    `<div class="card mb-2 border">
+       <div class="card-body py-2 bg-light">
+         <div class="d-flex align-items-center flex-wrap gap-2">
+           <strong>${escapeHtmlForRenderer(field.name)}</strong>
+             ${field.type ? `<span class="badge bg-secondary small">${escapeHtmlForRenderer(field.type)}</span>` : ''}
+         </div>
+
+         <dl class="row mb-0 mt-2 small">
+           <dt class="col-sm-3 text-muted fw-medium">value</dt>
+           <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(String(field.value))}</dd>
+
+           ${field.description ? `
+             <dt class="col-sm-3 text-muted fw-medium">description</dt>
+             <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(field.description)}</dd>
+           ` : ''}
           </dl>
         </div>
-      </div>`;
-    }).join('');
-  }
-    return '';
+      </div>`
+    ).join('');
+
+  return `
+    <div class="accordion mb-3" id="${accordionId}">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button fw-semibold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="true" aria-controls="${collapseId}">
+            <i class="bi bi-file-text me-2 text-secondary"></i>CUSTOM FIELDS
+          </button>
+        </h2>
+        <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">
+            ${customFieldsHtml}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 /**
@@ -462,11 +491,6 @@ function collectUnmappedEntities(graph, rootDataset, extractedData) {
   graph.forEach(entity => {
     if (!entity || !entity.name) return;
     const name = entity.name.toLowerCase();
-   /* if (name.includes('introduction') || name.includes('experimental') ||
-        name.includes('method') || name.includes('result')) {
-      mappedIds.add(entity['@id']);
-    }
-    */
   });
 
   // Link entities
@@ -502,13 +526,11 @@ function extractRecordData(roCrateData) {
     },
     mainText: {
       introduction: null,
-      //experimentalDesign: null,
-     // results: null
     },
     extraFields: {
       customFields: [],
       attachedFiles: [],
-      steps: [],
+//      steps: [],
       experimentLinks: [],
       resourceLinks: [],
       compounds: [],
@@ -549,7 +571,8 @@ function extractRecordData(roCrateData) {
   result.mainText = extractMainText(graph);
 
   // Extract extra fields
-  result.extraFields.customFields = extractCustomFields(rootDataset);
+  result.extraFields.customFields = extractCustomFields(graph);
+    console.log(result.extraFields.customFields);
   result.extraFields.attachedFiles = extractFiles(rootDataset, graph);
   const links = extractLinks(rootDataset, graph);
   result.extraFields.experimentLinks = links.experimentLinks;
@@ -800,36 +823,28 @@ function renderMainTextSection(title, content) {
 
 /**
  * Render the Main Text Block HTML
- * Displays Introduction, Experimental Design, and Results sections
+ * Displays Introduction
  * in a collapsible accordion format
  *
  * @param {Object} mainText - The mainText object from ExtractedRecordData
  * @param {string|null} mainText.introduction - Introduction content
- * @param {string|null} mainText.experimentalDesign - Experimental Design content
- * @param {string|null} mainText.results - Results content
  * @returns {string} - HTML string for the Main Text Block
  */
 function renderMainTextBlock(mainText) {
   if (!mainText) {
     mainText = {
       introduction: null,
-     // experimentalDesign: null,
-     // results: null
     };
   }
 
-  //const { introduction, experimentalDesign, results } = mainText;
   const { introduction } = mainText;
 
   // Check if there's any content to display
-  //const hasContent = introduction || experimentalDesign || results;
   const hasContent = introduction;
 
   // Build the sections content
   let sectionsHtml = '';
   sectionsHtml += renderMainTextSection('Introduction', introduction);
-//  sectionsHtml += renderMainTextSection('Experimental Design', experimentalDesign);
-//  sectionsHtml += renderMainTextSection('Results', results);
 
   // If no content, show a message
   if (!hasContent) {
@@ -1270,7 +1285,6 @@ if (typeof module !== 'undefined' && module.exports) {
     extractTags,
     extractStartDate,
     extractMainText,
-    extractCustomFields,
     extractFiles,
     extractLinks,
     collectUnmappedEntities,
@@ -1285,6 +1299,7 @@ if (typeof module !== 'undefined' && module.exports) {
     renderStorageSubsection,
     renderPermissionsSubsection,
     renderOtherMetadata,
+    renderCustomFields,
     renderUnmappedEntity,
     sanitizeHTML,
     formatDate,
@@ -1304,7 +1319,6 @@ if (typeof window !== 'undefined') {
     extractTags,
     extractStartDate,
     extractMainText,
-    extractCustomFields,
     extractFiles,
     extractLinks,
     collectUnmappedEntities,
@@ -1319,6 +1333,7 @@ if (typeof window !== 'undefined') {
     renderStorageSubsection,
     renderPermissionsSubsection,
     renderOtherMetadata,
+    renderCustomFields,
     renderUnmappedEntity,
     sanitizeHTML,
     formatDate,

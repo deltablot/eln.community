@@ -305,7 +305,7 @@ function renderHtmlContent(htmlContent, entityId) {
         <small class="text-muted">${safeEntityId}</small>
       </div>
       <div class="user-content-container">
-        <iframe 
+        <iframe
           sandbox=""
           srcdoc="${escapedHTML}"
           title="HTML content from ${safeEntityId}"
@@ -755,11 +755,10 @@ function renderStructuredRecordView(roCrateData) {
 
   const {
     extractRecordData,
-    extractCustomFields,
     renderCommonInfoBlock,
     renderMainTextBlock,
     renderExtraFieldsBlock,
-    renderOtherMetadata
+    renderCustomFields,
   } = window.RecordExtractor;
 
   // Get fallback data from Record model
@@ -789,18 +788,17 @@ function renderStructuredRecordView(roCrateData) {
   // Render Main Text Block
   const mainTextContainer = document.getElementById('main-text-container');
   if (mainTextContainer) {
-      console.log('HELLO 00');
+      //console.log('HELLO 00');
     const hasMainText = extractedData.mainText.introduction ||
       extractedData.mainText.experimentalDesign ||
       extractedData.mainText.results;
 
-    //if (hasMainText) {
-      console.log('HELLO 01');
+    if (hasMainText) {
       mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
-   // } else {
+    } else {
       // Hide the container if no main text content
-    //  mainTextContainer.style.display = 'none';
-   // }
+      mainTextContainer.style.display = 'none';
+    }
   }
 
   // Render Extra Fields Block
@@ -823,19 +821,17 @@ function renderStructuredRecordView(roCrateData) {
   // Render Other Metadata Block
   const otherMetadataContainer = document.getElementById('other-metadata-container');
   if (otherMetadataContainer) {
-    if (extractedData.unmappedEntities && extractedData.unmappedEntities.length > 0) {
-      otherMetadataContainer.innerHTML = renderOtherMetadata(extractedData.unmappedEntities);
+      otherMetadataContainer.innerHTML = renderCustomFields(extractedData.extraFields.customFields);
     } else {
       // Hide the container if no unmapped entities
       otherMetadataContainer.style.display = 'none';
     }
-  }
 }
 
 /**
  * Get fallback data from the Record model (server-rendered data)
  * Used when RO-Crate metadata doesn't contain certain fields
- * 
+ *
  * @returns {Object} - Fallback data object
  */
 function getFallbackRecordData() {
@@ -864,7 +860,7 @@ function getFallbackRecordData() {
 
 /**
  * Apply fallback data to extracted data when RO-Crate fields are missing
- * 
+ *
  * @param {Object} extractedData - The extracted data from RO-Crate
  * @param {Object} fallbackData - The fallback data from Record model
  */
@@ -928,7 +924,7 @@ function initializeEditForm() {
 
       if (response.ok) {
         const formContainer = document.getElementById('editFormContainer');
-        
+
         if (hasFile) {
           // New version uploaded - show moderation message
           const successMessage = document.getElementById('uploadSuccessMessage');
@@ -2228,7 +2224,7 @@ function initializeVersionHistory() {
             minute: '2-digit',
             hour12: false
           });
-          
+
           // Add moderation status indicator
           let statusText = '';
           if (version.moderation_status === 'pending') {
@@ -2238,7 +2234,7 @@ function initializeVersionHistory() {
           } else if (version.moderation_status === 'flagged') {
             statusText = ' [Flagged]';
           }
-          
+
           option.textContent = `Version ${version.version} - ${version.name} (${formattedDate})${statusText}`;
 
           // Select this option if it matches current version
@@ -2275,7 +2271,7 @@ function initializeVersionHistory() {
     permalinkBtn.addEventListener('click', () => {
       const selectedVersion = versionSelector.value;
       let permalinkUrl;
-      
+
       if (selectedVersion === 'current') {
         // For current version, we need to get the actual version number
         // The current version is the latest archived version + 1, or 1 if no versions exist
@@ -2306,7 +2302,7 @@ function initializeVersionHistory() {
       permalinkBtn.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
       permalinkBtn.classList.remove('btn-outline-primary');
       permalinkBtn.classList.add('btn-success');
-      
+
       setTimeout(() => {
         permalinkBtn.innerHTML = originalText;
         permalinkBtn.classList.remove('btn-success');
