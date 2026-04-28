@@ -1,6 +1,6 @@
 /**
  * Record Data Extractor Module
- * 
+ *
  * Extracts and maps RO-Crate metadata to structured display blocks
  * for the redesigned record screen.
  */
@@ -22,7 +22,7 @@ function isUUID(str) {
 /**
  * Extract owner information from RO-Crate metadata
  * Looks for author/creator fields and extracts name and ORCID
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object|null} - Owner object with name and optional orcid, or null
@@ -36,15 +36,15 @@ function extractOwner(rootDataset, graph) {
 
   // Handle array of authors - take the first one
   const ref = Array.isArray(authorRef) ? authorRef[0] : authorRef;
-  
+
   if (!ref) return null;
 
   // If it's a direct object with name
   if (typeof ref === 'object' && ref.name) {
     return {
       name: ref.name,
-      orcid: ref['@id'] && ref['@id'].includes('orcid.org') 
-        ? ref['@id'].replace('https://orcid.org/', '') 
+      orcid: ref['@id'] && ref['@id'].includes('orcid.org')
+        ? ref['@id'].replace('https://orcid.org/', '')
         : undefined
     };
   }
@@ -73,7 +73,7 @@ function extractOwner(rootDataset, graph) {
 /**
  * Extract team/organization information from RO-Crate metadata
  * Looks for affiliation, sourceOrganization, or organization fields
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object|null} - Team object with name and optional rorId, or null
@@ -85,15 +85,15 @@ function extractTeam(rootDataset, graph) {
   const authorRef = rootDataset.author || rootDataset.creator;
   if (authorRef) {
     const ref = Array.isArray(authorRef) ? authorRef[0] : authorRef;
-    
+
     // Look up author entity to find affiliation
     if (ref && ref['@id']) {
       const authorEntity = graph.find(e => e['@id'] === ref['@id']);
       if (authorEntity && authorEntity.affiliation) {
-        const affiliationRef = Array.isArray(authorEntity.affiliation) 
-          ? authorEntity.affiliation[0] 
+        const affiliationRef = Array.isArray(authorEntity.affiliation)
+          ? authorEntity.affiliation[0]
           : authorEntity.affiliation;
-        
+
         if (affiliationRef) {
           // Direct object with name
           if (typeof affiliationRef === 'object' && affiliationRef.name) {
@@ -102,7 +102,7 @@ function extractTeam(rootDataset, graph) {
               rorId: extractRorId(affiliationRef['@id'])
             };
           }
-          
+
           // Reference to another entity
           if (affiliationRef['@id']) {
             const orgEntity = graph.find(e => e['@id'] === affiliationRef['@id']);
@@ -123,7 +123,7 @@ function extractTeam(rootDataset, graph) {
     const orgRef = Array.isArray(rootDataset.sourceOrganization)
       ? rootDataset.sourceOrganization[0]
       : rootDataset.sourceOrganization;
-    
+
     if (orgRef) {
       if (typeof orgRef === 'object' && orgRef.name) {
         return {
@@ -131,7 +131,7 @@ function extractTeam(rootDataset, graph) {
           rorId: extractRorId(orgRef['@id'])
         };
       }
-      
+
       if (orgRef['@id']) {
         const orgEntity = graph.find(e => e['@id'] === orgRef['@id']);
         if (orgEntity && orgEntity.name) {
@@ -154,18 +154,18 @@ function extractTeam(rootDataset, graph) {
  */
 function extractRorId(id) {
   if (!id || typeof id !== 'string') return undefined;
-  
+
   // Match ROR URL pattern
   const rorMatch = id.match(/ror\.org\/([a-z0-9]+)/i);
   if (rorMatch) return rorMatch[1];
-  
+
   return undefined;
 }
 
 /**
  * Extract tags from RO-Crate metadata
  * Looks for keywords or about fields
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {string[]} - Array of tag strings
@@ -215,7 +215,7 @@ function extractTags(rootDataset, graph) {
 /**
  * Extract start date from RO-Crate metadata
  * Looks for dateCreated or startDate fields
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @returns {string|null} - ISO date string or null
  */
@@ -224,7 +224,7 @@ function extractStartDate(rootDataset) {
 
   // Try dateCreated first, then startDate
   const dateValue = rootDataset.dateCreated || rootDataset.startDate || rootDataset.datePublished;
-  
+
   if (!dateValue) return null;
 
   // Return as-is if it's a string (should be ISO format)
@@ -238,7 +238,7 @@ function extractStartDate(rootDataset) {
 /**
  * Extract main text sections from RO-Crate metadata
  * Identifies entities by name containing "Introduction", "Experimental", "Results"
- * 
+ *
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object} - Object with introduction, experimentalDesign, and results fields
  */
@@ -274,7 +274,7 @@ function extractMainText(graph) {
 /**
  * Extract file attachments from RO-Crate metadata
  * Looks for hasPart relationships with File type
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Array} - Array of FileInfo objects
@@ -318,7 +318,7 @@ function extractFiles(rootDataset, graph) {
 /**
  * Extract links from RO-Crate metadata
  * Looks for mentions, isBasedOn, and citation fields
- * 
+ *
  * @param {Object} rootDataset - The root dataset entity from RO-Crate
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object} - Object with experimentLinks and resourceLinks arrays
@@ -385,7 +385,7 @@ function extractLinks(rootDataset, graph) {
 /**
  * Collect unmapped entities from RO-Crate metadata
  * Returns entities that don't match known field mappings
- * 
+ *
  * @param {Array} graph - The @graph array from RO-Crate
  * @param {Object} rootDataset - The root dataset entity
  * @param {Object} extractedData - Already extracted data to identify mapped entities
@@ -456,7 +456,7 @@ function collectUnmappedEntities(graph, rootDataset, extractedData) {
 
 /**
  * Main function to extract all record data from RO-Crate metadata
- * 
+ *
  * @param {Object} roCrateData - The complete RO-Crate JSON object
  * @returns {Object} - ExtractedRecordData object with all structured data
  */
@@ -534,13 +534,13 @@ function extractRecordData(roCrateData) {
  */
 function formatDate(dateStr) {
   if (!dateStr) return '';
-  
+
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
       return ''; // Invalid date
     }
-    
+
     // Format as "Month DD, YYYY" (e.g., "January 15, 2024")
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
@@ -556,7 +556,7 @@ function formatDate(dateStr) {
  */
 function escapeHtmlForRenderer(text) {
   if (typeof text !== 'string') return '';
-  
+
   // For Node.js environment (testing), use string replacement
   if (typeof document === 'undefined') {
     return text
@@ -566,7 +566,7 @@ function escapeHtmlForRenderer(text) {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
-  
+
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
@@ -597,7 +597,7 @@ function isOnlyUUID(str) {
 /**
  * Render the Common Info Block HTML
  * Displays owner, team, tags, and date in a structured format
- * 
+ *
  * @param {Object} commonInfo - The commonInfo object from ExtractedRecordData
  * @param {string|null} commonInfo.startDate - ISO date string
  * @param {Object|null} commonInfo.owner - Owner object with name and optional orcid
@@ -611,21 +611,21 @@ function renderCommonInfoBlock(commonInfo) {
   }
 
   const { startDate, owner, team, tags } = commonInfo;
-  
+
   let html = '<div>';
-  
+
   // Date row
   if (startDate) {
     const formattedDate = formatDate(startDate);
     if (formattedDate) {
       html += `<div class="mb-2">
         <i class="bi bi-calendar3 me-2 text-secondary"></i>
-        <span class="text-muted">Started on</span> 
+        <span class="text-muted">Started on</span>
         <span class="fw-medium">${escapeHtmlForRenderer(formattedDate)}</span>
       </div>`;
     }
   }
-  
+
   // Owner row
   if (owner && owner.name && !isOnlyUUID(owner.name)) {
     const ownerName = filterUUIDs(owner.name);
@@ -633,16 +633,16 @@ function renderCommonInfoBlock(commonInfo) {
       <i class="bi bi-person me-2 text-secondary"></i>
       <span class="text-muted me-2">Owner</span>
       <span>`;
-    
+
     if (owner.orcid) {
       html += `<a href="https://orcid.org/${escapeHtmlForRenderer(owner.orcid)}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">${escapeHtmlForRenderer(ownerName)}</a>`;
     } else {
       html += escapeHtmlForRenderer(ownerName);
     }
-    
+
     html += `</span></div>`;
   }
-  
+
   // Team row
   if (team && team.name && !isOnlyUUID(team.name)) {
     const teamName = filterUUIDs(team.name);
@@ -650,51 +650,50 @@ function renderCommonInfoBlock(commonInfo) {
       <i class="bi bi-people me-2 text-secondary"></i>
       <span class="text-muted me-2">Team</span>
       <span>`;
-    
+
     if (team.rorId) {
       html += `<a href="https://ror.org/${escapeHtmlForRenderer(team.rorId)}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">${escapeHtmlForRenderer(teamName)}</a>`;
     } else {
       html += escapeHtmlForRenderer(teamName);
     }
-    
+
     html += `</span></div>`;
   }
-  
+
   // Tags row - filter out UUIDs from tags
   const filteredTags = (tags || []).filter(tag => {
     if (typeof tag !== 'string') return false;
     return !isUUID(tag) && !isOnlyUUID(tag) && tag.trim().length > 0;
   }).map(tag => filterUUIDs(tag)).filter(tag => tag.length > 0);
-  
+
   if (filteredTags.length > 0) {
     html += `<div class="d-flex align-items-center flex-wrap mb-2">
       <i class="bi bi-tags me-2 text-secondary"></i>
       <span class="text-muted me-2">Tags</span>
       <div class="d-inline-flex flex-wrap gap-1">`;
-    
+
     filteredTags.forEach(tag => {
       html += `<span class="badge bg-primary">${escapeHtmlForRenderer(tag)}</span>`;
     });
-    
+
     html += `</div></div>`;
   }
-  
+
   html += '</div>';
-  
+
   return html;
 }
 
 /**
  * Sanitize HTML content to remove dangerous elements and attributes
  * This prevents XSS attacks when rendering user-provided HTML content
- * 
+ *
  * @param {string} html - Raw HTML string to sanitize
  * @returns {string} - Sanitized HTML string safe for rendering
  */
 function sanitizeHTML(html) {
   if (typeof html !== 'string') return '';
-  
-  // For Node.js environment (testing), return escaped HTML
+
   if (typeof document === 'undefined') {
     // Basic sanitization for server-side: escape HTML entities
     return html
@@ -704,23 +703,23 @@ function sanitizeHTML(html) {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
-  
+
   // Create a temporary DOM to parse the HTML
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  
+
   // Remove dangerous elements
   const dangerousElements = [
     'script', 'style', 'link', 'meta', 'base',
     'iframe', 'frame', 'frameset', 'object', 'embed', 'applet',
     'form', 'input', 'button', 'select', 'textarea'
   ];
-  
+
   dangerousElements.forEach(tag => {
     const elements = doc.querySelectorAll(tag);
     elements.forEach(el => el.remove());
   });
-  
+
   // Remove dangerous attributes from all elements
   const allElements = doc.querySelectorAll('*');
   allElements.forEach(el => {
@@ -738,23 +737,23 @@ function sanitizeHTML(html) {
       }
     });
   });
-  
+
   return doc.body.innerHTML;
 }
 
 /**
  * Render a single main text section with heading
- * 
+ *
  * @param {string} title - Section heading title
  * @param {string|null} content - HTML content for the section
  * @returns {string} - HTML string for the section, or empty string if no content
  */
 function renderMainTextSection(title, content) {
   if (!content) return '';
-  
+
   const sanitizedContent = sanitizeHTML(content);
   const escapedTitle = escapeHtmlForRenderer(title);
-  
+
   return `
     <div class="mb-4 pb-3 border-bottom">
       <h5 class="fw-semibold mb-3 ps-3 border-start border-primary border-3">${escapedTitle}</h5>
@@ -769,7 +768,7 @@ function renderMainTextSection(title, content) {
  * Render the Main Text Block HTML
  * Displays Introduction, Experimental Design, and Results sections
  * in a collapsible accordion format
- * 
+ *
  * @param {Object} mainText - The mainText object from ExtractedRecordData
  * @param {string|null} mainText.introduction - Introduction content
  * @param {string|null} mainText.experimentalDesign - Experimental Design content
@@ -786,25 +785,25 @@ function renderMainTextBlock(mainText) {
   }
 
   const { introduction, experimentalDesign, results } = mainText;
-  
+
   // Check if there's any content to display
   const hasContent = introduction || experimentalDesign || results;
-  
+
   // Build the sections content
   let sectionsHtml = '';
   sectionsHtml += renderMainTextSection('Introduction', introduction);
   sectionsHtml += renderMainTextSection('Experimental Design', experimentalDesign);
   sectionsHtml += renderMainTextSection('Results', results);
-  
+
   // If no content, show a message
   if (!hasContent) {
     sectionsHtml = '<p class="text-muted">No main text content available</p>';
   }
-  
+
   // Generate unique ID for accordion
   const accordionId = 'mainTextAccordion';
   const collapseId = 'mainTextCollapse';
-  
+
   return `
     <div class="accordion mb-3" id="${accordionId}">
       <div class="accordion-item">
@@ -830,19 +829,19 @@ function renderMainTextBlock(mainText) {
  */
 function formatFileSize(size) {
   if (size === undefined || size === null) return '';
-  
+
   const bytes = typeof size === 'string' ? parseInt(size, 10) : size;
   if (isNaN(bytes)) return '';
-  
+
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let unitIndex = 0;
   let value = bytes;
-  
+
   while (value >= 1024 && unitIndex < units.length - 1) {
     value /= 1024;
     unitIndex++;
   }
-  
+
   return `${value.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
 }
 
@@ -853,13 +852,13 @@ function formatFileSize(size) {
  */
 function renderAttachedFilesSubsection(files) {
   const fileCount = files ? files.length : 0;
-  
+
   let html = `
     <div class="mb-3 pb-3 border-bottom">
       <h6 class="fw-semibold text-secondary mb-3">
         <i class="bi bi-paperclip me-2"></i>ATTACHED FILES (${fileCount})
       </h6>`;
-  
+
   if (fileCount === 0) {
     html += '<p class="text-muted ms-4">No files attached</p>';
   } else {
@@ -868,7 +867,7 @@ function renderAttachedFilesSubsection(files) {
       const fileName = escapeHtmlForRenderer(file.name || 'Unknown file');
       const fileSize = file.size ? ` (${formatFileSize(file.size)})` : '';
       const mimeType = file.mimeType ? ` - ${escapeHtmlForRenderer(file.mimeType)}` : '';
-      
+
       html += `<li class="py-1">
         <i class="bi bi-file-earmark me-2 text-secondary"></i>
         <span>${fileName}</span>
@@ -877,7 +876,7 @@ function renderAttachedFilesSubsection(files) {
     });
     html += '</ul>';
   }
-  
+
   html += '</div>';
   return html;
 }
@@ -890,14 +889,14 @@ function renderAttachedFilesSubsection(files) {
 function renderLinkItem(link) {
   const linkName = escapeHtmlForRenderer(link.name || link.url || 'Unknown link');
   const linkUrl = link.url || link.id;
-  
+
   if (linkUrl && !isUUID(linkUrl)) {
     return `<li class="py-1">
       <i class="bi bi-link-45deg me-2 text-secondary"></i>
       <a href="${escapeHtmlForRenderer(linkUrl)}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">${linkName}</a>
     </li>`;
   }
-  
+
   return `<li class="py-1">
     <i class="bi bi-link-45deg me-2 text-secondary"></i>
     <span>${linkName}</span>
@@ -914,13 +913,13 @@ function renderLinksSubsection(experimentLinks, resourceLinks) {
   const expLinks = experimentLinks || [];
   const resLinks = resourceLinks || [];
   const totalLinks = expLinks.length + resLinks.length;
-  
+
   let html = `
     <div class="mb-3 pb-3 border-bottom">
       <h6 class="fw-semibold text-secondary mb-3">
         <i class="bi bi-link me-2"></i>LINKS (${totalLinks})
       </h6>`;
-  
+
   if (totalLinks === 0) {
     html += '<p class="text-muted ms-4">No links available</p>';
   } else {
@@ -934,7 +933,7 @@ function renderLinksSubsection(experimentLinks, resourceLinks) {
       });
       html += '</ul></div>';
     }
-    
+
     // Resource Links
     if (resLinks.length > 0) {
       html += `<div class="ms-4 mb-2">
@@ -946,7 +945,7 @@ function renderLinksSubsection(experimentLinks, resourceLinks) {
       html += '</ul></div>';
     }
   }
-  
+
   html += '</div>';
   return html;
 }
@@ -958,25 +957,25 @@ function renderLinksSubsection(experimentLinks, resourceLinks) {
  */
 function renderCompoundsSubsection(compounds) {
   if (!compounds || compounds.length === 0) return '';
-  
+
   let html = `
     <div class="mb-3 pb-3 border-bottom">
       <h6 class="fw-semibold text-secondary mb-3">
         <i class="bi bi-droplet me-2"></i>COMPOUNDS (${compounds.length})
       </h6>
       <ul class="list-unstyled ms-4">`;
-  
+
   compounds.forEach(compound => {
     const name = escapeHtmlForRenderer(compound.name || 'Unknown compound');
     const formula = compound.formula ? ` (${escapeHtmlForRenderer(compound.formula)})` : '';
-    
+
     html += `<li class="py-1">
       <i class="bi bi-hexagon me-2 text-secondary"></i>
       <span>${name}</span>
       <span class="text-muted small">${formula}</span>
     </li>`;
   });
-  
+
   html += '</ul></div>';
   return html;
 }
@@ -988,25 +987,25 @@ function renderCompoundsSubsection(compounds) {
  */
 function renderStorageSubsection(storage) {
   if (!storage || storage.length === 0) return '';
-  
+
   let html = `
     <div class="mb-3 pb-3 border-bottom">
       <h6 class="fw-semibold text-secondary mb-3">
         <i class="bi bi-box me-2"></i>STORAGE (${storage.length})
       </h6>
       <ul class="list-unstyled ms-4">`;
-  
+
   storage.forEach(item => {
     const name = escapeHtmlForRenderer(item.name || 'Unknown storage');
     const location = item.location ? ` - ${escapeHtmlForRenderer(item.location)}` : '';
-    
+
     html += `<li class="py-1">
       <i class="bi bi-archive me-2 text-secondary"></i>
       <span>${name}</span>
       <span class="text-muted small">${location}</span>
     </li>`;
   });
-  
+
   html += '</ul></div>';
   return html;
 }
@@ -1018,10 +1017,10 @@ function renderStorageSubsection(storage) {
  */
 function renderPermissionsSubsection(permissions) {
   const perms = permissions || { visibility: 'public', canWrite: 'owner' };
-  
+
   const visibility = escapeHtmlForRenderer(perms.visibility || 'public');
   const canWrite = escapeHtmlForRenderer(perms.canWrite || 'owner');
-  
+
   return `
     <div class="mb-3">
       <h6 class="fw-semibold text-secondary mb-3">
@@ -1047,7 +1046,7 @@ function renderPermissionsSubsection(permissions) {
  * Render the Extra Fields Block HTML
  * Displays attached files, links, compounds, storage, and permissions
  * in a collapsible accordion format
- * 
+ *
  * @param {Object} extraFields - The extraFields object from ExtractedRecordData
  * @param {Array} extraFields.attachedFiles - Array of FileInfo objects
  * @param {Array} extraFields.experimentLinks - Array of experiment LinkInfo objects
@@ -1077,7 +1076,7 @@ function renderExtraFieldsBlock(extraFields) {
     storage,
     permissions
   } = extraFields;
-  
+
   // Build the subsections content
   let subsectionsHtml = '';
   subsectionsHtml += renderAttachedFilesSubsection(attachedFiles);
@@ -1085,11 +1084,11 @@ function renderExtraFieldsBlock(extraFields) {
   subsectionsHtml += renderCompoundsSubsection(compounds);
   subsectionsHtml += renderStorageSubsection(storage);
   subsectionsHtml += renderPermissionsSubsection(permissions);
-  
+
   // Generate unique ID for accordion
   const accordionId = 'extraFieldsAccordion';
   const collapseId = 'extraFieldsCollapse';
-  
+
   return `
     <div class="accordion mb-3" id="${accordionId}">
       <div class="accordion-item">
@@ -1115,48 +1114,48 @@ function renderExtraFieldsBlock(extraFields) {
  */
 function renderUnmappedEntity(entity) {
   if (!entity) return '';
-  
+
   const entityId = entity['@id'] || 'Unknown';
   const entityType = Array.isArray(entity['@type']) ? entity['@type'].join(', ') : (entity['@type'] || 'Unknown');
   const entityName = entity.name || entityId;
-  
+
   // Skip if the ID is just a UUID with no meaningful name
   if (isUUID(entityId) && (!entity.name || isUUID(entity.name))) {
     return '';
   }
-  
+
   let html = `<div class="card mb-2 border">
     <div class="card-body py-2 bg-light">
       <div class="d-flex align-items-center flex-wrap gap-2">
         <strong>${escapeHtmlForRenderer(entityName)}</strong>
         <span class="badge bg-secondary small">${escapeHtmlForRenderer(entityType)}</span>
       </div>`;
-  
+
   // Display other properties (excluding @id, @type, name)
   const excludeKeys = ['@id', '@type', 'name'];
   const otherProps = Object.keys(entity).filter(key => !excludeKeys.includes(key));
-  
+
   if (otherProps.length > 0) {
     html += '<dl class="row mb-0 mt-2 small">';
     otherProps.forEach(key => {
       const value = entity[key];
       let displayValue;
-      
+
       if (typeof value === 'object') {
         displayValue = JSON.stringify(value);
       } else {
         displayValue = String(value);
       }
-      
+
       // Skip UUID-only values
       if (isUUID(displayValue)) return;
-      
+
       html += `<dt class="col-sm-3 text-muted fw-medium">${escapeHtmlForRenderer(key)}</dt>
         <dd class="col-sm-9 text-break">${escapeHtmlForRenderer(displayValue)}</dd>`;
     });
     html += '</dl>';
   }
-  
+
   html += '</div></div>';
   return html;
 }
@@ -1164,7 +1163,7 @@ function renderUnmappedEntity(entity) {
 /**
  * Render the Other Metadata section for unmapped entities
  * Displays RO-Crate entities that don't match known field mappings
- * 
+ *
  * @param {Array} unmappedEntities - Array of RO-Crate entity objects
  * @returns {string} - HTML string for the Other Metadata section
  */
@@ -1172,19 +1171,19 @@ function renderOtherMetadata(unmappedEntities) {
   if (!unmappedEntities || !Array.isArray(unmappedEntities)) {
     return '';
   }
-  
+
   // Filter out entities that are just UUIDs with no meaningful content
   const meaningfulEntities = unmappedEntities.filter(entity => {
     if (!entity) return false;
     const entityId = entity['@id'] || '';
     const entityName = entity.name || '';
-    
+
     // Keep if has a meaningful name that's not a UUID
     if (entityName && !isUUID(entityName)) return true;
-    
+
     // Keep if has a meaningful ID that's not a UUID
     if (entityId && !isUUID(entityId) && !entityId.startsWith('#')) return true;
-    
+
     // Keep if has other meaningful properties
     const excludeKeys = ['@id', '@type', 'name'];
     const otherProps = Object.keys(entity).filter(key => !excludeKeys.includes(key));
@@ -1194,20 +1193,20 @@ function renderOtherMetadata(unmappedEntities) {
       return true;
     });
   });
-  
+
   if (meaningfulEntities.length === 0) {
     return '';
   }
-  
+
   // Generate unique ID for accordion
   const accordionId = 'otherMetadataAccordion';
   const collapseId = 'otherMetadataCollapse';
-  
+
   let entitiesHtml = '';
   meaningfulEntities.forEach(entity => {
     entitiesHtml += renderUnmappedEntity(entity);
   });
-  
+
   return `
     <div class="accordion mb-3" id="${accordionId}">
       <div class="accordion-item">
