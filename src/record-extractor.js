@@ -319,7 +319,7 @@ function extractCustomFields(graph) {
   let metadata;
   metadata = JSON.parse(customFields.value);
 
-  const field = metadata.extra_fields || {};
+  const field = metadata.extra_fields;
   return Object.entries(field).map(([fieldName, fieldData]) => ({
       name: fieldName,
       value: fieldData?.value || '',
