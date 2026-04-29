@@ -5,6 +5,117 @@
  * for the redesigned record screen.
  */
 
+
+/**
+ * Pre-process function to extract graph['@id']
+ *
+ * @param {Object} roCrateData - The complete RO-Crate JSON object
+ * @returns {Object} - The node graph['@id'] with type 'Dataset'
+ */
+
+function preProcess(roCrateData) {
+  if (!roCrateData || typeof roCrateData !== 'object') return {};
+
+  const graph = roCrateData['@graph'];
+  if (!Array.isArray(graph)) return result;
+
+  let hasPart;
+  let hasPartId;
+  let dataset;
+
+  const crateNode = graph.find(node => {
+    if (!node || typeof node !== 'object') return false;
+    if (node['@id'] === './') {
+        hasPart = node['hasPart'];
+        hasPart.map(id => {
+          if (id?.['@id']) hasPartId = id['@id'];
+        });
+    }
+  });
+  const nodes = graph.map(node => {
+      if (hasPartId === node['@id']) dataset = node;
+  });
+
+  return dataset;
+}
+
+/**
+ * Extract main text sections from RO-Crate metadata
+ * Identifies entities by name containing "Introduction"
+ *
+ * @param {Array} graph - The @graph array from RO-Crate
+ * @returns {Object} - Object with introduction
+ */
+function extractMainText(dataset) {
+  return dataset.text;
+}
+
+/**
+ * Render the Main Text Block HTML
+ * Displays Introduction
+ * in a collapsible accordion format
+ *
+ * @param {Object} mainText - The mainText object from ExtractedRecordData
+ * @param {string|null} mainText.introduction - Introduction content
+ * @returns {string} - HTML string for the Main Text Block
+ */
+function renderMainTextBlock(dataset) {
+  // Generate unique ID for accordion
+  const accordionId = 'mainTextAccordion';
+  const collapseId = 'mainTextCollapse';
+
+  return `
+    <div class="accordion mb-3" id="${accordionId}">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button fw-semibold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="true" aria-controls="${collapseId}">
+            <i class="bi bi-file-text me-2 text-secondary"></i>MAIN TEXT
+          </button>
+        </h2>
+        <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">
+            ${dataset.text}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function extractRecordData(roCrateData) {
+  if (!roCrateData || typeof roCrateData !== 'object') return {};
+
+  let dataset = preProcess(roCrateData);
+  if (!dataset) return {};
+
+  const result = {
+    mainText: {
+      text: null,
+    },
+  };
+
+  result.mainText.text = extractMainText(dataset);
+
+  return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * UUID regex pattern for filtering technical identifiers
  */
@@ -242,7 +353,7 @@ function extractStartDate(rootDataset) {
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object} - Object with introduction
  */
-function extractMainText(graph) {
+function extractMainText1(graph) {
   const mainText = {
     introduction: null,
   };
@@ -569,57 +680,15 @@ function collectUnmappedEntities(graph, rootDataset, extractedData) {
     return !mappedIds.has(entity['@id']);
   });
 }
-// TO DO: Rename this function preProcess
-/**
- * Pre-process function to extract graph['@id']
- *
- * @param {Object} roCrateData - The complete RO-Crate JSON object
- * @returns {Object} - The node graph['@id'] with type 'Dataset'
- */
 
-function preProcess(roCrateData) {
-  if (!roCrateData || typeof roCrateData !== 'object') return {};
 
-  const graph = roCrateData['@graph'];
-  if (!Array.isArray(graph)) return result;
-
-  let hasPart;
-  let hasPartId;
-  let dataset;
-
-  const crateNode = graph.find(node => {
-    if (!node || typeof node !== 'object') return false;
-    if (node['@id'] === './') {
-        hasPart = node['hasPart'];
-        hasPart.map(id => {
-          if (id?.['@id']) hasPartId = id['@id'];
-        });
-    }
-  });
-  const nodes = graph.map(node => {
-      if (hasPartId === node['@id']) dataset = node;
-  });
-
-  return dataset;
-}
-
-function extractRecordData(roCrateData) {
-  if (!roCrateData || typeof roCrateData !== 'object') return {};
-
-  let dataset = preProcess(roCrateData);
-  console.log('dataset', dataset);
-  if (!dataset) return {};
-}
-
-function extractOwner(dataset) {
-  console.log(dataset.name);
-}
 
 /**
  * Main function to extract all record data from RO-Crate metadata
  *
  * @param {Object} roCrateData - The complete RO-Crate JSON object
  * @returns {Object} - ExtractedRecordData object with all structured data
+    /*
  */
 function extractRecordData1(roCrateData) {
   // Initialize result structure
@@ -938,7 +1007,7 @@ function renderMainTextSection(title, content) {
  * @param {string|null} mainText.introduction - Introduction content
  * @returns {string} - HTML string for the Main Text Block
  */
-function renderMainTextBlock(mainText) {
+function renderMainTextBlock1(mainText) {
   if (!mainText) {
     mainText = {
       introduction: null,
@@ -1388,6 +1457,8 @@ function renderOtherMetadata(unmappedEntities) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     extractRecordData,
+    extractMainText,
+    renderMainTextBlock,
       /*
     extractOwner,
     extractTeam,
@@ -1425,6 +1496,8 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
   window.RecordExtractor = {
     extractRecordData,
+    extractMainText,
+    renderMainTextBlock,
       /*
     extractOwner,
     extractTeam,

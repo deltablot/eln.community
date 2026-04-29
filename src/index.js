@@ -755,11 +755,13 @@ function renderStructuredRecordView(roCrateData) {
 
   const {
     extractRecordData,
-    renderCommonInfoBlock,
+    renderMainTextBlock,
+  /*  renderCommonInfoBlock,
     renderMainTextBlock,
     renderExtraFieldsBlock,
     renderCustomFields,
     renderSteps,
+    */
   } = window.RecordExtractor;
 
   // Get fallback data from Record model
@@ -768,6 +770,20 @@ function renderStructuredRecordView(roCrateData) {
   // Extract data from RO-Crate
   const extractedData = extractRecordData(roCrateData);
 
+  // Render Main Text Block
+  const mainTextContainer = document.getElementById('main-text-container');
+  if (mainTextContainer) {
+    const hasMainText = extractedData.mainText.text;
+
+    if (hasMainText) {
+      mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
+    } else {
+      // Hide the container if no main text content
+      mainTextContainer.style.display = 'none';
+    }
+  }
+
+    /*
   // Apply fallbacks for missing data
   applyFallbackData(extractedData, fallbackData);
 
@@ -833,6 +849,7 @@ function renderStructuredRecordView(roCrateData) {
       // Hide the container if no steps
       stepsContainer.style.display = 'none';
     }
+    */
 }
 
 /**
