@@ -27,7 +27,7 @@ function isUUID(str) {
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Object|null} - Owner object with name and optional orcid, or null
  */
-function extractOwner(rootDataset, graph) {
+function extractOwner1(rootDataset, graph) {
   if (!rootDataset) return null;
 
   // Try author first, then creator
@@ -251,7 +251,7 @@ function extractMainText(graph) {
 
   graph.forEach(entity => {
     if (!entity || !entity.name || !entity.text) return;
-    const name = entity.name.toLowerCase();
+ //   const name = entity.name.toLowerCase();
     mainText.introduction = entity.text;
   });
 
@@ -569,6 +569,51 @@ function collectUnmappedEntities(graph, rootDataset, extractedData) {
     return !mappedIds.has(entity['@id']);
   });
 }
+// TO DO: Rename this function preProcess
+/**
+ * Pre-process function to extract graph['@id']
+ *
+ * @param {Object} roCrateData - The complete RO-Crate JSON object
+ * @returns {Object} - The node graph['@id'] with type 'Dataset'
+ */
+
+function preProcess(roCrateData) {
+  if (!roCrateData || typeof roCrateData !== 'object') return {};
+
+  const graph = roCrateData['@graph'];
+  if (!Array.isArray(graph)) return result;
+
+  let hasPart;
+  let hasPartId;
+  let dataset;
+
+  const crateNode = graph.find(node => {
+    if (!node || typeof node !== 'object') return false;
+    if (node['@id'] === './') {
+        hasPart = node['hasPart'];
+        hasPart.map(id => {
+          if (id?.['@id']) hasPartId = id['@id'];
+        });
+    }
+  });
+  const nodes = graph.map(node => {
+      if (hasPartId === node['@id']) dataset = node;
+  });
+
+  return dataset;
+}
+
+function extractRecordData(roCrateData) {
+  if (!roCrateData || typeof roCrateData !== 'object') return {};
+
+  let dataset = preProcess(roCrateData);
+  console.log('dataset', dataset);
+  if (!dataset) return {};
+}
+
+function extractOwner(dataset) {
+  console.log(dataset.name);
+}
 
 /**
  * Main function to extract all record data from RO-Crate metadata
@@ -576,8 +621,9 @@ function collectUnmappedEntities(graph, rootDataset, extractedData) {
  * @param {Object} roCrateData - The complete RO-Crate JSON object
  * @returns {Object} - ExtractedRecordData object with all structured data
  */
-function extractRecordData(roCrateData) {
+function extractRecordData1(roCrateData) {
   // Initialize result structure
+//    console.log(roCrateData);
   const result = {
     commonInfo: {
       startDate: null,
@@ -615,15 +661,16 @@ function extractRecordData(roCrateData) {
   }
 
   // Find root dataset
-  const rootDataset = graph.find(entity => {
-    if (!entity || typeof entity !== 'object') return false;
-    if (entity['@id'] === './') return true;
-    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
+  const rootDataset = graph.find(node => {
+    if (!node || typeof node !== 'object') return false;
+    if (node['@id'] === './') return true;
+    const types = Array.isArray(node['@type']) ? node['@type'] : [node['@type']];
     return types.includes('Dataset');
   });
+    console.log(rootDataset);
 
   // Extract common info
-  result.commonInfo.owner = extractOwner(rootDataset, graph);
+  result.commonInfo.owner = extractOwner1(rootDataset, graph);
   result.commonInfo.team = extractTeam(rootDataset, graph);
   result.commonInfo.tags = extractTags(rootDataset, graph);
   result.commonInfo.startDate = extractStartDate(rootDataset);
@@ -1341,6 +1388,7 @@ function renderOtherMetadata(unmappedEntities) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     extractRecordData,
+      /*
     extractOwner,
     extractTeam,
     extractTags,
@@ -1369,6 +1417,7 @@ if (typeof module !== 'undefined' && module.exports) {
     filterUUIDs,
     isOnlyUUID,
     escapeHtmlForRenderer
+    */
   };
 }
 
@@ -1376,6 +1425,7 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
   window.RecordExtractor = {
     extractRecordData,
+      /*
     extractOwner,
     extractTeam,
     extractTags,
@@ -1404,5 +1454,6 @@ if (typeof window !== 'undefined') {
     filterUUIDs,
     isOnlyUUID,
     escapeHtmlForRenderer
+      */
   };
 }
