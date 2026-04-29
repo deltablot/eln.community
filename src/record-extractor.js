@@ -39,13 +39,6 @@ function preProcess(roCrateData) {
   return dataset;
 }
 
-/**
- * Extract main text sections from RO-Crate metadata
- * Identifies entities by name containing "Introduction"
- *
- * @param {Array} graph - The @graph array from RO-Crate
- * @returns {Object} - Object with introduction
- */
 function extractMainText(dataset) {
   return dataset.text;
 }
@@ -59,7 +52,7 @@ function extractMainText(dataset) {
  * @param {string|null} mainText.introduction - Introduction content
  * @returns {string} - HTML string for the Main Text Block
  */
-function renderMainTextBlock(dataset) {
+function renderMainText(dataset) {
   // Generate unique ID for accordion
   const accordionId = 'mainTextAccordion';
   const collapseId = 'mainTextCollapse';
@@ -1458,7 +1451,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     extractRecordData,
     extractMainText,
-    renderMainTextBlock,
+    renderMainText,
       /*
     extractOwner,
     extractTeam,
@@ -1497,7 +1490,7 @@ if (typeof window !== 'undefined') {
   window.RecordExtractor = {
     extractRecordData,
     extractMainText,
-    renderMainTextBlock,
+    renderMainText,
       /*
     extractOwner,
     extractTeam,

@@ -1,6 +1,41 @@
 // Intentionally high limit to support long user descriptions and multilingual content
 const DESCRIPTION_MAX_LENGTH = 10000;
 
+/**
+ * Render the structured record view using the RecordExtractor module
+ * Populates the Common Info, Main Text, Extra Fields, and Other Metadata containers
+ *
+ * @param {Object} roCrateData - The parsed RO-Crate JSON data
+ */
+function renderStructuredRecordView(roCrateData) {
+  // Check if RecordExtractor is available
+  if (typeof window.RecordExtractor === 'undefined') {
+    console.warn('RecordExtractor module not loaded, skipping structured view');
+    return;
+  }
+
+  const {
+    extractRecordData,
+    renderMainText,
+  } = window.RecordExtractor;
+
+  // Extract data from RO-Crate
+  const extractedData = extractRecordData(roCrateData);
+
+  // Render Main Text Block
+  const mainTextContainer = document.getElementById('main-text-container');
+  if (mainTextContainer) {
+    const hasMainText = extractedData.mainText.text;
+
+    if (hasMainText) {
+      mainTextContainer.innerHTML = renderMainText(extractedData.mainText);
+    } else {
+      // Hide the container if no main text content
+      mainTextContainer.style.display = 'none';
+    }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 
   const errorDialog = document.getElementById('error-dialog');
@@ -740,13 +775,14 @@ function initializeRoCrateViewer() {
   }
 }
 
+
 /**
  * Render the structured record view using the RecordExtractor module
  * Populates the Common Info, Main Text, Extra Fields, and Other Metadata containers
  *
  * @param {Object} roCrateData - The parsed RO-Crate JSON data
  */
-function renderStructuredRecordView(roCrateData) {
+function renderStructuredRecordView1(roCrateData) {
   // Check if RecordExtractor is available
   if (typeof window.RecordExtractor === 'undefined') {
     console.warn('RecordExtractor module not loaded, skipping structured view');
@@ -755,13 +791,11 @@ function renderStructuredRecordView(roCrateData) {
 
   const {
     extractRecordData,
-    renderMainTextBlock,
-  /*  renderCommonInfoBlock,
+    renderCommonInfoBlock,
     renderMainTextBlock,
     renderExtraFieldsBlock,
     renderCustomFields,
     renderSteps,
-    */
   } = window.RecordExtractor;
 
   // Get fallback data from Record model
@@ -770,20 +804,6 @@ function renderStructuredRecordView(roCrateData) {
   // Extract data from RO-Crate
   const extractedData = extractRecordData(roCrateData);
 
-  // Render Main Text Block
-  const mainTextContainer = document.getElementById('main-text-container');
-  if (mainTextContainer) {
-    const hasMainText = extractedData.mainText.text;
-
-    if (hasMainText) {
-      mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
-    } else {
-      // Hide the container if no main text content
-      mainTextContainer.style.display = 'none';
-    }
-  }
-
-    /*
   // Apply fallbacks for missing data
   applyFallbackData(extractedData, fallbackData);
 
@@ -849,7 +869,6 @@ function renderStructuredRecordView(roCrateData) {
       // Hide the container if no steps
       stepsContainer.style.display = 'none';
     }
-    */
 }
 
 /**
