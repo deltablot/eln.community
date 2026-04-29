@@ -43,6 +43,10 @@ function extractMainText(dataset) {
   return dataset.text;
 }
 
+function extractName(dataset) {
+  return dataset.name;
+}
+
 /**
  * Render the Main Text Block HTML
  * Displays Introduction
@@ -62,7 +66,7 @@ function renderMainText(dataset) {
       <div class="accordion-item">
         <h2 class="accordion-header">
           <button class="accordion-button fw-semibold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="true" aria-controls="${collapseId}">
-            <i class="bi bi-file-text me-2 text-secondary"></i>MAIN TEXT
+            <i class="bi bi-file-text me-2 text-secondary"></i>${extractName(dataset)}
           </button>
         </h2>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
@@ -75,6 +79,10 @@ function renderMainText(dataset) {
   `;
 }
 
+function extractCustomFields(dataset) {
+    const variableMeasuredId = dataset.variableMeasured.find((x) => console.log(x['@id']));
+}
+
 function extractRecordData(roCrateData) {
   if (!roCrateData || typeof roCrateData !== 'object') return {};
 
@@ -84,11 +92,17 @@ function extractRecordData(roCrateData) {
   const result = {
     mainText: {
       text: null,
+      name: null,
+    },
+    additionalData: {
+      variableMeasured: [],
     },
   };
 
   result.mainText.text = extractMainText(dataset);
+  result.mainText.name = extractName(dataset);
 
+  result.additionalData.variableMeasured = extractCustomFields(dataset);
   return result;
 }
 
@@ -412,7 +426,7 @@ function extractFiles(rootDataset, graph) {
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Array} - Array of FileInfo objects
  */
-function extractCustomFields(graph) {
+function extractCustomFields1(graph) {
   if (!Array.isArray(graph)) return [];
 
   const customFields = graph.find((entity) =>
@@ -741,7 +755,7 @@ function extractRecordData1(roCrateData) {
   result.mainText = extractMainText(graph);
 
   // Extract extra fields
-  result.extraFields.customFields = extractCustomFields(graph);
+  result.extraFields.customFields = extractCustomFields1(graph);
   result.extraFields.attachedFiles = extractFiles(rootDataset, graph);
   result.extraFields.steps = extractSteps(graph);
   const links = extractLinks(rootDataset, graph);
