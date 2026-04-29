@@ -312,7 +312,7 @@ function extractCustomFields(graph) {
   if (!Array.isArray(graph)) return [];
 
   const customFields = graph.find((entity) =>
-    entity?.['@type'] === 'PropertyValue' && entity.propertyID === 'elabftw_metadata'
+    entity?.['@type'] === 'PropertyValue'
   );
   if (!customFields) return [];
 
