@@ -41,6 +41,27 @@ function getMainDataset(roCrateData) {
   return dataset;
 }
 
+function renderCustomFields(dataset) {
+  return dataset.customFields.map(node =>
+    `<div class="card mb-2 border">
+       <div class="card-body py-2 bg-light">
+         <div class="d-flex align-items-center flex-wrap gap-2">
+           <strong>${node['propertyID']}</strong>
+             <span class="badge bg-secondary small">${node['valueReference']}</span>
+         </div>
+         <dl class="row mb-0 mt-2 small">
+           <dt class="col-sm-3 text-muted fw-medium">value</dt>
+           <dd class="col-sm-9 text-break">${node['value']}</dd>
+           ${node['description'] ? `
+             <dt class="col-sm-3 text-muted fw-medium">description</dt>
+             <dd class="col-sm-9 text-break">${node['description']}</dd>
+           ` : ''}
+          </dl>
+        </div>
+      </div>`
+    ).join('');
+}
+
 /**
  * Render the Main Text Block HTML
  * Displays title and content
@@ -55,6 +76,8 @@ function renderMainText(dataset) {
 
   //  console.log("dans renderMainText\n", dataset);
   //  console.log("dans renderMainText, le text\n", dataset.mainText);
+  //  console.log("dans renderMainText, les customFields\n", dataset.customFields);
+
   return `
     <div class="accordion mb-3" id="${accordionId}">
       <div class="accordion-item">
@@ -68,28 +91,35 @@ function renderMainText(dataset) {
             ${dataset.mainText}
           </div>
         </div>
+        <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">
+            ${renderCustomFields(dataset)}
+          </div>
+        </div>
       </div>
     </div>
   `;
 }
 
 function extractCustomFields(graph, dataset) {
-//    console.log('dans extractCustomFields graph', graph);
-//    console.log('dans extractCustomFields dataset', dataset);
+  let customFields = [];
+
   const graphId = graph.find((nodeGraph) => {
-    const customFieldsId = dataset.variableMeasured.find((nodeCustomField) => {
-      if (nodeGraph['@id'] === nodeCustomField['@id']) {
-        console.log('graph', nodeGraph['@id']);
-        console.log('customField', nodeCustomField['@id']);
+    const customFieldsId = dataset.variableMeasured.map((nodeCustomField) => {
+      if (nodeGraph['@id'] === nodeCustomField['@id'] && nodeGraph['propertyID'] !== 'elabftw_metadata') {
+          customFields.push(nodeGraph);
       }
     });
   });
+  return customFields;
 }
 
 function extractRecordData(roCrateData) {
   if (!roCrateData || typeof roCrateData !== 'object') return {};
 
   let dataset = getMainDataset(roCrateData);
+//  console.log('dans extractRecordData roCrateData', roCrateData);
+//  console.log('dans extractRecordData', dataset);
   if (!dataset) return {};
 
  // console.log('dans extractRecordData', roCrateData);
@@ -103,11 +133,12 @@ function extractRecordData(roCrateData) {
      // encodingFormat: "text/html",
   };
 
-  result.mainText = dataset.text;
-  result.title = dataset.name;
-  result.customFields = extractCustomFields(graph, dataset);
-//    console.log('dans extractRecordData', dataset);
-//    console.log("dans extractRecordData, le text\n", result.mainText);
+  dataset.text ? result.mainText = dataset.text : '';
+  dataset.name ? result.title = dataset.name : '';
+  dataset.variableMeasured ? result.customFields = extractCustomFields(graph, dataset) : '';
+//  console.log('dans extractRecordData', result.customFields);
+//  console.log('dans extractRecordData', dataset);
+//  console.log("dans extractRecordData, le text\n", result.mainText);
 
   return result;
 }
@@ -452,7 +483,7 @@ function extractCustomFields1(graph) {
   }))
 }
 
-function renderCustomFields(customFields) {
+function renderCustomFields1(customFields) {
   if (!Array.isArray(customFields) || customFields.length === 0) return '';
 
   // Generate unique ID for accordion
