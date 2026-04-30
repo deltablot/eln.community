@@ -62,19 +62,6 @@ function renderCustomFields(dataset) {
     ).join('');
 }
 
-/*
-      `<div class="card mb-2 border">
-            <div class="card-body py-2 bg-light">
-              <div class="d-flex align-items-center flex-wrap gap-2">
-                 <strong>Step ${escapeHtmlForRenderer(String(step.position))}</strong>
-                 ${step.creativeWorkStatus ? `<span class="badge bg-secondary small">${escapeHtmlForRenderer(step.creativeWorkStatus)}</span>` : ''}
-              </div>
-              <dl class="row mb-0 mt-2 small">
-                <p>${escapeHtmlForRenderer(step?.text)}</p>
-              </dl>
-            </div>
-          </div>`).join('');
-          */
 function renderSteps(dataset) {
   return dataset.steps.map(node =>
     `<div class="card mb-2 border">
@@ -84,11 +71,10 @@ function renderSteps(dataset) {
             ${node['creativeWorkStatus'] ? `<span class="badge bg-secondary small">${node['creativeWorkStatus']}</span>` : ''}
          </div>
          <dl class="row mb-0 mt-2 small">
-            <p>Coucou, c'est le texte</p>
+            <p>${node['text']}</p>
           </dl>
-         </div>
-        </div>
-      </div>`
+       </div>
+    </div>`
     ).join('');
 }
 
@@ -190,8 +176,25 @@ function extractSteps(graph, dataset) {
       }
     });
   });
-
   return steps;
+}
+
+function extractStepsBis(graph, dataset) {
+  let steps = extractSteps(graph, dataset);
+
+  return steps.map(step => {
+    const directionId = step.itemListElement?.['@id'];
+    const direction = graph.find(element => element?.['@id'] === directionId);
+
+    console.log(step.position);
+    console.log(step.creativeWorkStatus);
+    console.log(direction.text);
+    return {
+      position: step.position || '',
+      creativeWorkStatus: step?.creativeWorkStatus || '',
+      text: direction?.text || '',
+    };
+  });
 }
 
 function extractRecordData(roCrateData) {
@@ -227,7 +230,7 @@ function extractRecordData(roCrateData) {
   dataset.text ? result.mainText = dataset.text : '';
   dataset.about ? result.category = extractCategories(graph, dataset) : '';
   dataset.variableMeasured ? result.customFields = extractCustomFields(graph, dataset) : '';
-  dataset.step ? result.steps = extractSteps(graph, dataset) : '';
+  dataset.step ? result.steps = extractStepsBis(graph, dataset) : '';
 
 //  console.log('dans extractRecordData', result.customFields);
 //  console.log('dans extractRecordData', dataset);
