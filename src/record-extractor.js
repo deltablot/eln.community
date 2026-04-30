@@ -127,68 +127,42 @@ function renderData(dataset) {
   `;
 }
 
-function extractAuthor(graph, dataset) {
-  let author;
 
-  const graphId = graph.find((nodeGraph) => {
-    if (nodeGraph['@id'] === dataset.author['@id']) {
-      author = nodeGraph;
+function extractObject(graph, object) {
+  let result;
+
+  const graphId = graph.find((node) => {
+    if (node['@id'] === object['@id']) {
+      result = node;
     };
   });
-  return author;
+  return result;
 }
 
-// TO DO: edit if category can be an array
-function extractCategories(graph, dataset) {
-  let category;
+function extractArray(graph, array) {
+  let result = [];
 
-  const graphId = graph.find((nodeGraph) => {
-    if (nodeGraph['@id'] === dataset.about['@id']) {
-      category = nodeGraph;
-    };
-  });
-  return category;
-}
-
-function extractCustomFields(graph, dataset) {
-  let customFields = [];
-
-  const graphId = graph.find((nodeGraph) => {
-    const customFieldsId = dataset.variableMeasured.map((nodeCustomField) => {
-      if (nodeGraph['@id'] === nodeCustomField['@id'] && nodeGraph['propertyID'] !== 'elabftw_metadata') {
-          customFields.push(nodeGraph);
+  const graphId = graph.find((node) => {
+    const arrayId = array.map((id) => {
+      if (node['@id'] === id['@id'] && node['propertyID'] !== 'elabftw_metadata') {
+          result.push(node);
       }
     });
   });
 
-  return customFields;
+  return result;
 }
 
 function extractSteps(graph, dataset) {
-  let steps = [];
-
-  const graphId = graph.find((nodeGraph) => {
-    const stepId = dataset.step.map((nodeStep) => {
-      // Pour le refacto
-      //if (nodeStep['@id'] === nodeGraph['@id'] && nodeGraph['propertyID'] !== 'undefined') {
-      if (nodeStep['@id'] === nodeGraph['@id']) {
-          steps.push(nodeGraph);
-      }
-    });
-  });
-  return steps;
-}
-
-function extractStepsBis(graph, dataset) {
-  let steps = extractSteps(graph, dataset);
+  let steps = extractArray(graph, dataset.step);
 
   return steps.map(step => {
     const directionId = step.itemListElement?.['@id'];
     const direction = graph.find(element => element?.['@id'] === directionId);
 
-    console.log(step.position);
-    console.log(step.creativeWorkStatus);
-    console.log(direction.text);
+//    console.log(step.position);
+//    console.log(step.creativeWorkStatus);
+//    console.log(direction.text);
     return {
       position: step.position || '',
       creativeWorkStatus: step?.creativeWorkStatus || '',
@@ -222,15 +196,15 @@ function extractRecordData(roCrateData) {
       steps: [],
   };
 
-  dataset.author ? result.author = extractAuthor(graph, dataset) : '';
+  dataset.author ? result.author = extractObject(graph, dataset.author) : '';
   dataset.name ? result.title = dataset.name : '';
   dataset.genre ? result.type = dataset.genre : '';
   dataset.creativeWorkStatus ? result.status = dataset.creativeWorkStatus : '';
   dataset.keywords ? result.tags = dataset.keywords : '';
   dataset.text ? result.mainText = dataset.text : '';
-  dataset.about ? result.category = extractCategories(graph, dataset) : '';
-  dataset.variableMeasured ? result.customFields = extractCustomFields(graph, dataset) : '';
-  dataset.step ? result.steps = extractStepsBis(graph, dataset) : '';
+  dataset.about ? result.category = extractObject(graph, dataset.about) : '';
+  dataset.variableMeasured ? result.customFields = extractArray(graph, dataset.variableMeasured) : '';
+  dataset.step ? result.steps = extractSteps(graph, dataset) : '';
 
 //  console.log('dans extractRecordData', result.customFields);
 //  console.log('dans extractRecordData', dataset);
