@@ -17,7 +17,7 @@ function renderStructuredRecordView(roCrateData) {
 
   const {
     extractRecordData,
-    renderMainText,
+    renderData,
   } = window.RecordExtractor;
 
   // Extract data from RO-Crate
@@ -30,7 +30,7 @@ function renderStructuredRecordView(roCrateData) {
     const hasMainText = extractedData.mainText;
 
     if (hasMainText) {
-      mainTextContainer.innerHTML = renderMainText(extractedData);
+      mainTextContainer.innerHTML = renderData(extractedData);
     } else {
       // Hide the container if no main text content
       mainTextContainer.style.display = 'none';

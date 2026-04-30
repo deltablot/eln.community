@@ -69,7 +69,7 @@ function renderCustomFields(dataset) {
  *
  * @returns {string} - HTML string for the Main Text Block
  */
-function renderMainText(dataset) {
+function renderData(dataset) {
   // Generate unique ID for accordion
   const accordionId = 'mainTextAccordion';
   const collapseId = 'mainTextCollapse';
@@ -88,6 +88,15 @@ function renderMainText(dataset) {
         </h2>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
           <div class="accordion-body">
+            Author: ${dataset.author['givenName']} ${dataset.author['familyName']}<br>
+            Genre: ${dataset.genre}<br>
+            Status: ${dataset.status}<br>
+            Categories: ${dataset.category['name']}<br>
+            Tags: ${dataset.tags}<br>
+          </div>
+        </div>
+        <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">
             ${dataset.mainText}
           </div>
         </div>
@@ -99,6 +108,29 @@ function renderMainText(dataset) {
       </div>
     </div>
   `;
+}
+
+function extractAuthor(graph, dataset) {
+  let author;
+
+  const graphId = graph.find((nodeGraph) => {
+    if (nodeGraph['@id'] === dataset.author['@id']) {
+      author = nodeGraph;
+    };
+  });
+  return author;
+}
+
+// TO DO: edit if category can be an array
+function extractCategories(graph, dataset) {
+  let category;
+
+  const graphId = graph.find((nodeGraph) => {
+    if (nodeGraph['@id'] === dataset.about['@id']) {
+      category = nodeGraph;
+    };
+  });
+  return category;
 }
 
 function extractCustomFields(graph, dataset) {
@@ -127,14 +159,25 @@ function extractRecordData(roCrateData) {
   // utiliser ça au lieu de son objet : simplifier encore plus
   // use fallback si l'attribut n'est pas la
   const result = {
-      mainText: null,
+      author: null,
       title: null,
-      customFields: [],
      // encodingFormat: "text/html",
+      genre: null,
+      status: null,
+      tags: [],
+      mainText: null,
+      category: [],
+      customFields: [],
+      steps: [],
   };
 
-  dataset.text ? result.mainText = dataset.text : '';
+  dataset.author ? result.author = extractAuthor(graph, dataset) : '';
   dataset.name ? result.title = dataset.name : '';
+  dataset.genre ? result.genre = dataset.genre : '';
+  dataset.creativeWorkStatus ? result.status = dataset.creativeWorkStatus : '';
+  dataset.keywords ? result.tags = dataset.keywords : '';
+  dataset.text ? result.mainText = dataset.text : '';
+  dataset.about ? result.category = extractCategories(graph, dataset) : '';
   dataset.variableMeasured ? result.customFields = extractCustomFields(graph, dataset) : '';
 //  console.log('dans extractRecordData', result.customFields);
 //  console.log('dans extractRecordData', dataset);
@@ -1501,8 +1544,7 @@ function renderOtherMetadata(unmappedEntities) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     extractRecordData,
- //   extractMainText,
-    renderMainText,
+    renderData,
       /*
     extractOwner,
     extractTeam,
@@ -1540,8 +1582,7 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
   window.RecordExtractor = {
     extractRecordData,
-//    extractMainText,
-    renderMainText,
+    renderData,
       /*
     extractOwner,
     extractTeam,
