@@ -13,10 +13,12 @@
  * @returns {Object} - The node graph['@id'] with type 'Dataset'
  */
 
-function preProcess(roCrateData) {
+let graph = null;
+
+function getMainDataset(roCrateData) {
   if (!roCrateData || typeof roCrateData !== 'object') return {};
 
-  const graph = roCrateData['@graph'];
+  graph = roCrateData['@graph'];
   if (!Array.isArray(graph)) return result;
 
   let hasPart;
@@ -39,21 +41,11 @@ function preProcess(roCrateData) {
   return dataset;
 }
 
-function extractMainText(dataset) {
-  return dataset.text;
-}
-
-function extractName(dataset) {
-  return dataset.name;
-}
-
 /**
  * Render the Main Text Block HTML
- * Displays Introduction
+ * Displays title and content
  * in a collapsible accordion format
  *
- * @param {Object} mainText - The mainText object from ExtractedRecordData
- * @param {string|null} mainText.introduction - Introduction content
  * @returns {string} - HTML string for the Main Text Block
  */
 function renderMainText(dataset) {
@@ -61,17 +53,19 @@ function renderMainText(dataset) {
   const accordionId = 'mainTextAccordion';
   const collapseId = 'mainTextCollapse';
 
+  //  console.log("dans renderMainText\n", dataset);
+  //  console.log("dans renderMainText, le text\n", dataset.mainText);
   return `
     <div class="accordion mb-3" id="${accordionId}">
       <div class="accordion-item">
         <h2 class="accordion-header">
           <button class="accordion-button fw-semibold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="true" aria-controls="${collapseId}">
-            <i class="bi bi-file-text me-2 text-secondary"></i>${extractName(dataset)}
+            <i class="bi bi-file-text me-2 text-secondary"></i>${dataset.title}
           </button>
         </h2>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
           <div class="accordion-body">
-            ${dataset.text}
+            ${dataset.mainText}
           </div>
         </div>
       </div>
@@ -79,30 +73,42 @@ function renderMainText(dataset) {
   `;
 }
 
-function extractCustomFields(dataset) {
-    const variableMeasuredId = dataset.variableMeasured.find((x) => console.log(x['@id']));
+function extractCustomFields(graph, dataset) {
+//    console.log('dans extractCustomFields graph', graph);
+//    console.log('dans extractCustomFields dataset', dataset);
+  const graphId = graph.find((nodeGraph) => {
+    const customFieldsId = dataset.variableMeasured.find((nodeCustomField) => {
+      if (nodeGraph['@id'] === nodeCustomField['@id']) {
+        console.log('graph', nodeGraph['@id']);
+        console.log('customField', nodeCustomField['@id']);
+      }
+    });
+  });
 }
 
 function extractRecordData(roCrateData) {
   if (!roCrateData || typeof roCrateData !== 'object') return {};
 
-  let dataset = preProcess(roCrateData);
+  let dataset = getMainDataset(roCrateData);
   if (!dataset) return {};
 
+ // console.log('dans extractRecordData', roCrateData);
+  // to do: aller cherher valeur du rocrate pour encodingFormat
+  // utiliser ça au lieu de son objet : simplifier encore plus
+  // use fallback si l'attribut n'est pas la
   const result = {
-    mainText: {
-      text: null,
-      name: null,
-    },
-    additionalData: {
-      variableMeasured: [],
-    },
+      mainText: null,
+      title: null,
+      customFields: [],
+     // encodingFormat: "text/html",
   };
 
-  result.mainText.text = extractMainText(dataset);
-  result.mainText.name = extractName(dataset);
+  result.mainText = dataset.text;
+  result.title = dataset.name;
+  result.customFields = extractCustomFields(graph, dataset);
+//    console.log('dans extractRecordData', dataset);
+//    console.log("dans extractRecordData, le text\n", result.mainText);
 
-  result.additionalData.variableMeasured = extractCustomFields(dataset);
   return result;
 }
 
@@ -1464,7 +1470,7 @@ function renderOtherMetadata(unmappedEntities) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     extractRecordData,
-    extractMainText,
+ //   extractMainText,
     renderMainText,
       /*
     extractOwner,
@@ -1503,7 +1509,7 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
   window.RecordExtractor = {
     extractRecordData,
-    extractMainText,
+//    extractMainText,
     renderMainText,
       /*
     extractOwner,

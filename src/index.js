@@ -13,6 +13,7 @@ function renderStructuredRecordView(roCrateData) {
     console.warn('RecordExtractor module not loaded, skipping structured view');
     return;
   }
+ //   console.log("roCrateData\n", roCrateData);
 
   const {
     extractRecordData,
@@ -22,19 +23,74 @@ function renderStructuredRecordView(roCrateData) {
   // Extract data from RO-Crate
   const extractedData = extractRecordData(roCrateData);
 
+ //   console.log("dans renderStructuredRecordView\n", extractRecordData(roCrateData));
   // Render Main Text Block
   const mainTextContainer = document.getElementById('main-text-container');
   if (mainTextContainer) {
-    const hasMainText = extractedData.mainText.text;
+    const hasMainText = extractedData.mainText;
 
     if (hasMainText) {
-      mainTextContainer.innerHTML = renderMainText(extractedData.mainText);
+      mainTextContainer.innerHTML = renderMainText(extractedData);
     } else {
       // Hide the container if no main text content
       mainTextContainer.style.display = 'none';
     }
   }
 }
+
+/*
+function renderStructuredRecordView1(roCrateData) {
+  // Check if RecordExtractor is available
+  if (typeof window.RecordExtractor === 'undefined') {
+    console.warn('RecordExtractor module not loaded, skipping structured view');
+    return;
+  }
+
+  const {
+    extractRecordData,
+    renderMainTextBlock,
+    renderExtraFieldsBlock,
+    renderCustomFields,
+    renderSteps,
+  } = window.RecordExtractor;
+
+  // Get fallback data from Record model
+  const fallbackData = getFallbackRecordData();
+
+  // Extract data from RO-Crate
+  const extractedData = extractRecordData(roCrateData);
+
+  // Apply fallbacks for missing data
+  applyFallbackData(extractedData, fallbackData);
+
+
+  // Render Main Text Block
+  const mainTextContainer = document.getElementById('main-text-container');
+  if (mainTextContainer) {
+    const hasMainText = extractedData.mainText.introduction;
+
+    if (hasMainText) {
+      mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
+    } else {
+      // Hide the container if no main text content
+      mainTextContainer.style.display = 'none';
+    }
+  }
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 document.addEventListener('DOMContentLoaded', function () {
 
