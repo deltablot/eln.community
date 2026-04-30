@@ -62,6 +62,36 @@ function renderCustomFields(dataset) {
     ).join('');
 }
 
+/*
+      `<div class="card mb-2 border">
+            <div class="card-body py-2 bg-light">
+              <div class="d-flex align-items-center flex-wrap gap-2">
+                 <strong>Step ${escapeHtmlForRenderer(String(step.position))}</strong>
+                 ${step.creativeWorkStatus ? `<span class="badge bg-secondary small">${escapeHtmlForRenderer(step.creativeWorkStatus)}</span>` : ''}
+              </div>
+              <dl class="row mb-0 mt-2 small">
+                <p>${escapeHtmlForRenderer(step?.text)}</p>
+              </dl>
+            </div>
+          </div>`).join('');
+          */
+function renderSteps(dataset) {
+  return dataset.steps.map(node =>
+    `<div class="card mb-2 border">
+       <div class="card-body py-2 bg-light">
+         <div class="d-flex align-items-center flex-wrap gap-2">
+            <strong>Step ${node['position']}</strong>
+            ${node['creativeWorkStatus'] ? `<span class="badge bg-secondary small">${node['creativeWorkStatus']}</span>` : ''}
+         </div>
+         <dl class="row mb-0 mt-2 small">
+            <p>Coucou, c'est le texte</p>
+          </dl>
+         </div>
+        </div>
+      </div>`
+    ).join('');
+}
+
 /**
  * Render the Main Text Block HTML
  * Displays title and content
@@ -89,20 +119,21 @@ function renderData(dataset) {
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
           <div class="accordion-body">
             Author: ${dataset.author['givenName']} ${dataset.author['familyName']}<br>
-            Genre: ${dataset.genre}<br>
+            Type: ${dataset.type}<br>
             Status: ${dataset.status}<br>
             Categories: ${dataset.category['name']}<br>
             Tags: ${dataset.tags}<br>
           </div>
         </div>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
-          <div class="accordion-body">
+          <div class="accordion-body">Main Text:<br>
             ${dataset.mainText}
           </div>
         </div>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
           <div class="accordion-body">
             ${renderCustomFields(dataset)}
+            ${renderSteps(dataset)}
           </div>
         </div>
       </div>
@@ -143,7 +174,24 @@ function extractCustomFields(graph, dataset) {
       }
     });
   });
+
   return customFields;
+}
+
+function extractSteps(graph, dataset) {
+  let steps = [];
+
+  const graphId = graph.find((nodeGraph) => {
+    const stepId = dataset.step.map((nodeStep) => {
+      // Pour le refacto
+      //if (nodeStep['@id'] === nodeGraph['@id'] && nodeGraph['propertyID'] !== 'undefined') {
+      if (nodeStep['@id'] === nodeGraph['@id']) {
+          steps.push(nodeGraph);
+      }
+    });
+  });
+
+  return steps;
 }
 
 function extractRecordData(roCrateData) {
@@ -155,14 +203,14 @@ function extractRecordData(roCrateData) {
   if (!dataset) return {};
 
  // console.log('dans extractRecordData', roCrateData);
-  // to do: aller cherher valeur du rocrate pour encodingFormat
-  // utiliser ça au lieu de son objet : simplifier encore plus
-  // use fallback si l'attribut n'est pas la
+ // to do: aller cherher valeur du rocrate pour encodingFormat
+ // utiliser ça au lieu de son objet : simplifier encore plus
+ // use fallback si l'attribut n'est pas la
   const result = {
       author: null,
       title: null,
      // encodingFormat: "text/html",
-      genre: null,
+      type: null,
       status: null,
       tags: [],
       mainText: null,
@@ -173,12 +221,14 @@ function extractRecordData(roCrateData) {
 
   dataset.author ? result.author = extractAuthor(graph, dataset) : '';
   dataset.name ? result.title = dataset.name : '';
-  dataset.genre ? result.genre = dataset.genre : '';
+  dataset.genre ? result.type = dataset.genre : '';
   dataset.creativeWorkStatus ? result.status = dataset.creativeWorkStatus : '';
   dataset.keywords ? result.tags = dataset.keywords : '';
   dataset.text ? result.mainText = dataset.text : '';
   dataset.about ? result.category = extractCategories(graph, dataset) : '';
   dataset.variableMeasured ? result.customFields = extractCustomFields(graph, dataset) : '';
+  dataset.step ? result.steps = extractSteps(graph, dataset) : '';
+
 //  console.log('dans extractRecordData', result.customFields);
 //  console.log('dans extractRecordData', dataset);
 //  console.log("dans extractRecordData, le text\n", result.mainText);
@@ -578,7 +628,7 @@ function renderCustomFields1(customFields) {
  * @param {Array} graph - The @graph array from RO-Crate
  * @returns {Array} - Array of FileInfo objects
  */
-function extractSteps(graph) {
+function extractSteps1(graph) {
   if (!Array.isArray(graph)) return [];
 
   const steps = graph.filter(entity => entity?.['@type'] === 'HowToStep');
@@ -596,7 +646,7 @@ function extractSteps(graph) {
   });
 }
 
-function renderSteps(steps) {
+function renderSteps1(steps) {
   if (!Array.isArray(steps) || steps.length === 0) return '';
 
   const accordionId = 'mainTextAccordion';
