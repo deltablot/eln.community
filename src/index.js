@@ -13,7 +13,6 @@ function renderStructuredRecordView(roCrateData) {
     console.warn('RecordExtractor module not loaded, skipping structured view');
     return;
   }
- //   console.log("roCrateData\n", roCrateData);
 
   const {
     extractRecordData,
@@ -23,74 +22,10 @@ function renderStructuredRecordView(roCrateData) {
   // Extract data from RO-Crate
   const extractedData = extractRecordData(roCrateData);
 
- //   console.log("dans renderStructuredRecordView\n", extractRecordData(roCrateData));
   // Render Main Text Block
   const mainTextContainer = document.getElementById('main-text-container');
-  if (mainTextContainer) {
-    const hasMainText = extractedData.mainText;
-
-    if (hasMainText) {
-      mainTextContainer.innerHTML = renderData(extractedData);
-    } else {
-      // Hide the container if no main text content
-      mainTextContainer.style.display = 'none';
-    }
-  }
+  mainTextContainer.innerHTML = renderData(extractedData);
 }
-
-/*
-function renderStructuredRecordView1(roCrateData) {
-  // Check if RecordExtractor is available
-  if (typeof window.RecordExtractor === 'undefined') {
-    console.warn('RecordExtractor module not loaded, skipping structured view');
-    return;
-  }
-
-  const {
-    extractRecordData,
-    renderMainTextBlock,
-    renderExtraFieldsBlock,
-    renderCustomFields,
-    renderSteps,
-  } = window.RecordExtractor;
-
-  // Get fallback data from Record model
-  const fallbackData = getFallbackRecordData();
-
-  // Extract data from RO-Crate
-  const extractedData = extractRecordData(roCrateData);
-
-  // Apply fallbacks for missing data
-  applyFallbackData(extractedData, fallbackData);
-
-
-  // Render Main Text Block
-  const mainTextContainer = document.getElementById('main-text-container');
-  if (mainTextContainer) {
-    const hasMainText = extractedData.mainText.introduction;
-
-    if (hasMainText) {
-      mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
-    } else {
-      // Hide the container if no main text content
-      mainTextContainer.style.display = 'none';
-    }
-  }
-
-*/
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -532,52 +467,6 @@ function renderRoCrate(data) {
 
   const graph = data['@graph'];
 
-  // Types to exclude from display
-  const excludedTypes = ['CreateAction', 'CreativeWork', 'PropertyValue', 'SoftwareApplication', 'Thing'];
-
-  // Build a lookup map for resolving references (e.g., Person by ID)
-  const entityMap = {};
-  graph.forEach(entity => {
-    if (entity && entity['@id']) {
-      entityMap[entity['@id']] = entity;
-    }
-  });
-
-  // Helper to resolve author name from Person entity
-  function resolveAuthorName(authorRef) {
-    if (!authorRef) return null;
-    const authorId = typeof authorRef === 'object' ? authorRef['@id'] : authorRef;
-    const person = entityMap[authorId];
-    if (person && person['@type'] === 'Person') {
-      const givenName = person.givenName || '';
-      const familyName = person.familyName || '';
-      const email = person.email || '';
-      if (givenName || familyName) {
-        return { name: `${givenName} ${familyName}`.trim(), email };
-      }
-    }
-    return null;
-  }
-
-  // Helper to resolve category/about name from Thing entity
-  function resolveCategoryName(aboutRef) {
-    if (!aboutRef) return null;
-    const aboutId = typeof aboutRef === 'object' ? aboutRef['@id'] : aboutRef;
-    const thing = entityMap[aboutId];
-    if (thing && thing.name) {
-      return thing.name;
-    }
-    return null;
-  }
-
-  // Find all Dataset entities (excluding root "./")
-  const datasets = graph.filter(entity => {
-    if (!entity || typeof entity !== 'object') return false;
-    if (entity['@id'] === './') return false; // Skip root dataset
-    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
-    return types.includes('Dataset');
-  });
-
   // Find Comment entities
   const comments = graph.filter(entity => {
     if (!entity || typeof entity !== 'object') return false;
@@ -593,14 +482,6 @@ function renderRoCrate(data) {
   });
 
   let html = '';
-
-  // Render Datasets
-  if (datasets.length > 0) {
-    html += '<h5 class="mb-3">Datasets</h5>';
-    datasets.forEach(dataset => {
-      html += renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName);
-    });
-  }
 
   // Render Comments
   if (comments.length > 0) {
@@ -628,73 +509,6 @@ function renderRoCrate(data) {
 /**
  * Render a Dataset entity as a card
  */
-function renderDatasetCard(dataset, resolveAuthorName, resolveCategoryName) {
-  const name = dataset.name || 'Unnamed Dataset';
-  const author = resolveAuthorName(dataset.author);
-  const category = resolveCategoryName(dataset.about);
-  const status = dataset.creativeWorkStatus;
-  const dateCreated = dataset.dateCreated ? formatDisplayDate(dataset.dateCreated) : null;
-  const keywords = dataset.keywords;
-  const url = dataset.url;
-
-  let html = '<div class="card mb-3">';
-  html += '<div class="card-body">';
-
-  // Name
-  html += `<h6 class="card-title fw-semibold mb-2">${escapeHtml(name)}</h6>`;
-
-  // Author
-  if (author) {
-    html += `<div class="mb-1"><i class="bi bi-person me-2 text-secondary"></i>`;
-    html += `<span class="text-muted">Author:</span> <span>${escapeHtml(author.name)}</span>`;
-    if (author.email) {
-      html += ` <small class="text-muted">(${escapeHtml(author.email)})</small>`;
-    }
-    html += '</div>';
-  }
-
-  // Category
-  if (category) {
-    html += `<div class="mb-1"><i class="bi bi-folder me-2 text-secondary"></i>`;
-    html += `<span class="text-muted">Category:</span> <span class="badge bg-secondary">${escapeHtml(category)}</span></div>`;
-  }
-
-  // Status
-  if (status) {
-    const statusClass = status.toLowerCase().includes('success') ? 'bg-success' :
-      status.toLowerCase().includes('fail') ? 'bg-danger' : 'bg-info';
-    html += `<div class="mb-1"><i class="bi bi-flag me-2 text-secondary"></i>`;
-    html += `<span class="text-muted">Status:</span> <span class="badge ${statusClass}">${escapeHtml(status)}</span></div>`;
-  }
-
-  // Date Created
-  if (dateCreated) {
-    html += `<div class="mb-1"><i class="bi bi-calendar me-2 text-secondary"></i>`;
-    html += `<span class="text-muted">Created:</span> <span>${escapeHtml(dateCreated)}</span></div>`;
-  }
-
-  // Keywords/Tags
-  if (keywords) {
-    const tags = typeof keywords === 'string' ? keywords.split(',').map(t => t.trim()) : keywords;
-    html += `<div class="mb-1"><i class="bi bi-tags me-2 text-secondary"></i>`;
-    html += `<span class="text-muted">Tags:</span> `;
-    tags.forEach(tag => {
-      if (tag) {
-        html += `<span class="badge bg-primary me-1">${escapeHtml(tag)}</span>`;
-      }
-    });
-    html += '</div>';
-  }
-
-  // URL
-  if (url) {
-    html += `<div class="mb-1"><i class="bi bi-link me-2 text-secondary"></i>`;
-    html += `<span class="text-muted">URL:</span> <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">${escapeHtml(url)}</a></div>`;
-  }
-
-  html += '</div></div>';
-  return html;
-}
 
 /**
  * Render a Comment entity as a card
@@ -829,102 +643,6 @@ function initializeRoCrateViewer() {
       '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(errorMessage) +
       '<br><small>Check browser console for more details</small></div>';
   }
-}
-
-
-/**
- * Render the structured record view using the RecordExtractor module
- * Populates the Common Info, Main Text, Extra Fields, and Other Metadata containers
- *
- * @param {Object} roCrateData - The parsed RO-Crate JSON data
- */
-function renderStructuredRecordView1(roCrateData) {
-  // Check if RecordExtractor is available
-  if (typeof window.RecordExtractor === 'undefined') {
-    console.warn('RecordExtractor module not loaded, skipping structured view');
-    return;
-  }
-
-  const {
-    extractRecordData,
-    renderCommonInfoBlock,
-    renderMainTextBlock,
-    renderExtraFieldsBlock,
-    renderCustomFields,
-    renderSteps,
-  } = window.RecordExtractor;
-
-  // Get fallback data from Record model
-  const fallbackData = getFallbackRecordData();
-
-  // Extract data from RO-Crate
-  const extractedData = extractRecordData(roCrateData);
-
-  // Apply fallbacks for missing data
-  applyFallbackData(extractedData, fallbackData);
-
-  // Render Common Info Block
-  const commonInfoContainer = document.getElementById('common-info-container');
-  if (commonInfoContainer && extractedData.commonInfo) {
-    // Only update if we have meaningful data from RO-Crate
-    const hasRoCrateData = extractedData.commonInfo.owner ||
-      extractedData.commonInfo.team ||
-      extractedData.commonInfo.tags.length > 0 ||
-      extractedData.commonInfo.startDate;
-
-    if (hasRoCrateData) {
-      commonInfoContainer.innerHTML = renderCommonInfoBlock(extractedData.commonInfo);
-    }
-    // Otherwise keep the server-rendered fallback content
-  }
-
-  // Render Main Text Block
-  const mainTextContainer = document.getElementById('main-text-container');
-  if (mainTextContainer) {
-    const hasMainText = extractedData.mainText.introduction;
-
-    if (hasMainText) {
-      mainTextContainer.innerHTML = renderMainTextBlock(extractedData.mainText);
-    } else {
-      // Hide the container if no main text content
-      mainTextContainer.style.display = 'none';
-    }
-  }
-
-  // Render Extra Fields Block
-  const extraFieldsContainer = document.getElementById('extra-fields-container');
-  if (extraFieldsContainer) {
-    const hasExtraFields = extractedData.extraFields.attachedFiles.length > 0 ||
-      extractedData.extraFields.experimentLinks.length > 0 ||
-      extractedData.extraFields.resourceLinks.length > 0 ||
-      extractedData.extraFields.compounds.length > 0 ||
-      extractedData.extraFields.storage.length > 0;
-
-    if (hasExtraFields) {
-      extraFieldsContainer.innerHTML = renderExtraFieldsBlock(extractedData.extraFields);
-    } else {
-      // Hide the container if no extra fields
-      extraFieldsContainer.style.display = 'none';
-    }
-  }
-
-  // Render Custom Fields
-  const customFieldContainer = document.getElementById('custom-field-container');
-  if (customFieldContainer) {
-      customFieldContainer.innerHTML = renderCustomFields(extractedData.extraFields.customFields);
-    } else {
-      // Hide the container if no custom field
-      customFieldContainer.style.display = 'none';
-    }
-
-  // Render Steps
-  const stepsContainer = document.getElementById('steps-container');
-  if (stepsContainer) {
-      stepsContainer.innerHTML = renderSteps(extractedData.extraFields.steps);
-    } else {
-      // Hide the container if no steps
-      stepsContainer.style.display = 'none';
-    }
 }
 
 /**
