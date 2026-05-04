@@ -1,7 +1,9 @@
 {
-  "name": "partage",
+  "name": "eln-community",
   "packageManager": "yarn@4.6.0",
   "dependencies": {
-    "esbuild": "^0.25.2"
+    "dompurify": "^3.0.0",
+    "esbuild": "^0.25.2",
+    "marked": "^15.0.0"
   }
 }

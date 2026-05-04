@@ -5,14 +5,16 @@
  * for the redesigned record screen.
  */
 
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+
 
 /**
- * Pre-process function to extract graph['@id']
+ * Extract graph['@id'] corresponding to the main dataset
  *
  * @param {Object} roCrateData - The complete RO-Crate JSON object
  * @returns {Object} - The node graph['@id'] with type 'Dataset'
  */
-
 let graph = null;
 
 function getMainDataset(roCrateData) {
@@ -41,14 +43,29 @@ function getMainDataset(roCrateData) {
   return dataset;
 }
 
+function renderBadge(badge) {
+  return badge ? `<span class="badge bg-secondary small">${badge}</span>` : '';
+}
+
+function renderCardHeader(card, badge, title = '') {
+    return `<div class="d-flex align-items-center flex-wrap gap-2">
+              <strong>${title} ${card}</strong>
+              ${badge ? `<span class="badge bg-secondary small">${badge}</span>` : ''}
+            </div>`;
+}
+
+function renderCard(content) {
+    return `<div class="card mb-2 border">
+              <div class="card-body py-2 bg-light">
+                ${content}
+              </div>
+            </div>`
+}
+
 function renderCustomFields(dataset) {
-  return dataset.customFields.map(node =>
-    `<div class="card mb-2 border">
-       <div class="card-body py-2 bg-light">
-         <div class="d-flex align-items-center flex-wrap gap-2">
-           <strong>${node['propertyID']}</strong>
-             <span class="badge bg-secondary small">${node['valueReference']}</span>
-         </div>
+  return dataset.customFields.map(node => {
+    const cardHeader = renderCardHeader(node['propertyID'], node['valueReference']);
+    const body = `
          <dl class="row mb-0 mt-2 small">
            <dt class="col-sm-3 text-muted fw-medium">value</dt>
            <dd class="col-sm-9 text-break">${node['value']}</dd>
@@ -56,26 +73,20 @@ function renderCustomFields(dataset) {
              <dt class="col-sm-3 text-muted fw-medium">description</dt>
              <dd class="col-sm-9 text-break">${node['description']}</dd>
            ` : ''}
-          </dl>
-        </div>
-      </div>`
-    ).join('');
+          </dl>`;
+      return renderCard(cardHeader + body);
+  }).join('');
 }
 
 function renderSteps(dataset) {
-  return dataset.steps.map(node =>
-    `<div class="card mb-2 border">
-       <div class="card-body py-2 bg-light">
-         <div class="d-flex align-items-center flex-wrap gap-2">
-            <strong>Step ${node['position']}</strong>
-            ${node['creativeWorkStatus'] ? `<span class="badge bg-secondary small">${node['creativeWorkStatus']}</span>` : ''}
-         </div>
+  return dataset.steps.map(node => {
+    const cardHeader = renderCardHeader(node['position'], node['creativeWorkStatus'], 'Step');
+    const body = `
          <dl class="row mb-0 mt-2 small">
             <p>${node['text']}</p>
-          </dl>
-       </div>
-    </div>`
-    ).join('');
+          </dl>`
+    return renderCard(cardHeader + body);
+  }).join('');
 }
 
 /**
@@ -94,6 +105,9 @@ function renderData(dataset) {
   //  console.log("dans renderMainText, le text\n", dataset.mainText);
   //  console.log("dans renderMainText, les customFields\n", dataset.customFields);
 
+  if (dataset.encodingFormat === 'text/markdown')
+  {
+    const clean = DOMPurify.sanitize(marked.parse(dataset.mainText));
   return `
     <div class="accordion mb-3" id="${accordionId}">
       <div class="accordion-item">
@@ -109,6 +123,40 @@ function renderData(dataset) {
             Status: ${dataset.status}<br>
             Categories: ${dataset.category['name']}<br>
             Tags: ${dataset.tags}<br>
+            URL: ${dataset.URL}
+          </div>
+        </div>
+        <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">Main Text:<br>
+            ${clean}
+          </div>
+        </div>
+        <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">
+            ${renderCustomFields(dataset)}
+            ${renderSteps(dataset)}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  }
+  return `
+    <div class="accordion mb-3" id="${accordionId}">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button fw-semibold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="true" aria-controls="${collapseId}">
+            <i class="bi bi-file-text me-2 text-secondary"></i>${dataset.title}
+          </button>
+        </h2>
+        <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
+          <div class="accordion-body">
+            Author: ${dataset.author['givenName']} ${dataset.author['familyName']}<br>
+            Type: ${dataset.type}<br>
+            Status: ${dataset.status}<br>
+            Categories: ${dataset.category['name']}<br>
+            Tags: ${dataset.tags}<br>
+            URL: ${dataset.URL}
           </div>
         </div>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
@@ -160,9 +208,6 @@ function extractSteps(graph, dataset) {
     const directionId = step.itemListElement?.['@id'];
     const direction = graph.find(element => element?.['@id'] === directionId);
 
-//    console.log(step.position);
-//    console.log(step.creativeWorkStatus);
-//    console.log(direction.text);
     return {
       position: step.position || '',
       creativeWorkStatus: step?.creativeWorkStatus || '',
@@ -175,18 +220,16 @@ function extractRecordData(roCrateData) {
   if (!roCrateData || typeof roCrateData !== 'object') return {};
 
   let dataset = getMainDataset(roCrateData);
-//  console.log('dans extractRecordData roCrateData', roCrateData);
-//  console.log('dans extractRecordData', dataset);
   if (!dataset) return {};
 
  // console.log('dans extractRecordData', roCrateData);
  // to do: aller cherher valeur du rocrate pour encodingFormat
- // utiliser ça au lieu de son objet : simplifier encore plus
  // use fallback si l'attribut n'est pas la
   const result = {
       author: null,
       title: null,
-     // encodingFormat: "text/html",
+      encodingFormat: null,
+      URL: null,
       type: null,
       status: null,
       tags: [],
@@ -198,6 +241,8 @@ function extractRecordData(roCrateData) {
 
   dataset.author ? result.author = extractObject(graph, dataset.author) : '';
   dataset.name ? result.title = dataset.name : '';
+  dataset.encodingFormat ? result.encodingFormat = dataset.encodingFormat : '';
+  dataset.url ? result.URL = dataset.url : '';
   dataset.genre ? result.type = dataset.genre : '';
   dataset.creativeWorkStatus ? result.status = dataset.creativeWorkStatus : '';
   dataset.keywords ? result.tags = dataset.keywords : '';
@@ -205,10 +250,6 @@ function extractRecordData(roCrateData) {
   dataset.about ? result.category = extractObject(graph, dataset.about) : '';
   dataset.variableMeasured ? result.customFields = extractArray(graph, dataset.variableMeasured) : '';
   dataset.step ? result.steps = extractSteps(graph, dataset) : '';
-
-//  console.log('dans extractRecordData', result.customFields);
-//  console.log('dans extractRecordData', dataset);
-//  console.log("dans extractRecordData, le text\n", result.mainText);
 
   return result;
 }
