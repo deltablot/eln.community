@@ -14,7 +14,9 @@ import DOMPurify from "dompurify";
  * @param {Object} roCrateData - The complete RO-Crate JSON object
  * @returns {Object} - The node graph['@id'] with type 'Dataset'
  */
+
 let graph = null;
+const noData = 'No data available';
 
 function getMainDataset(roCrateData) {
   if (!roCrateData || typeof roCrateData !== 'object') return {};
@@ -26,7 +28,7 @@ function getMainDataset(roCrateData) {
   let hasPartId;
   let dataset;
 
-  const crateNode = graph.find(node => {
+  graph.find(node => {
     if (!node || typeof node !== 'object') return false;
     if (node['@id'] === './') {
         hasPart = node['hasPart'];
@@ -35,7 +37,7 @@ function getMainDataset(roCrateData) {
         });
     }
   });
-  const nodes = graph.map(node => {
+  graph.map(node => {
       if (hasPartId === node['@id']) dataset = node;
   });
 
@@ -45,18 +47,14 @@ function getMainDataset(roCrateData) {
 function formatDateTime(value) {
     const date = new Date(value);
     const hasTime = value.includes('T');
-
     let options = {year: 'numeric', month: 'long', day: 'numeric' };
+
     if (hasTime) {
       options.hour = '2-digit';
       options.minute = '2-digit';
     }
 
     return date.toLocaleString('en-US', options);
-}
-
-function renderBadge(badge) {
-  return badge ? `<span class="badge bg-secondary small">${badge}</span>` : '';
 }
 
 function renderCardHeader(title, card, badge = '') {
@@ -77,29 +75,48 @@ function renderCard(header, body) {
       </div>`;
 }
 
+function renderSelect(value) {
+  const values = Array.isArray(value) ? value : [value];
+
+  return `
+    <select name="choice" class="form-select">
+      ${values.map(val => `<option value="${val}">${val}</option>`).join('')}
+    </select>
+  `;
+}
+
+function renderCheckbox(value) {
+  const checked = value === 'on';
+
+  return `
+    <input class="form-check-input" type="checkbox" ${checked ? 'checked' : ''} disabled> (${checked ? 'checked' : 'unchecked'})
+  `;
+}
+
 function renderField(node) {
     let ref = node['valueReference'];
     const value = node['value'];
-    if (ref === 'url')
-      return `<a href="${value}" target="_blank">${value}</a>`
-    if (ref === 'checkbox' && value === 'on') {
-      return `<input class="form-check-input" type="checkbox" id="customFieldsCheckbox-checked" checked disabled> (checked)`;
-    } else if (ref === 'checkbox')
-      return `<input class="form-check-input" type="checkbox" id="customFieldsCheckbox-unchecked" disabled> (unchecked)`;
-    if (ref === 'email')
-      return `<a href="mailto:${value}">${value}</a>`;
+
+    if (!value && ref !== 'checkbox')
+      return noData;
+
     if (ref.startsWith('date'))
       return formatDateTime(value);
-    if (ref === 'select') {
-      return `
-        <select name="choice" class="form-select">
-          ${value.map(val => `<option value="${val}">${val}</option>`).join('')}
-        </select>`;
+
+    switch (ref) {
+      case 'url':
+        return `<a href="${value}" target="_blank">${value}</a>`;
+      case 'checkbox':
+        return renderCheckbox(value);
+      case 'email':
+        return `<a href="mailto:${value}">${value}</a>`;
+      case 'select':
+        return renderSelect(value);
+      case 'radio':
+        return `<input type="radio" name="${value}" value="${value}" checked/> ${value}`;
+      default:
+        return value;
     }
-    if (ref === 'radio') {
-      return `<input type="radio" name="${value}" value="${value} id="customFieldsRadioButton"" checked/> ${value}`;
-    }
-    return value;
 }
 
 function renderCustomFields(dataset) {
@@ -114,6 +131,7 @@ function renderCustomFields(dataset) {
         ${node['description'] ? ` <dt class="col-sm-3 text-muted fw-medium">description</dt>
         <dd class="col-sm-9 text-break">${node['description']}</dd>` : ''}
       </dl>`;
+
       return renderCard(cardHeader, body);
   }).join('');
 }
@@ -125,6 +143,7 @@ function renderSteps(dataset) {
       <dl class="row mb-0 mt-2 small">
         <p>${node['text']}</p>
       </dl>`
+
     return renderCard(cardHeader, body);
   }).join('');
 }
@@ -165,7 +184,7 @@ function renderAccordionSection(title, content) {
     return `
       <div class="accordion-body">
         <div class="fw-semibold mb-2">${title}</div>
-         ${content ? content : 'No data available'}
+         ${content ? content : noData}
        </div>
     `;
 }
@@ -183,7 +202,7 @@ function renderData(dataset) {
   const collapseId = 'mainTextCollapse';
   let mainText = renderMainText(dataset);
   if (!mainText)
-    mainText = 'No data available';
+    mainText = noData;
 
   return `
     <div class="accordion mb-3" id="${accordionId}">
@@ -195,7 +214,7 @@ function renderData(dataset) {
         </h2>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
           ${renderCommonInfo(dataset)}
-          ${renderAccordionSection('Main Text', `<div class="text-break rocrate-main-text underline-main-text">${mainText}</div>`)}
+          ${renderAccordionSection('Main Text', `<div class="text-break rocrate-main-text">${mainText}</div>`)}
           ${renderAccordionSection('Custom Fields', `${renderCustomFields(dataset)}`)}
           ${renderAccordionSection('Steps', `${renderSteps(dataset)}`)}
           ${renderAccordionSection('Files', `${renderFiles(dataset)}`)}
@@ -205,25 +224,32 @@ function renderData(dataset) {
   `;
 }
 
-function extractObject(graph, object) {
+function extractObjectFromDataset(graph, inputObject) {
+  if (!inputObject)
+    return '';
+
   let result;
 
-  const graphId = graph.find((node) => {
-    if (node['@id'] === object['@id']) {
+  graph.find((node) => {
+    if (node['@id'] === inputObject['@id'])
       result = node;
-    }
   });
+
   return result;
 }
 
-function extractArray(graph, array) {
+// excludedPropertyID skips special nodes like `elabftw_metadata`,
+// whose full metadata JSON value is not needed for display here.
+function extractArrayFromDataset(graph, inputArray, excludeProperty = '') {
+  if (!inputArray)
+    return [];
+
   let result = [];
 
-  const graphId = graph.find((node) => {
-    const arrayId = array.map((id) => {
-      if (node['@id'] === id['@id'] && node['propertyID'] !== 'elabftw_metadata') {
+  graph.find((node) => {
+    inputArray.map((id) => {
+      if (node['@id'] === id['@id'] && node['propertyID'] !== excludeProperty)
           result.push(node);
-      }
     });
   });
 
@@ -231,7 +257,7 @@ function extractArray(graph, array) {
 }
 
 function extractSteps(graph, dataset) {
-  let steps = extractArray(graph, dataset.step);
+  let steps = extractArrayFromDataset(graph, dataset.step);
 
   return steps.map(step => {
     const directionId = step.itemListElement?.['@id'];
@@ -251,33 +277,19 @@ function extractRecordData(roCrateData) {
   let dataset = getMainDataset(roCrateData);
   if (!dataset) return {};
 
-  const result = {
-      author: null,
-      title: null,
-      encodingFormat: null,
-      type: null,
-      status: null,
-      files: [],
-      tags: [],
-      mainText: null,
-      category: [],
-      customFields: [],
-      steps: [],
+  return {
+      author: extractObjectFromDataset(graph, dataset.author),
+      title: dataset.name,
+      encodingFormat: dataset.encodingFormat,
+      type: dataset.genre,
+      status: dataset.creativeWorkStatus,
+      files: extractArrayFromDataset(graph, dataset.hasPart),
+      tags: dataset.keywords,
+      mainText: dataset.text,
+      category: extractObjectFromDataset(graph, dataset.about),
+      customFields: extractArrayFromDataset(graph, dataset.variableMeasured, 'elabftw_metadata'),
+      steps: extractSteps(graph, dataset),
   };
-
-  dataset.author ? result.author = extractObject(graph, dataset.author) : '';
-  dataset.name ? result.title = dataset.name : '';
-  dataset.encodingFormat ? result.encodingFormat = dataset.encodingFormat : '';
-  dataset.genre ? result.type = dataset.genre : '';
-  dataset.creativeWorkStatus ? result.status = dataset.creativeWorkStatus : '';
-  dataset.hasPart ? result.files = extractArray(graph, dataset.hasPart) : '';
-  dataset.keywords ? result.tags = dataset.keywords : '';
-  dataset.text ? result.mainText = dataset.text : '';
-  dataset.about ? result.category = extractObject(graph, dataset.about) : '';
-  dataset.variableMeasured ? result.customFields = extractArray(graph, dataset.variableMeasured) : '';
-  dataset.step ? result.steps = extractSteps(graph, dataset) : '';
-
-  return result;
 }
 
 // Export functions for use in other modules
