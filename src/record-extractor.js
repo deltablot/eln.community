@@ -42,11 +42,24 @@ function getMainDataset(roCrateData) {
   return dataset;
 }
 
+function formatDateTime(value) {
+    const date = new Date(value);
+    const hasTime = value.includes('T');
+
+    let options = {year: 'numeric', month: 'long', day: 'numeric' };
+    if (hasTime) {
+      options.hour = '2-digit';
+      options.minute = '2-digit';
+    }
+
+    return date.toLocaleString('en-US', options);
+}
+
 function renderBadge(badge) {
   return badge ? `<span class="badge bg-secondary small">${badge}</span>` : '';
 }
 
-function renderCardHeader(card, badge, title = '') {
+function renderCardHeader(title, card, badge = '') {
     return `
       <div class="d-flex align-items-center flex-wrap gap-2">
         <strong>${title} ${card}</strong>
@@ -64,13 +77,40 @@ function renderCard(header, body) {
       </div>`;
 }
 
+function renderField(node) {
+    let ref = node['valueReference'];
+    const value = node['value'];
+    if (ref === 'url')
+      return `<a href="${value}" target="_blank">${value}</a>`
+    if (ref === 'checkbox' && value === 'on') {
+      return `<input class="form-check-input" type="checkbox" id="customFieldsCheckbox-checked" checked disabled> (checked)`;
+    } else if (ref === 'checkbox')
+      return `<input class="form-check-input" type="checkbox" id="customFieldsCheckbox-unchecked" disabled> (unchecked)`;
+    if (ref === 'email')
+      return `<a href="mailto:${value}">${value}</a>`;
+    if (ref.startsWith('date'))
+      return formatDateTime(value);
+    if (ref === 'select') {
+      return `
+        <select name="choice" class="form-select">
+          ${value.map(val => `<option value="${val}">${val}</option>`).join('')}
+        </select>`;
+    }
+    if (ref === 'radio') {
+      return `<input type="radio" name="${value}" value="${value} id="customFieldsRadioButton"" checked/> ${value}`;
+    }
+    return value;
+}
+
 function renderCustomFields(dataset) {
   return dataset.customFields.map(node => {
-    const cardHeader = renderCardHeader(node['propertyID'], node['valueReference']);
+    const cardHeader = renderCardHeader(node['propertyID'], '', node['valueReference']);
     const body = `
       <dl class="row mb-0 mt-2 small">
         <dt class="col-sm-3 text-muted fw-medium">value</dt>
-        <dd class="col-sm-9 text-break">${node['value']}</dd>
+        <dd class="col-sm-9 text-break">${renderField(node)}</dd>
+        ${node['unitText'] ? ` <dt class="col-sm-3 text-muted fw-medium">unit</dt>
+        <dd class="col-sm-9 text-break">${node['unitText']}</dd>` : ''}
         ${node['description'] ? ` <dt class="col-sm-3 text-muted fw-medium">description</dt>
         <dd class="col-sm-9 text-break">${node['description']}</dd>` : ''}
       </dl>`;
@@ -80,7 +120,7 @@ function renderCustomFields(dataset) {
 
 function renderSteps(dataset) {
   return dataset.steps.map(node => {
-    const cardHeader = renderCardHeader(node['position'], node['creativeWorkStatus'], 'Step');
+    const cardHeader = renderCardHeader('Step', node['position']);
     const body = `
       <dl class="row mb-0 mt-2 small">
         <p>${node['text']}</p>
@@ -88,6 +128,16 @@ function renderSteps(dataset) {
     return renderCard(cardHeader, body);
   }).join('');
 }
+
+function renderFiles(dataset) {
+  return dataset.files.map(node => {
+    const cardHeader = renderCardHeader('', node['name']);
+    const body = `<img src="${node['@id']}" alt="${node['name']}">`;
+
+    return renderCard(cardHeader, body);
+  }).join('');
+}
+
 
 function renderMainText(dataset) {
   if (dataset.encodingFormat === 'text/markdown')
@@ -107,7 +157,6 @@ function renderCommonInfo(dataset) {
         Status: ${dataset.status ? dataset.status : ''}<br>
         Categories: ${dataset.category['name'] ? dataset.category['name'] : ''}<br>
         Tags: ${dataset.tags ? dataset.tags : ''}<br>
-        URL: <a href="${dataset.URL}" target="_blank">${dataset.type} available on Elabftw</a>
       </div>
     `;
 }
@@ -146,9 +195,10 @@ function renderData(dataset) {
         </h2>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
           ${renderCommonInfo(dataset)}
-          ${renderAccordionSection('Main Text', `<div class="text-break">${mainText}</div>`)}
+          ${renderAccordionSection('Main Text', `<div class="text-break rocrate-main-text underline-main-text">${mainText}</div>`)}
           ${renderAccordionSection('Custom Fields', `${renderCustomFields(dataset)}`)}
           ${renderAccordionSection('Steps', `${renderSteps(dataset)}`)}
+          ${renderAccordionSection('Files', `${renderFiles(dataset)}`)}
         </div>
       </div>
     </div>
@@ -205,9 +255,9 @@ function extractRecordData(roCrateData) {
       author: null,
       title: null,
       encodingFormat: null,
-      URL: null,
       type: null,
       status: null,
+      files: [],
       tags: [],
       mainText: null,
       category: [],
@@ -218,9 +268,9 @@ function extractRecordData(roCrateData) {
   dataset.author ? result.author = extractObject(graph, dataset.author) : '';
   dataset.name ? result.title = dataset.name : '';
   dataset.encodingFormat ? result.encodingFormat = dataset.encodingFormat : '';
-  dataset.url ? result.URL = dataset.url : '';
   dataset.genre ? result.type = dataset.genre : '';
   dataset.creativeWorkStatus ? result.status = dataset.creativeWorkStatus : '';
+  dataset.hasPart ? result.files = extractArray(graph, dataset.hasPart) : '';
   dataset.keywords ? result.tags = dataset.keywords : '';
   dataset.text ? result.mainText = dataset.text : '';
   dataset.about ? result.category = extractObject(graph, dataset.about) : '';
