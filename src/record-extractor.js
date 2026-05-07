@@ -38,7 +38,9 @@ function getMainDataset(roCrateData) {
     }
   });
   graph.map(node => {
-      if (hasPartId === node['@id']) dataset = node;
+      if (hasPartId === node['@id']) {
+        dataset = node;
+      }
   });
 
   return dataset;
@@ -93,28 +95,41 @@ function renderCheckbox(value) {
   `;
 }
 
+function renderLink(value, hrefValue = value) {
+  const link = document.createElement('a');
+  link.href = hrefValue;
+  link.textContent = value;
+  return link.outerHTML;
+}
+
 function renderField(node) {
-    let ref = node['valueReference'];
-    const value = node['value'];
+  let ref = node['valueReference'];
+  const value = node['value'];
 
-    if (!value && ref !== 'checkbox') return noData;
+  if (!value && ref !== 'checkbox') return noData;
 
-    if (ref.startsWith('date')) return formatDateTime(value);
+  if (ref.startsWith('date')) return formatDateTime(value);
 
-    switch (ref) {
-      case 'url':
-        return `<a href="${value}" target="_blank">${value}</a>`;
-      case 'checkbox':
-        return renderCheckbox(value);
-      case 'email':
-        return `<a href="mailto:${value}">${value}</a>`;
-      case 'select':
-        return renderSelect(value);
-      case 'radio':
-        return `<input type="radio" name="${value}" value="${value}" checked/> ${value}`;
-      default:
-        return value;
+  switch (ref) {
+    case 'url':
+      return renderLink(value);
+    case 'checkbox':
+      return renderCheckbox(value);
+    case 'email':
+      return renderLink(value, `mailto:${value}`);
+    case 'select':
+      return renderSelect(value);
+    case 'radio': {
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = value;
+      radio.value = value;
+      radio.setAttribute('checked', 'checked');
+      return `${radio.outerHTML} ${value}`;
     }
+    default:
+      return value;
+  }
 }
 
 function renderCustomFields(dataset) {
@@ -154,7 +169,9 @@ function formatFileSize(size) {
   let value = bytes;
   let i = 0;
 
-  for (; value >= 1024 && i < units.length - 1; i++) value /= 1024;
+  for (; value >= 1024 && i < units.length - 1; i++) {
+      value /= 1024;
+  }
 
   return `${value.toFixed(i ? 1 : 0)} ${units[i]}`;
 }
@@ -168,6 +185,21 @@ function renderFiles(dataset) {
   }).join('');
 }
 
+function renderTab(html) {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+
+  template.content.querySelectorAll('table').forEach(table => {
+    table.classList.add('table', 'w-auto');
+  });
+
+  template.content.querySelectorAll('td, th').forEach(cell => {
+    cell.classList.add('border-bottom');
+  });
+
+  return template.innerHTML;
+}
+
 function renderMainText(dataset) {
   if (!dataset.mainText) return noData;
 
@@ -177,10 +209,7 @@ function renderMainText(dataset) {
   if (format === 'text/markdown')
     html = marked.parse(dataset.mainText);
   if (format === 'text/html' || format === 'text/markdown')
-    return DOMPurify.sanitize(html)
-      .replace(/<table\b([^>]*)>/g, '<table$1 class="table w-auto">')
-      .replace(/<td\b([^>]*)>/g, '<td$1 class="border-bottom">')
-      .replace(/<th\b([^>]*)>/g, '<th$1 class="border-bottom">');
+    return renderTab(DOMPurify.sanitize(html));
 
   return `<div class="text-break">${html}</div>`;
 }
