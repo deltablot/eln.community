@@ -97,11 +97,9 @@ function renderField(node) {
     let ref = node['valueReference'];
     const value = node['value'];
 
-    if (!value && ref !== 'checkbox')
-      return noData;
+    if (!value && ref !== 'checkbox') return noData;
 
-    if (ref.startsWith('date'))
-      return formatDateTime(value);
+    if (ref.startsWith('date')) return formatDateTime(value);
 
     switch (ref) {
       case 'url':
@@ -159,12 +157,20 @@ function renderFiles(dataset) {
 
 
 function renderMainText(dataset) {
-  if (dataset.encodingFormat === 'text/markdown')
-    return DOMPurify.sanitize(marked.parse(dataset.mainText));
-  if (dataset.encodingFormat === 'text/html')
-    return DOMPurify.sanitize(dataset.mainText);
+  if (!dataset.mainText) return noData;
 
-  return dataset.mainText;
+  let html = dataset.mainText;
+  const format = dataset.encodingFormat;
+
+  if (format === 'text/markdown')
+    html = marked.parse(dataset.mainText);
+  if (format === 'text/html' || format === 'text/markdown')
+    return DOMPurify.sanitize(html)
+      .replace(/<table\b([^>]*)>/g, '<table$1 class="table w-auto">')
+      .replace(/<td\b([^>]*)>/g, '<td$1 class="border-bottom">')
+      .replace(/<th\b([^>]*)>/g, '<th$1 class="border-bottom">');
+
+  return `<div class="text-break">${html}</div>`;
 }
 
 function renderCommonInfo(dataset) {
@@ -201,8 +207,6 @@ function renderData(dataset) {
   const accordionId = 'mainTextAccordion';
   const collapseId = 'mainTextCollapse';
   let mainText = renderMainText(dataset);
-  if (!mainText)
-    mainText = noData;
 
   return `
     <div class="accordion mb-3" id="${accordionId}">
@@ -214,7 +218,7 @@ function renderData(dataset) {
         </h2>
         <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#${accordionId}">
           ${renderCommonInfo(dataset)}
-          ${renderAccordionSection('Main Text', `<div class="text-break rocrate-main-text">${mainText}</div>`)}
+          ${renderAccordionSection('Main Text', `${mainText}`)}
           ${renderAccordionSection('Custom Fields', `${renderCustomFields(dataset)}`)}
           ${renderAccordionSection('Steps', `${renderSteps(dataset)}`)}
           ${renderAccordionSection('Files', `${renderFiles(dataset)}`)}
@@ -225,8 +229,7 @@ function renderData(dataset) {
 }
 
 function extractObjectFromDataset(graph, inputObject) {
-  if (!inputObject)
-    return '';
+  if (!inputObject) return '';
 
   let result;
 
@@ -238,11 +241,10 @@ function extractObjectFromDataset(graph, inputObject) {
   return result;
 }
 
-// excludedPropertyID skips special nodes like `elabftw_metadata`,
+// excludedPropertyID skips special nodes like 'elabftw_metadata',
 // whose full metadata JSON value is not needed for display here.
 function extractArrayFromDataset(graph, inputArray, excludeProperty = '') {
-  if (!inputArray)
-    return [];
+  if (!inputArray) return [];
 
   let result = [];
 
