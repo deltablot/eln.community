@@ -146,15 +146,27 @@ function renderSteps(dataset) {
   }).join('');
 }
 
+function formatFileSize(size) {
+  const bytes = Number(size);
+  if (!bytes || isNaN(bytes)) return '';
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let i = 0;
+
+  for (; value >= 1024 && i < units.length - 1; i++) value /= 1024;
+
+  return `${value.toFixed(i ? 1 : 0)} ${units[i]}`;
+}
+
 function renderFiles(dataset) {
   return dataset.files.map(node => {
     const cardHeader = renderCardHeader('', node['name']);
-    const body = `<img src="${node['@id']}" alt="${node['name']}">`;
+    const body = `<dl class="row mb-0 mt-2 small"><p>${formatFileSize(node['contentSize'])}</p></dl>`
 
     return renderCard(cardHeader, body);
   }).join('');
 }
-
 
 function renderMainText(dataset) {
   if (!dataset.mainText) return noData;
