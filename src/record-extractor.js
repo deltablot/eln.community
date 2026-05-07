@@ -185,7 +185,7 @@ function renderFiles(dataset) {
   }).join('');
 }
 
-function renderTab(html) {
+function renderTable(html) {
   const template = document.createElement('template');
   template.innerHTML = html;
 
@@ -209,7 +209,7 @@ function renderMainText(dataset) {
   if (format === 'text/markdown')
     html = marked.parse(dataset.mainText);
   if (format === 'text/html' || format === 'text/markdown')
-    return renderTab(DOMPurify.sanitize(html));
+    return renderTable(DOMPurify.sanitize(html));
 
   return `<div class="text-break">${html}</div>`;
 }
