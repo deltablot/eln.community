@@ -42,7 +42,7 @@ import (
 
 //go:generate bash build.sh
 
-//go:embed dist/index.js* dist/comments.js* dist/moderation-comments.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
+//go:embed dist/index.js* dist/comments.js* dist/moderation-comments.js* dist/record-extractor.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
 var staticFiles embed.FS
 
 var (
@@ -517,6 +517,7 @@ func main() {
 	mux.HandleFunc("GET /index.js", serveAsset)
 	mux.HandleFunc("GET /comments.js", serveAsset)
 	mux.HandleFunc("GET /moderation-comments.js", serveAsset)
+	mux.HandleFunc("GET /record-extractor.js", serveAsset)
 	mux.HandleFunc("GET /robots.txt", serveAsset)
 	//http.HandleFunc("GET /index.css", serveAsset)
 	mux.HandleFunc("GET /main.css", serveAsset)
