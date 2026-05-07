@@ -22,7 +22,7 @@ function getMainDataset(roCrateData) {
   if (!roCrateData || typeof roCrateData !== 'object') return {};
 
   graph = roCrateData['@graph'];
-  if (!Array.isArray(graph)) return result;
+  if (!Array.isArray(graph)) return {};
 
   let hasPart;
   let hasPartId;
@@ -195,18 +195,10 @@ function renderAccordionSection(title, content) {
     `;
 }
 
-/**
- * Render the Main Text Block HTML
- * Displays title and content
- * in a collapsible accordion format
- *
- * @returns {string} - HTML string for the Main Text Block
- */
 function renderData(dataset) {
-  // Generate unique ID for accordion
   const accordionId = 'mainTextAccordion';
   const collapseId = 'mainTextCollapse';
-  let mainText = renderMainText(dataset);
+  const mainText = renderMainText(dataset);
 
   return `
     <div class="accordion mb-3" id="${accordionId}">
@@ -231,26 +223,19 @@ function renderData(dataset) {
 function extractObjectFromDataset(graph, inputObject) {
   if (!inputObject) return '';
 
-  let result;
-
-  graph.find((node) => {
-    if (node['@id'] === inputObject['@id'])
-      result = node;
-  });
-
-  return result;
+  return graph.find(node => node['@id'] === inputObject['@id']);
 }
 
-// excludedPropertyID skips special nodes like 'elabftw_metadata',
+// ignoredPropertyID skips special nodes (like 'elabftw_metadata'),
 // whose full metadata JSON value is not needed for display here.
-function extractArrayFromDataset(graph, inputArray, excludeProperty = '') {
+function extractArrayFromDataset(graph, inputArray, ignoredPropertyID = '') {
   if (!inputArray) return [];
 
   let result = [];
 
   graph.find((node) => {
     inputArray.map((id) => {
-      if (node['@id'] === id['@id'] && node['propertyID'] !== excludeProperty)
+      if (node['@id'] === id['@id'] && node['propertyID'] !== ignoredPropertyID)
           result.push(node);
     });
   });
