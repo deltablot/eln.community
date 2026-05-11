@@ -24,7 +24,7 @@
 <div class="d-flex justify-content-between align-items-start mb-3">
   <div>
     <h1>{{ .Record.Name }}</h1>
-    <p>{{ .Record.Description }}</p>
+    <p>{{ .Record.Description.String }}</p>
   </div>
   <div class="record-actions">
     {{ if .CanEdit }}

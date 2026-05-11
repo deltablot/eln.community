@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+    "database/sql"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -204,7 +205,10 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		Id:            id,
 		Sha256:        hashHex,
 		Name:          name,
-        Description:   description,
+        Description:   sql.NullString {
+            String: description,
+            Valid: description != "",
+        },
 		Metadata:      meta,
 		UploaderName:  user.Name,
 		UploaderOrcid: user.Orcid,
@@ -897,7 +901,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 type BrowseRecordShort struct {
 	Id            string            `json:"id"`
 	Name          string            `json:"name"`
-	Description   string            `json:"description"`
+	Description   *string           `json:"description"`
 	UploaderName  string            `json:"uploaderName"`
 	UploaderOrcid string            `json:"uploaderOrcid"`
 	Categories    []Category        `json:"categories"`
@@ -1111,7 +1115,13 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 		shortRecords = append(shortRecords, BrowseRecordShort{
 			Id:            rec.Id,
 			Name:          rec.Name,
-            Description:   rec.Description,
+            Description: func() *string {
+		if rec.Description.Valid {
+			s := rec.Description.String
+			return &s
+		}
+		return nil
+	}(),
 			UploaderName:  rec.UploaderName,
 			UploaderOrcid: rec.UploaderOrcid,
 			Categories:    rec.Categories,
@@ -1577,7 +1587,10 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	// Update the record
 	updatedRecord := *existingRecord
 	updatedRecord.Name = name
-	updatedRecord.Description = description
+	updatedRecord.Description = sql.NullString {
+        String: description,
+        Valid: description != "",
+    }
 	updatedRecord.RorIds = rorIds
 
 	// If new file uploaded, process it
