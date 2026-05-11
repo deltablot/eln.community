@@ -754,7 +754,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 			return template.JS(b)
 		},
 	}
-	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/record.html",
 	))
@@ -1177,7 +1177,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/browse.html",
 	))
@@ -1871,7 +1871,7 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 	}
 
 	// Render edit template
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/edit.html",
 	))
