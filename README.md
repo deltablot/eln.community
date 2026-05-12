@@ -25,53 +25,75 @@ A community platform for sharing Electronic Lab Notebook (ELN) archives, experim
 
 **Prerequisites**: [Docker](https://docs.docker.com/get-docker/) 20.10+ and [Docker Compose](https://docs.docker.com/compose/install/) 2.0+
 
+
 ## 🚀 Quick Start
 
-### Option 1: Using Makefile (Recommended)
+### Get an ORCID ID
 
+To launch the project correctly, you need an ORCID ID.
+
+If you don't have one, go to [orcid.org](https://orcid.org) and create an account.
+
+For ORCID authentication, register your application in the [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to:
+
+```text
+{SITE_URL}/auth/callback
+```
+
+> **Note**: To launch the app in local mode, you should add the local address with an alias because ORCID does not allow localhost addresses.
+> Create a local alias in your `/etc/hosts` file, for example:
+>
+> ```text
+> 127.0.0.1 {LOCALHOST_ALIAS}
+> ```
+>
+> Then configure your ORCID redirect URI as:
+>
+> ```text
+> https://{LOCALHOST_ALIAS}:<port>/auth/callback
+> ```
+
+### Launch the project
 ```bash
 # 1. Clone the repository
 git clone https://github.com/deltablot/eln-community.git
 cd eln-community
 
-# 2. Edit docker-compose-dev.yml with your configuration
-# Set SITE_URL, ORCID credentials, and S3 settings
+# 2. Create a docker-compose.yml from the example
+cp docker-compose.yml.dist docker-compose.yml
+# Make sure to configure:
+# - SITE_URL
+# - ORCID credentials
+# - S3 settings
+# - DEV=1 (when running in dev mode)
+# Your ORCID credentials are available at: https://orcid.org/developer-tools
 
-# 3. Build and start everything
-make local
+# 3. Start the services
+docker compose up -d
+
+# 4. Initialize the database
+./cli db migrate up
+./cli db seed
+./cli admin add <your_orcid>
+
+# 5. Install Air (dev mode only)
+# Air is used to automatically rebuild and restart the Go server when files change.
+go install github.com/air-verse/air@v1.65.1
+# Check that Air is installed correctly
+air -v
+# If Air not found, add Go's binary directory to your shell PATH
+export PATH=$PATH:$(go env GOPATH)/bin
+# Then check Air again
+air -v
+
+# 6. Run the app in dev mode
+air
 ```
 
-### Option 2: Manual Steps
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/deltablot/eln-community.git
-cd eln-community
-
-# 2. Build the Docker image
-docker build -t ghcr.io/deltablot/eln-community .
-
-# 3. Edit docker-compose-dev.yml with your configuration
-# Set SITE_URL, ORCID credentials, and S3 settings
-
-# 4. Start the application (includes PostgreSQL database and MinIO)
-docker compose -f docker-compose-dev.yml up -d
-
-# 5. Wait for services to be healthy, then access at http://localhost:8080
+The app should be available at:
+```text
+https://<LOCALHOST_ALIAS>:<port>
 ```
-
-### Available Make Commands
-
-- `make local` - Build and start local development environment with live reload
-- `make build` - Build the Docker image
-- `make up` - Start development services with live reload
-- `make down` - Stop all services
-- `make logs` - View logs from all services
-- `make clean` - Clean up containers, volumes, and images
-
-The default `make local` command now includes live reload using [Air](https://github.com/air-verse/air) - any changes to Go files will automatically trigger a rebuild and restart.
-
-> **Note**: For ORCID authentication, register your application at [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to `{SITE_URL}/auth/orcid/callback`.
 
 ## 📚 Documentation
 
