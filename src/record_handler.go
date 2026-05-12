@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -28,8 +29,8 @@ import (
 const (
 	// PostgreSQL error codes
 	pqErrCodeUniqueViolation = "23505"
-    // Intentionally high limit to support long user descriptions and multilingual content
-    descriptionMaxLenght = 10000
+	// Intentionally high limit to support long user descriptions and multilingual content
+	descriptionMaxLength = 10000
 )
 
 type RecordHandler struct {
@@ -66,8 +67,8 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-    // Limit the request body size to 32MB
-    r.Body = http.MaxBytesReader(w, r.Body, 32 << 20)
+	// Limit the request body size to 32MB
+	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
 
 	// Parse the multipart form with a maximum memory of 10 MB for file parts.
 	err := r.ParseMultipartForm(10 << 20) // 10MB
@@ -84,28 +85,28 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-    filename := strings.TrimSpace(header.Filename)
-    filename = filepath.Base(filename)
-    infoLogger.Printf("uploaded filename: %s", filename)
-    if (filename == "" || filename[0] == '.') {
-        http.Error(w, "Error: invalid file. Hidden are not allowed", http.StatusBadRequest)
+	filename := strings.TrimSpace(header.Filename)
+	filename = filepath.Base(filename)
+	infoLogger.Printf("uploaded filename: %s", filename)
+	if filename == "" || filename[0] == '.' {
+		http.Error(w, "Error: invalid file. Hidden are not allowed", http.StatusBadRequest)
 		return
 	}
-    if strings.ToLower(filepath.Ext(filename)) != ".eln" {
-        http.Error(w, "Error: invalid file extension", http.StatusBadRequest)
+	if strings.ToLower(filepath.Ext(filename)) != ".eln" {
+		http.Error(w, "Error: invalid file extension", http.StatusBadRequest)
 		return
 	}
-    for _, r := range filename {
-        if (r <= 0x1F || r == 0x7F || r == '/' || r == '\\') {
-            http.Error(w, "Error: invalid file name. Some characters are not allowed.", http.StatusBadRequest)
-		    return
-        }
-    }
-    dangerousChars := "<>:\"|?*"
-    if strings.ContainsAny(filename, dangerousChars) {
-        http.Error(w, "Error: invalid file name. Some characters are not allowed.", http.StatusBadRequest)
+	for _, r := range filename {
+		if r <= 0x1F || r == 0x7F || r == '/' || r == '\\' {
+			http.Error(w, "Error: invalid file name. Some characters are not allowed.", http.StatusBadRequest)
+			return
+		}
+	}
+	dangerousChars := "<>:\"|?*"
+	if strings.ContainsAny(filename, dangerousChars) {
+		http.Error(w, "Error: invalid file name. Some characters are not allowed.", http.StatusBadRequest)
 		return
-    }
+	}
 
 	maxBytes := app.MaxFileSize * 1024 * 1024
 	if header.Size > maxBytes {
@@ -194,17 +195,20 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-    description := r.FormValue("description")
-	if len(description) > descriptionMaxLenght {
-        http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
+	description := r.FormValue("description")
+	if len(description) > descriptionMaxLength {
+		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLength), http.StatusBadRequest)
 		return
 	}
 
 	record := Record{
-		Id:            id,
-		Sha256:        hashHex,
-		Name:          name,
-        Description:   description,
+		Id:     id,
+		Sha256: hashHex,
+		Name:   name,
+		Description: sql.NullString{
+			String: description,
+			Valid:  description != "",
+		},
 		Metadata:      meta,
 		UploaderName:  user.Name,
 		UploaderOrcid: user.Orcid,
@@ -824,7 +828,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		record = &Record{
 			Id:               historyRecord.RecordId,
 			Name:             historyRecord.Name,
-            Description:      historyRecord.Description,
+			Description:      historyRecord.Description,
 			Sha256:           historyRecord.Sha256,
 			Metadata:         historyRecord.Metadata,
 			CreatedAt:        historyRecord.CreatedAt,
@@ -897,7 +901,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 type BrowseRecordShort struct {
 	Id            string            `json:"id"`
 	Name          string            `json:"name"`
-	Description   string            `json:"description"`
+	Description   sql.NullString    `json:"description"`
 	UploaderName  string            `json:"uploaderName"`
 	UploaderOrcid string            `json:"uploaderOrcid"`
 	Categories    []Category        `json:"categories"`
@@ -1111,7 +1115,7 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 		shortRecords = append(shortRecords, BrowseRecordShort{
 			Id:            rec.Id,
 			Name:          rec.Name,
-            Description:   rec.Description,
+			Description:   rec.Description,
 			UploaderName:  rec.UploaderName,
 			UploaderOrcid: rec.UploaderOrcid,
 			Categories:    rec.Categories,
@@ -1569,15 +1573,18 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 
 	description := r.FormValue("description")
-	if len(description) > descriptionMaxLenght {
-        http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
+	if len(description) > descriptionMaxLength {
+		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLength), http.StatusBadRequest)
 		return
 	}
 
 	// Update the record
 	updatedRecord := *existingRecord
 	updatedRecord.Name = name
-	updatedRecord.Description = description
+	updatedRecord.Description = sql.NullString{
+		String: description,
+		Valid:  description != "",
+	}
 	updatedRecord.RorIds = rorIds
 
 	// If new file uploaded, process it
@@ -1896,4 +1903,3 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 		http.Error(w, "Template error", http.StatusInternalServerError)
 	}
 }
-
