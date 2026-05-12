@@ -365,9 +365,8 @@ func serveAsset(w http.ResponseWriter, r *http.Request) {
 	// detect mime type
 	ext := path.Ext(reqPath)
 	w.Header().Set("Content-Type", mime.TypeByExtension(ext))
-	// w.Header().Set("Cache-Control", "public, max-age=31536000")
 
-	// if client supports brotli, try .br
+	// In dev mode, we don't want brotli.
 	if os.Getenv("DEV") != "1" {
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
 		if strings.Contains(r.Header.Get("Accept-Encoding"), "br") {
