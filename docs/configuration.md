@@ -7,7 +7,7 @@ The application is configured entirely through environment variables. This guide
 | Variable | Required | Default | Description | Example |
 |----------|----------|---------|-------------|---------|
 | `SITE_URL` | **Yes** | `http://localhost` | Full URL where the application will be accessible. Must include protocol and domain. Used for ORCID redirects and internal links. | `https://eln.community` |
-| `DEV` | No | `0` | Enable development mode. Set to `1` for development features like detailed error messages and hot reload support. | `1` |
+| `DEV_MODE` | No | `0` | Enable development mode. Set to `1` for development features like detailed error messages and hot reload support. | `1` |
 
 ## Database Configuration
 
@@ -38,7 +38,7 @@ The application is configured entirely through environment variables. This guide
 
 ```bash
 export SITE_URL=http://localhost:8080
-export DEV=1
+export DEV_MODE=1
 export DATABASE_URL=postgres://eln:eln@localhost:5432/eln?sslmode=disable
 export ORCID_CLIENT_ID=APP-DEV123456789
 export ORCID_CLIENT_SECRET=dev-secret-key
@@ -82,7 +82,7 @@ For local development, create a `.env` file (add to `.gitignore`):
 ```bash
 # .env file for local development
 SITE_URL=http://localhost:8080
-DEV=1
+DEV_MODE=1
 DATABASE_URL=postgres://eln:eln@localhost:5432/eln?sslmode=disable
 ORCID_CLIENT_ID=your_dev_client_id
 ORCID_CLIENT_SECRET=your_dev_client_secret

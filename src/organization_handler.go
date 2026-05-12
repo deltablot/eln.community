@@ -113,7 +113,7 @@ func (h *OrganizationHandler) GetOrganizationsPage(w http.ResponseWriter, r *htt
 	}
 
 	// Render template
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/organizations.html",
 	))
