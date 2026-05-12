@@ -30,7 +30,7 @@ const (
 	// PostgreSQL error codes
 	pqErrCodeUniqueViolation = "23505"
 	// Intentionally high limit to support long user descriptions and multilingual content
-	descriptionMaxLenght = 10000
+	descriptionMaxLength = 10000
 )
 
 type RecordHandler struct {
@@ -196,8 +196,8 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 
 	description := r.FormValue("description")
-	if len(description) > descriptionMaxLenght {
-		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
+	if len(description) > descriptionMaxLength {
+		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLength), http.StatusBadRequest)
 		return
 	}
 
@@ -1573,8 +1573,8 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 
 	description := r.FormValue("description")
-	if len(description) > descriptionMaxLenght {
-		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
+	if len(description) > descriptionMaxLength {
+		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLength), http.StatusBadRequest)
 		return
 	}
 
