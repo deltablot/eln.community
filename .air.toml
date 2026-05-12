@@ -1,0 +1,16 @@
+root = "."
+tmp_dir = "tmp"
+
+env_files = [".env"]
+
+[build]
+cmd = "cd src && bash build.sh && cd .. && go build -o ./tmp/app ./src"
+entrypoint = "./tmp/app"
+include_ext = ["go", "html", "js", "css"]
+include_dir = ["src"]
+exclude_dir = ["tmp", ".git", "node_modules", "src/dist", "data", "assets"]
+delay = 300
+stop_on_error = true
+
+[log]
+time = true

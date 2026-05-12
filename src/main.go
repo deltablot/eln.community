@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"mime"
 	"net/http"
@@ -44,6 +45,13 @@ import (
 
 //go:embed dist/index.js* dist/comments.js* dist/moderation-comments.js* dist/record-extractor.js* dist/main.css* templates/*.html dist/favicon.ico dist/robots.txt
 var staticFiles embed.FS
+
+func appFS() fs.FS {
+	if os.Getenv("DEV_MODE") == "1" {
+		return os.DirFS("src")
+	}
+	return staticFiles
+}
 
 var (
 	infoLogger  = log.New(os.Stdout, "[info] ", log.LstdFlags)
@@ -177,7 +185,7 @@ func getCategories(ctx context.Context) ([]Category, error) {
 }
 
 func getAbout(w http.ResponseWriter, r *http.Request) {
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/about.html",
 	))
@@ -215,7 +223,7 @@ func newEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/new.html",
 	))
@@ -284,7 +292,7 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		isAdmin = admin
 	}
 
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/profile.html",
 	))
@@ -351,24 +359,27 @@ func securityHeaders(next http.Handler) http.Handler {
 
 // serveAsset will pick the .br version if the client accepts it.
 func serveAsset(w http.ResponseWriter, r *http.Request) {
+	fsys := appFS()
 	// strip leading slash
 	reqPath := strings.TrimPrefix(r.URL.Path, "/")
 	// detect mime type
 	ext := path.Ext(reqPath)
 	w.Header().Set("Content-Type", mime.TypeByExtension(ext))
-	w.Header().Set("Cache-Control", "public, max-age=31536000")
 
-	// if client supports brotli, try .br
-	if strings.Contains(r.Header.Get("Accept-Encoding"), "br") {
-		if f, err := staticFiles.Open("dist/" + reqPath + ".br"); err == nil {
-			defer f.Close()
-			w.Header().Set("Content-Encoding", "br")
-			io.Copy(w, f)
-			return
+	// In dev mode, we don't want brotli.
+	if os.Getenv("DEV_MODE") != "1" {
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "br") {
+			if f, err := fsys.Open("dist/" + reqPath + ".br"); err == nil {
+				defer f.Close()
+				w.Header().Set("Content-Encoding", "br")
+				io.Copy(w, f)
+				return
+			}
 		}
 	}
 	// fallback to uncompressed
-	f, err := staticFiles.Open("dist/" + reqPath)
+	f, err := fsys.Open("dist/" + reqPath)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -513,7 +524,6 @@ func main() {
 	// root catchall - now uses browse page
 	mux.Handle("/", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
 
-	// TODO use DEV env var to serve files directly to avoid recompilation
 	mux.HandleFunc("GET /index.js", serveAsset)
 	mux.HandleFunc("GET /comments.js", serveAsset)
 	mux.HandleFunc("GET /moderation-comments.js", serveAsset)

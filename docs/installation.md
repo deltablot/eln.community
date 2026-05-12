@@ -113,7 +113,7 @@ psql eln < sql/schema.sql
 
 # 5. Configure environment variables
 export SITE_URL=http://localhost:8080
-export DEV=1
+export DEV_MODE=1
 export DATABASE_URL=postgres://username:password@localhost:5432/eln?sslmode=disable
 export ORCID_CLIENT_ID=your_client_id
 export ORCID_CLIENT_SECRET=your_client_secret

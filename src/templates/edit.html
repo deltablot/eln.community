@@ -201,7 +201,7 @@
           </label>
           <input type="text" name="name" class="form-control form-placeholder" placeholder="Name" id="entryName" value="{{ .Record.Name }}" required/>
           <label for="description" class="form-label fw-bold mt-3">Description</label>
-          <textarea id="description" name="description" class="form-control form-placeholder" placeholder="Add a description" style="height: 50px">{{ .Record.Description }}</textarea>
+          <textarea id="description" name="description" class="form-control form-placeholder" placeholder="Add a description" style="height: 50px">{{ .Record.Description.String }}</textarea>
           <div class="form-text text-end">
             <span id="description-count">0</span> / <span id="description-max"></span> characters
           </div>

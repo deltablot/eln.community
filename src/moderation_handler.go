@@ -82,7 +82,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 		"sub": func(a, b int) int { return a - b },
 	}
 
-	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/moderation.html",
 	))

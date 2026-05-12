@@ -11,7 +11,6 @@ services:
     restart: always
     environment:
         - SITE_URL=https://eln.community
-        - DEV=0
         - ORCID_CLIENT_SECRET=
         - ORCID_CLIENT_ID=
         - DATABASE_URL=postgres://eln:eln@postgres:5432/eln?sslmode=disable

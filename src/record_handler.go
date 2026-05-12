@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -29,7 +30,7 @@ const (
 	// PostgreSQL error codes
 	pqErrCodeUniqueViolation = "23505"
 	// Intentionally high limit to support long user descriptions and multilingual content
-	descriptionMaxLenght = 10000
+	descriptionMaxLength = 10000
 )
 
 type RecordHandler struct {
@@ -195,16 +196,19 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 
 	description := r.FormValue("description")
-	if len(description) > descriptionMaxLenght {
-		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
+	if len(description) > descriptionMaxLength {
+		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLength), http.StatusBadRequest)
 		return
 	}
 
 	record := Record{
-		Id:            id,
-		Sha256:        hashHex,
-		Name:          name,
-		Description:   description,
+		Id:     id,
+		Sha256: hashHex,
+		Name:   name,
+		Description: sql.NullString{
+			String: description,
+			Valid:  description != "",
+		},
 		Metadata:      meta,
 		UploaderName:  user.Name,
 		UploaderOrcid: user.Orcid,
@@ -754,7 +758,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 			return template.JS(b)
 		},
 	}
-	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/record.html",
 	))
@@ -897,7 +901,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 type BrowseRecordShort struct {
 	Id            string            `json:"id"`
 	Name          string            `json:"name"`
-	Description   string            `json:"description"`
+	Description   sql.NullString    `json:"description"`
 	UploaderName  string            `json:"uploaderName"`
 	UploaderOrcid string            `json:"uploaderOrcid"`
 	Categories    []Category        `json:"categories"`
@@ -1177,7 +1181,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.New("").Funcs(funcMap).ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/browse.html",
 	))
@@ -1569,15 +1573,18 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 	}
 
 	description := r.FormValue("description")
-	if len(description) > descriptionMaxLenght {
-		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLenght), http.StatusBadRequest)
+	if len(description) > descriptionMaxLength {
+		http.Error(w, fmt.Sprintf(`Description error. Too many characters: %d characters max.`, descriptionMaxLength), http.StatusBadRequest)
 		return
 	}
 
 	// Update the record
 	updatedRecord := *existingRecord
 	updatedRecord.Name = name
-	updatedRecord.Description = description
+	updatedRecord.Description = sql.NullString{
+		String: description,
+		Valid:  description != "",
+	}
 	updatedRecord.RorIds = rorIds
 
 	// If new file uploaded, process it
@@ -1871,7 +1878,7 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 	}
 
 	// Render edit template
-	var pageTmpl = template.Must(template.ParseFS(staticFiles,
+	var pageTmpl = template.Must(template.ParseFS(appFS(),
 		"templates/layout.html",
 		"templates/edit.html",
 	))
