@@ -65,7 +65,6 @@ cp docker-compose.yml.dist docker-compose.yml
 # - SITE_URL
 # - ORCID credentials
 # - S3 settings
-# - DEV=1 (when running in dev mode)
 # Your ORCID credentials are available at: https://orcid.org/developer-tools
 
 # 3. Start the services

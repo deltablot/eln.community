@@ -47,7 +47,7 @@ import (
 var staticFiles embed.FS
 
 func appFS() fs.FS {
-	if os.Getenv("DEV") == "1" {
+	if os.Getenv("DEV_MODE") == "1" {
 		return os.DirFS("src")
 	}
 	return staticFiles
@@ -367,7 +367,7 @@ func serveAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", mime.TypeByExtension(ext))
 
 	// In dev mode, we don't want brotli.
-	if os.Getenv("DEV") != "1" {
+	if os.Getenv("DEV_MODE") != "1" {
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
 		if strings.Contains(r.Header.Get("Accept-Encoding"), "br") {
 			if f, err := fsys.Open("dist/" + reqPath + ".br"); err == nil {
@@ -524,7 +524,6 @@ func main() {
 	// root catchall - now uses browse page
 	mux.Handle("/", securityHeaders(http.HandlerFunc(recordHandler.GetBrowsePage)))
 
-	// TODO use DEV env var to serve files directly to avoid recompilation
 	mux.HandleFunc("GET /index.js", serveAsset)
 	mux.HandleFunc("GET /comments.js", serveAsset)
 	mux.HandleFunc("GET /moderation-comments.js", serveAsset)
