@@ -32,7 +32,7 @@ type ModerationAction struct {
 // PendingItem represents an item in the moderation queue
 type PendingItem struct {
 	RecordID       string          `json:"record_id"`
-    Name           string          `json:"name"`
+	Name           string          `json:"name"`
 	Description    sql.NullString  `json:"description"`
 	Sha256         string          `json:"sha256"`
 	Metadata       json.RawMessage `json:"metadata"`
