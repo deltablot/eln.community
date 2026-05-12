@@ -48,8 +48,8 @@ jobs:
           push: ${{ github.event_name == 'release' }}
           tags: |
             ghcr.io/deltablot/eln.community:latest
-            ghcr.io/deltablot/eln.community:${{ github.ref_name }}
+            ghcr.io/deltablot/eln.community:${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
           build-args: |
-            VERSION=${{ github.ref_name }}
+            VERSION=${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
