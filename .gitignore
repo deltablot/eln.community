@@ -14,4 +14,3 @@ cli
 # Air live reload
 tmp/
 build-errors.log
-.air.toml
