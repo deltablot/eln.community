@@ -379,7 +379,7 @@ func serveAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// fallback to uncompressed
-	f, err := staticFiles.Open("dist/" + reqPath)
+	f, err := fsys.Open("dist/" + reqPath)
 	if err != nil {
 		http.NotFound(w, r)
 		return
