@@ -103,7 +103,9 @@ function renderLink(value, hrefValue = value) {
 }
 
 function renderField(node) {
+    console.log(node);
   let ref = node['valueReference'];
+    console.log(ref);
   const value = node['value'];
 
   if (!value && ref !== 'checkbox') return noData;
