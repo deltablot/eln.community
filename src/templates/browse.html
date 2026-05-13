@@ -1,8 +1,11 @@
 {{ define "title" }}Browse Entries{{ end }}
 
 {{ define "content" }}
+<div class="mt-4 alert alert-info alert-dismissible" role="alert">
+  Welcome to the template sharing site, this is still in <b>Beta mode</b>. Templates uploaded will <b>not be persistent</b>. For more informations, please go at <a href="/about">About page</a>.<br>Thank you for helping us to test so that we can open the site.
+</div>
 <div class="row">
-  <h2 class="col-md-12">Browse entries</h2>
+<h2 class="col-md-12">Browse entries</h2>
 </div>
 
 <!-- Search and Filter Section -->
@@ -11,7 +14,7 @@
       <!-- Left Column: Category Multi-Select -->
       <div class="col-md-4 position-relative">
         <label class="form-label">Categories</label>
-        
+
         <!-- Multi-Select Input -->
         <div class="category-multiselect" id="categoryMultiselect">
           <div class="category-multiselect-input" id="categoryMultiselectInput">
@@ -114,7 +117,7 @@
       <div class="col-md-8">
         <div class="browse-search-filter-container">
           <label class="form-label">Search and Filter</label>
-          
+
           <!-- Search Box -->
           <div class="row">
             <div CLASS="col-md-10">
@@ -142,7 +145,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Hidden fields to preserve pagination -->
     <input type="hidden" id="pageInput" value="{{ .Page }}" />
     <input type="hidden" id="pageSizeInput" value="{{ .PageSize }}" />
