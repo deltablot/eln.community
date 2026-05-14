@@ -14,3 +14,6 @@ cli
 # Air live reload
 tmp/
 build-errors.log
+
+# dev
+nginx/certs
