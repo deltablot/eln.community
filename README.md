@@ -26,78 +26,45 @@ A community platform for sharing Electronic Lab Notebook (ELN) archives, experim
 **Prerequisites**: [Docker](https://docs.docker.com/get-docker/) 20.10+ and [Docker Compose](https://docs.docker.com/compose/install/) 2.0+
 
 
-## 🚀 Quick Start
+# Configuration Guide
 
-### Get an ORCID ID
+The application is configured entirely through environment variables. This guide provides comprehensive information about all available configuration options.
 
-To launch the project correctly, you need an ORCID ID.
+## Core Application Settings
 
-If you don't have one, go to [orcid.org](https://orcid.org) and create an account.
+| Variable | Required | Default | Description | Example |
+|----------|----------|---------|-------------|---------|
+| `SITE_URL` | **Yes** | `http://localhost` | Full URL where the application will be accessible. Must include protocol and domain. Used for ORCID redirects and internal links. | `https://eln.community` |
+| `DEV_MODE` | No | `0` | Enable development mode. Set to `1` for development features like detailed error messages and hot reload support. | `1` |
 
-For ORCID authentication, register your application in the [ORCID Developer Tools](https://orcid.org/developer-tools) and configure the redirect URI to:
+## Database Configuration
 
-```text
-{SITE_URL}/auth/callback
-```
+| Variable | Required | Default | Description | Example |
+|----------|----------|---------|-------------|---------|
+| `DATABASE_URL` | **Yes** | None | PostgreSQL connection string. Must include username, password, host, port, database name, and SSL mode. | `postgres://eln:password@localhost:5432/eln?sslmode=disable` |
 
-> **Note**: To launch the app in local mode, you should add the local address with an alias because ORCID does not allow localhost addresses.
-> Create a local alias in your `/etc/hosts` file, for example:
->
-> ```text
-> 127.0.0.1 {LOCALHOST_ALIAS}
-> ```
->
-> Then configure your ORCID redirect URI as:
->
-> ```text
-> https://{LOCALHOST_ALIAS}:<port>/auth/callback
-> ```
+## File Storage (S3) Configuration
 
-### Launch the project
-```bash
-# 1. Clone the repository
-git clone https://github.com/deltablot/eln-community.git
-cd eln-community
+| Variable | Required | Default | Description | Example |
+|----------|----------|---------|-------------|---------|
+| `ACCESS_KEY` | **Yes** | None | S3-compatible storage access key. Required for file upload functionality. | `AKIAIOSFODNN7EXAMPLE` |
+| `SECRET_KEY` | **Yes** | None | S3-compatible storage secret key. Keep this secure and never commit to version control. | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` |
+| `BUCKET_NAME` | **Yes** | None | Name of the S3 bucket where uploaded files will be stored. Bucket must exist and be accessible. | `eln-community-files` |
+| `REGION` | **Yes** | None | AWS region or S3-compatible service region where the bucket is located. | `us-east-1` or `fr-par` |
+| `MAX_FILE_SIZE_MB` | No | `1024` | Maximum allowed file size for uploads in megabytes. Adjust based on your storage capacity and needs. | `2048` |
 
-# 2. Create a docker-compose.yml from the example
-cp docker-compose.yml.dist docker-compose.yml
-# Make sure to configure:
-# - SITE_URL
-# - ORCID credentials
-# - S3 settings
-# Your ORCID credentials are available at: https://orcid.org/developer-tools
+## Authentication (ORCID) Configuration
 
-# 3. Start the services
-docker compose up -d
+| Variable | Required | Default | Description | Example |
+|----------|----------|---------|-------------|---------|
+| `ORCID_CLIENT_ID` | **Yes** | None | ORCID OAuth client ID. Obtain from ORCID Developer Tools after registering your application. | `APP-1234567890ABCDEF` |
+| `ORCID_CLIENT_SECRET` | **Yes** | None | ORCID OAuth client secret. Keep secure and never expose in client-side code or logs. | `12345678-1234-1234-1234-123456789abc` |
 
-# 4. Initialize the database
-./cli db migrate up
-./cli db seed
-./cli admin add <your_orcid>
+## S3 Storage Setup
 
-# 5. Install Air (dev mode only)
-# Air is used to automatically rebuild and restart the Go server when files change.
-go install github.com/air-verse/air@v1.65.1
-# Check that Air is installed correctly
-air -v
-# If Air not found, add Go's binary directory to your shell PATH
-export PATH=$PATH:$(go env GOPATH)/bin
-# Then check Air again
-air -v
+The application supports any S3-compatible storage service:
 
-# 6. Run the app in dev mode
-air
-```
-
-The app should be available at:
-```text
-https://<LOCALHOST_ALIAS>:<port>
-```
-
-## 📚 Documentation
-
-Comprehensive guides are available in the `/docs` folder:
-
-- **[📋 Installation Guide](docs/installation.md)** - Complete setup instructions for all environments
-- **[⚙️ Configuration Guide](docs/configuration.md)** - Environment variables and configuration options
-
+### AWS S3
+- Create a bucket in your preferred region
+- Create IAM user with S3 access permissions
+- Use the access key and secret key in configuration
