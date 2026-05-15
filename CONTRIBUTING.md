@@ -9,19 +9,10 @@ cd eln.community
 
 ## ORCID setup
 
-### Local alias
 
-**Note**: To launch the app in local mode, you should add the local address with an alias because ORCID does not allow localhost addresses.
-Create a local alias in your `/etc/hosts` file, for example:
+### Get an ORCID
 
-```text
-127.0.0.1 eln.community.local
-```
-
-
-### Get an ORCID ID
-
-To launch the project correctly, you need an ORCID ID.
+To launch the project correctly, you need an ORCID.
 
 If you don't have one, go to [orcid.org](https://orcid.org) and create an account.
 
@@ -33,6 +24,16 @@ Login to your orcid account, go into developer tools from the top right user men
 - Application url: eln.community.local
 - Application description: local eln.community dev
 - Redirect URIs: https://eln.community.local:8081/auth/callback
+
+### Local alias
+
+**Note**: To launch the app in local mode, you should add the local address with an alias because ORCID does not allow localhost addresses.
+Create a local alias in your `/etc/hosts` file, for example:
+
+```text
+127.0.0.1 eln.community.local
+```
+
 
 
 ## nginx https
@@ -73,17 +74,17 @@ For local development, create a `.env` file:
 SITE_URL=https://eln.community.local:8081
 DEV_MODE=1
 DATABASE_URL=postgres://eln:eln@localhost:5432/eln?sslmode=disable
-ORCID_CLIENT_ID=your_dev_client_id
+ORCID_CLIENT_ID=<your_dev_client_id>
 ORCID_CLIENT_SECRET=your_dev_client_secret
 # s3 related env are not absolutely necessary in dev if you run it with --files option to save files locally
-ACCESS_KEY=your ak
-SECRET_KEY=your sk
+ACCESS_KEY=<your_ak>
+SECRET_KEY=<your_sk>
 BUCKET_NAME=eln-community-dev
 REGION=fr-par
 MAX_FILE_SIZE_MB=100
 ~~~
 
-The `DEV_MODE=1` environment variable will make the program serve .js and .css files directly, instead of embedding them in the binary, for faster iteration. The `index.html` file is still embedded though, so you'll need to stop server and rebuild binary to see changes.
+The `DEV_MODE=1` environment variable will make the program serve .js, .html and .css files directly, instead of embedding them in the binary, for faster iteration.
 
 Load the environment file before running:
 
@@ -111,14 +112,18 @@ Taken from: https://skos.um.es/unesco6/view.php?l=en&fmt=1
 
 ### Local Development Build
 
-Build frontend assets for development:
-
-```bash
-cd src
-yarn install
-bash build.sh
-cd ..
-```
+~~~bash
+# Install air to automatically rebuild and restart the Go server when files change.
+go install github.com/air-verse/air@v1.65.1
+# Check that Air is installed correctly
+air -v
+# If Air not found, add Go's binary directory to your shell PATH
+export PATH=$PATH:$(go env GOPATH)/bin
+# Then check Air again
+air -v
+# Run the app
+air
+~~~
 
 ### Docker Build
 
