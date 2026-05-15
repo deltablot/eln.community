@@ -30,7 +30,7 @@ type CategoryRepository interface {
 // AdminRepository defines the interface for admin operations
 type AdminRepository interface {
 	IsAdmin(ctx context.Context, orcid string) (bool, error)
-	GetAllEmails(ctx context.Context) ([]string, error)
+	//GetAllEmails(ctx context.Context) ([]string, error)
 }
 
 // PostgresCategoryRepository implements CategoryRepository using PostgreSQL
@@ -46,8 +46,8 @@ func NewPostgresCategoryRepository(db *sql.DB) *PostgresCategoryRepository {
 // GetAll retrieves all categories (flat list)
 func (r *PostgresCategoryRepository) GetAll(ctx context.Context) ([]Category, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, parent_id, created_at, modified_at 
-		FROM categories 
+		SELECT id, name, parent_id, created_at, modified_at
+		FROM categories
 		ORDER BY name
 	`)
 	if err != nil {
@@ -259,6 +259,7 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 }
 
 // GetAllEmails retrieves all admin email addresses (non-null only)
+/*
 func (r *PostgresAdminRepository) GetAllEmails(ctx context.Context) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT email 
@@ -285,6 +286,7 @@ func (r *PostgresAdminRepository) GetAllEmails(ctx context.Context) ([]string, e
 
 	return emails, nil
 }
+*/
 
 // AssociateCategoryWithRecord creates an association between a record and a category
 func (r *PostgresCategoryRepository) AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error {

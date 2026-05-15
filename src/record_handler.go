@@ -275,9 +275,12 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    /*
+    // ne pas stocker d'info et on fait une requete a orcid pour avoir le mail
 	// Send email notification to admins (async, don't block on errors)
 	go func() {
 		adminEmails, err := h.adminRepo.GetAllEmails(context.Background())
+        log.Printf("Dans record_handler adminEmails: %v", adminEmails)
 		if err != nil {
 			log.Printf("Failed to get admin emails: %v", err)
 			return
@@ -289,6 +292,7 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
+    */
 
 	// 2) Decide: JSON (API clients) vs. redirect (browser form)
 	accept := r.Header.Get("Accept")
