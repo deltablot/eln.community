@@ -54,7 +54,7 @@ mv eln.community.local-key.pem server.key
 ## start nginx + postgres
 
 ~~~bash
-cp docker-compose.yml.dist
+cp docker-compose.yml.dist docker-compose.yml
 # comment out the eln-community service: we will not use docker for dev
 # docker services are just the database and nginx
 $EDITOR docker-compose.yml
@@ -75,7 +75,7 @@ SITE_URL=https://eln.community.local:8081
 DEV_MODE=1
 DATABASE_URL=postgres://eln:eln@localhost:5432/eln?sslmode=disable
 ORCID_CLIENT_ID=<your_dev_client_id>
-ORCID_CLIENT_SECRET=your_dev_client_secret
+ORCID_CLIENT_SECRET=<your_dev_client_secret>
 # s3 related env are not absolutely necessary in dev if you run it with --files option to save files locally
 ACCESS_KEY=<your_ak>
 SECRET_KEY=<your_sk>
