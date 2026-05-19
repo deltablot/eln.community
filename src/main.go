@@ -460,6 +460,7 @@ func main() {
 	// Initialize repositories and handlers
 	categoryRepo := NewPostgresCategoryRepository(db)
 	adminRepo := NewPostgresAdminRepository(db)
+	emailQueueRepo := NewPostgresEmailQueueRepository(db)
 	rorRepo := NewPostgresRorRepository(db)
 	recordRepo := NewPostgresRecordRepository(db, categoryRepo, rorRepo)
 	rorClient := NewRorClient()
@@ -469,7 +470,7 @@ func main() {
 	rorHandler := NewRorHandler()
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
-	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorNameCache, rorClient)
+	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, emailQueueRepo, rorNameCache, rorClient)
 	historyRepo := NewPostgresHistoryRepository(db)
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)

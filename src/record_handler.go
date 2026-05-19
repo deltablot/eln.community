@@ -37,16 +37,18 @@ type RecordHandler struct {
 	recordRepo   RecordRepository
 	categoryRepo CategoryRepository
 	adminRepo    AdminRepository
+    emailQueueRepo EmailQueueRepository
 	rorNameCache *RorNameCache
 	rorClient    *RorClient
 }
 
-func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository,
+func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, emailQueueRepo EmailQueueRepository,
 	rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
 	return &RecordHandler{
 		recordRepo:   recordRepo,
 		categoryRepo: categoryRepo,
 		adminRepo:    adminRepo,
+        emailQueueRepo: emailQueueRepo,
 		rorNameCache: rorNameCache,
 		rorClient:    rorClient,
 	}
@@ -279,6 +281,22 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Printf("notifiable admins: %+v", admins)
 	}
+    item := &EmailQueueItem{
+    RecordID:         record.Id,
+    CommentID:        sql.NullInt64{Valid: false},
+    RecipientOrcid:    "0000-0000-0000-0000",
+    Subject:          "Test notification",
+    Body:             "Test body",
+    RecipientType:    AdminRecipient,
+    NotificationType: RecordCreatedAdminNotif,
+}
+if h.emailQueueRepo == nil {
+    log.Printf("emailQueueRepo is nil")
+    return
+}
+queuedItem, err := h.emailQueueRepo.Enqueue(r.Context(), item)
+if err != nil {
+    log.Printf("failed to enqueue email notification: %v", err)
 	/*
 
 		    // ne pas stocker d'info et on fait une requete a orcid pour avoir le mail
