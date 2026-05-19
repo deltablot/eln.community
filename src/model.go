@@ -1,9 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
-    "database/sql"
 )
 
 type Record struct {

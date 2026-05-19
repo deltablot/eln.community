@@ -1,12 +1,13 @@
 -- Queue of email notifications to be sent for record and comment moderation events
 CREATE TABLE IF NOT EXISTS email_queue (
-    id BIGSERIAL PRIMARY KEY,
+    id INTEGER       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     record_id UUID NOT NULL REFERENCES records(id),
     comment_id BIGINT REFERENCES comments(id),
     recipient_orcid orcid_type NOT NULL,
     send_from TEXT NOT NULL,
     subject TEXT NOT NULL,
     body TEXT NOT NULL,
+    recipient_type TEXT NOT NULL,
     notification_type TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     attempts INTEGER NOT NULL DEFAULT 0,

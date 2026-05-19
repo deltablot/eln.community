@@ -262,8 +262,8 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 /*
 func (r *PostgresAdminRepository) GetAllEmails(ctx context.Context) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT email 
-		FROM admin_orcids 
+		SELECT email
+		FROM admin_orcids
 		WHERE email IS NOT NULL AND email != ''
 	`)
 	if err != nil {
