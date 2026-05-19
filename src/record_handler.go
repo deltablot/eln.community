@@ -39,7 +39,6 @@ type RecordHandler struct {
 	adminRepo    AdminRepository
 	rorNameCache *RorNameCache
 	rorClient    *RorClient
-	emailService *EmailService
 }
 
 func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository,
@@ -50,7 +49,6 @@ func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryR
 		adminRepo:    adminRepo,
 		rorNameCache: rorNameCache,
 		rorClient:    rorClient,
-		emailService: NewEmailService(),
 	}
 }
 
@@ -275,7 +273,14 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	admins, err := h.adminRepo.GetNotifiableAdmins(r.Context())
+	if err != nil {
+		log.Printf("failed to get notifiable admins: %v", err)
+	} else {
+		log.Printf("notifiable admins: %+v", admins)
+	}
 	/*
+
 		    // ne pas stocker d'info et on fait une requete a orcid pour avoir le mail
 			// Send email notification to admins (async, don't block on errors)
 			go func() {

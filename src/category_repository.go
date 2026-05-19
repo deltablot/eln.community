@@ -27,12 +27,6 @@ type CategoryRepository interface {
 	ClearRecordCategories(ctx context.Context, tx *sql.Tx, recordID string) error
 }
 
-// AdminRepository defines the interface for admin operations
-type AdminRepository interface {
-	IsAdmin(ctx context.Context, orcid string) (bool, error)
-	//GetAllEmails(ctx context.Context) ([]string, error)
-}
-
 // PostgresCategoryRepository implements CategoryRepository using PostgreSQL
 type PostgresCategoryRepository struct {
 	db *sql.DB
@@ -235,58 +229,6 @@ func (r *PostgresCategoryRepository) Delete(ctx context.Context, id int64) error
 
 	return nil
 }
-
-// PostgresAdminRepository implements AdminRepository using PostgreSQL
-type PostgresAdminRepository struct {
-	db *sql.DB
-}
-
-// NewPostgresAdminRepository creates a new PostgreSQL admin repository
-func NewPostgresAdminRepository(db *sql.DB) *PostgresAdminRepository {
-	return &PostgresAdminRepository{db: db}
-}
-
-// IsAdmin checks if the given ORCID belongs to an admin
-func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bool, error) {
-	var exists bool
-	err := r.db.QueryRowContext(ctx, `
-		SELECT EXISTS(SELECT 1 FROM admin_orcids WHERE orcid = $1)
-	`, orcid).Scan(&exists)
-	if err != nil {
-		return false, err
-	}
-	return exists, nil
-}
-
-// GetAllEmails retrieves all admin email addresses (non-null only)
-/*
-func (r *PostgresAdminRepository) GetAllEmails(ctx context.Context) ([]string, error) {
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT email
-		FROM admin_orcids
-		WHERE email IS NOT NULL AND email != ''
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var emails []string
-	for rows.Next() {
-		var email string
-		if err := rows.Scan(&email); err != nil {
-			return nil, err
-		}
-		emails = append(emails, email)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return emails, nil
-}
-*/
 
 // AssociateCategoryWithRecord creates an association between a record and a category
 func (r *PostgresCategoryRepository) AssociateCategoryWithRecord(ctx context.Context, tx *sql.Tx, recordID string, categoryID int64) error {
