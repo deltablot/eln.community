@@ -7,8 +7,8 @@ import (
 )
 
 type Admin struct {
-	orcid      string
-	email      string
+	Orcid      string
+	Email      string
 	CreatedAt  time.Time `json:"created_at"`
 	ModifiedAt time.Time `json:"modified_at"`
 }
@@ -29,7 +29,6 @@ func NewPostgresAdminRepository(db *sql.DB) *PostgresAdminRepository {
 	return &PostgresAdminRepository{db: db}
 }
 
-// IsAdmin checks if the given ORCID belongs to an admin
 func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bool, error) {
 	var exists bool
 	err := r.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM admin_orcids WHERE orcid = $1)`, orcid).Scan(&exists)
@@ -48,7 +47,7 @@ func (r *PostgresAdminRepository) GetNotifiableAdmins(ctx context.Context) ([]Ad
 	var admins []Admin
 	for rows.Next() {
 		var admin Admin
-		if err := rows.Scan(&admin.orcid, &admin.email, &admin.CreatedAt, &admin.ModifiedAt); err != nil {
+		if err := rows.Scan(&admin.Orcid, &admin.Email, &admin.CreatedAt, &admin.ModifiedAt); err != nil {
 			return admins, err
 		}
 		admins = append(admins, admin)

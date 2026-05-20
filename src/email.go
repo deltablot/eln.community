@@ -1,5 +1,7 @@
 package main
 
+/*
+
 import (
 	"bytes"
 	"encoding/json"
@@ -114,7 +116,7 @@ This is an automated notification from ELN Community.
         </div>
         <div class="content">
             <p>A new record has been uploaded to ELN Community.</p>
-            
+
             <div class="detail">
                 <span class="label">Record Name:</span> %s
             </div>
@@ -127,7 +129,7 @@ This is an automated notification from ELN Community.
             <div class="detail">
                 <span class="label">Record ID:</span> %s
             </div>
-            
+
             <a href="%s" class="button">View Record</a>
         </div>
         <div class="footer">
@@ -190,3 +192,4 @@ func (s *EmailService) sendEmail(to []string, subject, textBody, htmlBody string
 	log.Printf("Email notification sent successfully to %d recipients", len(to))
 	return nil
 }
+*/

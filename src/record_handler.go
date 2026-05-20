@@ -34,23 +34,23 @@ const (
 )
 
 type RecordHandler struct {
-	recordRepo   RecordRepository
-	categoryRepo CategoryRepository
-	adminRepo    AdminRepository
-    emailQueueRepo EmailQueueRepository
-	rorNameCache *RorNameCache
-	rorClient    *RorClient
+	recordRepo          RecordRepository
+	categoryRepo        CategoryRepository
+	adminRepo           AdminRepository
+	notificationService *NotificationService
+	rorNameCache        *RorNameCache
+	rorClient           *RorClient
 }
 
-func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, emailQueueRepo EmailQueueRepository,
+func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, notificationService *NotificationService,
 	rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
 	return &RecordHandler{
-		recordRepo:   recordRepo,
-		categoryRepo: categoryRepo,
-		adminRepo:    adminRepo,
-        emailQueueRepo: emailQueueRepo,
-		rorNameCache: rorNameCache,
-		rorClient:    rorClient,
+		recordRepo:          recordRepo,
+		categoryRepo:        categoryRepo,
+		adminRepo:           adminRepo,
+		notificationService: notificationService,
+		rorNameCache:        rorNameCache,
+		rorClient:           rorClient,
 	}
 }
 
@@ -274,29 +274,7 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to upload", http.StatusInternalServerError)
 		return
 	}
-
-	admins, err := h.adminRepo.GetNotifiableAdmins(r.Context())
-	if err != nil {
-		log.Printf("failed to get notifiable admins: %v", err)
-	} else {
-		log.Printf("notifiable admins: %+v", admins)
-	}
-    item := &EmailQueueItem{
-    RecordID:         record.Id,
-    CommentID:        sql.NullInt64{Valid: false},
-    RecipientOrcid:    "0000-0000-0000-0000",
-    Subject:          "Test notification",
-    Body:             "Test body",
-    RecipientType:    AdminRecipient,
-    NotificationType: RecordCreatedAdminNotif,
-}
-if h.emailQueueRepo == nil {
-    log.Printf("emailQueueRepo is nil")
-    return
-}
-queuedItem, err := h.emailQueueRepo.Enqueue(r.Context(), item)
-if err != nil {
-    log.Printf("failed to enqueue email notification: %v", err)
+	h.notificationService.CreateRecordNotification(ctx, &record)
 	/*
 
 		    // ne pas stocker d'info et on fait une requete a orcid pour avoir le mail

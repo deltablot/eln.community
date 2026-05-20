@@ -465,12 +465,13 @@ func main() {
 	recordRepo := NewPostgresRecordRepository(db, categoryRepo, rorRepo)
 	rorClient := NewRorClient()
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
+	notificationService := NewNotificationService(adminRepo, emailQueueRepo)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
-	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, emailQueueRepo, rorNameCache, rorClient)
+	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, notificationService, rorNameCache, rorClient)
 	historyRepo := NewPostgresHistoryRepository(db)
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
