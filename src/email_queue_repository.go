@@ -5,12 +5,12 @@ import (
 	"database/sql"
 )
 
-type PostgresEmailQueueRepository struct {
-	db *sql.DB
-}
-
 type EmailQueueRepository interface {
 	Enqueue(ctx context.Context, item *EmailQueueItem) (*EmailQueueItem, error)
+}
+
+type PostgresEmailQueueRepository struct {
+	db *sql.DB
 }
 
 func NewPostgresEmailQueueRepository(db *sql.DB) *PostgresEmailQueueRepository {

@@ -231,10 +231,12 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) {
 			if pqErr.Code == pqErrCodeUniqueViolation {
+                /*
 				if strings.Contains(pqErr.Message, "sha256") || strings.Contains(pqErr.Detail, "sha256") {
 					http.Error(w, "Error uploading .eln file: This file already exists in the repository.", http.StatusConflict)
 					return
 				}
+                */
 				if strings.Contains(pqErr.Message, "name") || strings.Contains(pqErr.Detail, "name") {
 					http.Error(w, "Error uploading .eln file: An entry with this name already exists.", http.StatusConflict)
 					return
@@ -274,7 +276,10 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to upload", http.StatusInternalServerError)
 		return
 	}
-	h.notificationService.CreateRecordNotification(ctx, &record)
+    if (&record != nil) {
+    // 	h.notificationService.CreateRecordNotification(ctx, &record)
+       SendEmail()
+    }
 	/*
 
 		    // ne pas stocker d'info et on fait une requete a orcid pour avoir le mail
