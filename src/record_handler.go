@@ -276,9 +276,9 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to upload", http.StatusInternalServerError)
 		return
 	}
-	if &record != nil {
-		// 	h.notificationService.CreateRecordNotification(ctx, &record)
-		SendEmail()
+
+    if err := h.notificationService.CreateRecordNotification(ctx, &record); err != nil {
+		log.Printf("Failed to create record notification: %v", err)
 	}
 	/*
 
