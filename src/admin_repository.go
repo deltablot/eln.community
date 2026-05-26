@@ -13,18 +13,15 @@ type Admin struct {
 	ModifiedAt time.Time `json:"modified_at"`
 }
 
-// AdminRepository defines the interface for admin operations
 type AdminRepository interface {
 	IsAdmin(ctx context.Context, orcid string) (bool, error)
 	GetNotifiableAdmins(ctx context.Context) ([]Admin, error)
 }
 
-// PostgresAdminRepository implements AdminRepository using PostgreSQL
 type PostgresAdminRepository struct {
 	db *sql.DB
 }
 
-// NewPostgresAdminRepository creates a new PostgreSQL admin repository
 func NewPostgresAdminRepository(db *sql.DB) *PostgresAdminRepository {
 	return &PostgresAdminRepository{db: db}
 }
@@ -35,6 +32,7 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 	if err != nil {
 		return false, err
 	}
+
 	return exists, nil
 }
 
@@ -55,5 +53,6 @@ func (r *PostgresAdminRepository) GetNotifiableAdmins(ctx context.Context) ([]Ad
 	if err = rows.Err(); err != nil {
 		return admins, err
 	}
+
 	return admins, nil
 }

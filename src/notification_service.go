@@ -53,5 +53,6 @@ func (s *NotificationService) CreateRecordNotification(ctx context.Context, reco
 			log.Printf("Enqueue email notification success: %v", queuedItem)
 		}
 	}
+
 	return nil
 }
