@@ -30,6 +30,7 @@ func (s *NotificationService) CreateRecordNotification(ctx context.Context, reco
 	}
 	log.Printf("notifiable admins: %+v", notifiableAdmins)
 
+
 	if s.emailQueueRepo == nil {
 		log.Printf("emailQueueRepo is nil")
 		return nil

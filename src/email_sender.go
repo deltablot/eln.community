@@ -1,35 +1,47 @@
 package main
 
 import (
-	"log"
-    "net"
+	"net"
 	"net/smtp"
 	"os"
 )
 
-func SendEmail() {
-	var smtpHost = os.Getenv("SMTP_HOST")
-	var appMail = os.Getenv("SMTP_FROM_ADDRESS")
-	var smtpUsername = os.Getenv("SMTP_USERNAME")
-	var smtpPassword = os.Getenv("SMTP_PASSWORD")
-	var smtpPort = os.Getenv("SMTP_PORT")
-	var adminMail = os.Getenv("ADMIN_EMAIL")
-    var smtpAddr = net.JoinHostPort(smtpHost, smtpPort)
+type EmailSender struct {
+	smtpHost        string
+	smtpPort        string
+	smtpFromAddress string
+	smtpUsername    string
+	smtpPassword    string
+}
 
-	auth := smtp.PlainAuth("", smtpUsername, smtpPassword, smtpHost)
-	to := []string{adminMail}
+func NewEmailSender() *EmailSender {
+	return &EmailSender{
+		smtpHost:        os.Getenv("SMTP_HOST"),
+		smtpPort:        os.Getenv("SMTP_PORT"),
+		smtpFromAddress: os.Getenv("SMTP_FROM_ADDRESS"),
+		smtpUsername:    os.Getenv("SMTP_USERNAME"),
+		smtpPassword:    os.Getenv("SMTP_PASSWORD"),
+	}
+}
+
+func (e *EmailSender) Send(to string, subject string, body string) error {
+	var smtpAddr = net.JoinHostPort(e.smtpHost, e.smtpPort)
+
+	auth := smtp.PlainAuth("", e.smtpUsername, e.smtpPassword, e.smtpHost)
+    recipients := []string{to}
 	msg := []byte(
-		"From: " + appMail + "\r\n" +
-			"To: " + adminMail + "\r\n" +
-			"Subject: Test SMTP email\r\n" +
+		"From: " + e.smtpFromAddress + "\r\n" +
+			"To: " + to + "\r\n" +
+			"Subject: " + subject + "\r\n" +
 			"MIME-Version: 1.0\r\n" +
 			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
 			"\r\n" +
-			"This is the email body.\r\n",
+			body +"\r\n",
 	)
 
-	err := smtp.SendMail(smtpAddr, auth, appMail, to, msg)
+	err := smtp.SendMail(smtpAddr, auth, e.smtpFromAddress, recipients, msg)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }

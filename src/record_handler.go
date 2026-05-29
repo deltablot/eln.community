@@ -277,7 +277,7 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    if err := h.notificationService.CreateRecordNotification(ctx, &record); err != nil {
+	if err := h.notificationService.CreateRecordNotification(ctx, &record); err != nil {
 		log.Printf("Failed to create record notification: %v", err)
 	}
 	/*
