@@ -10,7 +10,8 @@ rm -rf $DIST_DIR
 mkdir -p $DIST_DIR
 
 # create dist/index.js
-yarn run esbuild \
+corepack yarn install --immutable
+corepack yarn exec esbuild \
   --minify \
   --bundle \
   --outdir=$DIST_DIR \
