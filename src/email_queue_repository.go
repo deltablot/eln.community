@@ -8,8 +8,8 @@ import (
 type EmailQueueRepository interface {
 	Enqueue(ctx context.Context, item *EmailQueue) (*EmailQueue, error)
 	GetPendingEmails(ctx context.Context, limit int) ([]EmailQueue, error)
-    MarkEmailAsSent(ctx context.Context, id int64) error
-    MarkEmailAsFailed(ctx context.Context, id int64, errMsg string) error
+	MarkEmailAsSent(ctx context.Context, id int64) error
+	MarkEmailAsFailed(ctx context.Context, id int64, errMsg string) error
 }
 
 type PostgresEmailQueueRepository struct {

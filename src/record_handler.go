@@ -38,7 +38,7 @@ type RecordHandler struct {
 	categoryRepo        CategoryRepository
 	adminRepo           AdminRepository
 	notificationService *NotificationService
-    emailWorker         *EmailWorker
+	emailWorker         *EmailWorker
 	rorNameCache        *RorNameCache
 	rorClient           *RorClient
 }
@@ -50,7 +50,7 @@ func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryR
 		categoryRepo:        categoryRepo,
 		adminRepo:           adminRepo,
 		notificationService: notificationService,
-        emailWorker:         emailWorker,
+		emailWorker:         emailWorker,
 		rorNameCache:        rorNameCache,
 		rorClient:           rorClient,
 	}
@@ -281,9 +281,9 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.notificationService.CreateRecordNotification(ctx, &record); err != nil {
 		log.Printf("Failed to create record notification: %v", err)
-        return
+		return
 	}
-    h.emailWorker.ProcessPendingEmails(ctx, 20)
+	h.emailWorker.ProcessPendingEmails(ctx, 20)
 	/*
 
 		    // ne pas stocker d'info et on fait une requete a orcid pour avoir le mail

@@ -466,8 +466,8 @@ func main() {
 	rorClient := NewRorClient()
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
 	notificationService := NewNotificationService(adminRepo, emailQueueRepo)
-    emailSender := NewEmailSender()
-    emailWorker := NewEmailWorker(adminRepo, emailQueueRepo, emailSender)
+	emailSender := NewEmailSender()
+	emailWorker := NewEmailWorker(adminRepo, emailQueueRepo, emailSender)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()

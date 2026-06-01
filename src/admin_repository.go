@@ -16,7 +16,6 @@ type Admin struct {
 type AdminRepository interface {
 	IsAdmin(ctx context.Context, orcid string) (bool, error)
 	GetNotifiableAdmins(ctx context.Context) ([]Admin, error)
-    GetAdminEmail(email string) string
 }
 
 type PostgresAdminRepository struct {
@@ -56,8 +55,4 @@ func (r *PostgresAdminRepository) GetNotifiableAdmins(ctx context.Context) ([]Ad
 	}
 
 	return admins, nil
-}
-
-func (r *PostgresAdminRepository) GetAdminEmail(email string) string {
-    return email
 }
