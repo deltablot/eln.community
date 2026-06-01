@@ -28,7 +28,7 @@ func (e *EmailSender) Send(to string, subject string, body string) error {
 	var smtpAddr = net.JoinHostPort(e.smtpHost, e.smtpPort)
 
 	auth := smtp.PlainAuth("", e.smtpUsername, e.smtpPassword, e.smtpHost)
-    recipients := []string{to}
+	recipients := []string{to}
 	msg := []byte(
 		"From: " + e.smtpFromAddress + "\r\n" +
 			"To: " + to + "\r\n" +
@@ -36,7 +36,7 @@ func (e *EmailSender) Send(to string, subject string, body string) error {
 			"MIME-Version: 1.0\r\n" +
 			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
 			"\r\n" +
-			body +"\r\n",
+			body + "\r\n",
 	)
 
 	err := smtp.SendMail(smtpAddr, auth, e.smtpFromAddress, recipients, msg)

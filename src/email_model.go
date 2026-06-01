@@ -24,14 +24,15 @@ const (
 type EmailNotificationType string
 
 const (
-	RecordCreatedAdminNotif EmailNotificationType = "record_created_admin_notif"
-	RecordApprovedNotif     EmailNotificationType = "record_approved_notif"
-	RecordRejectedNotif     EmailNotificationType = "record_rejected_notif"
-	CommentApprovedNotif    EmailNotificationType = "comment_approved_notif"
-	CommentRejectedNotif    EmailNotificationType = "comment_rejected_notif"
+	RecordCreatedAdminNotif  EmailNotificationType = "record_created_admin_notif"
+	CommentCreatedAdminNotif EmailNotificationType = "comment_created_admin_notif"
+	RecordApprovedNotif      EmailNotificationType = "record_approved_notif"
+	RecordRejectedNotif      EmailNotificationType = "record_rejected_notif"
+	CommentApprovedNotif     EmailNotificationType = "comment_approved_notif"
+	CommentRejectedNotif     EmailNotificationType = "comment_rejected_notif"
 )
 
-type EmailQueueItem struct {
+type EmailQueue struct {
 	Id               int64                 `json:"id"`
 	RecordID         string                `json:"record_id"`
 	CommentID        sql.NullInt64         `json:"comment_id"`

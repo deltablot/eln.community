@@ -30,14 +30,12 @@ func (s *NotificationService) CreateRecordNotification(ctx context.Context, reco
 	}
 	log.Printf("notifiable admins: %+v", notifiableAdmins)
 
-
 	if s.emailQueueRepo == nil {
 		log.Printf("emailQueueRepo is nil")
 		return nil
 	}
 	for _, admin := range notifiableAdmins {
-
-		item := &EmailQueueItem{
+		item := &EmailQueue{
 			RecordID:         record.Id,
 			CommentID:        sql.NullInt64{Valid: false},
 			RecipientOrcid:   admin.Orcid,
