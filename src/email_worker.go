@@ -79,7 +79,7 @@ func (w *EmailWorker) ProcessPendingEmails(ctx context.Context, limit int) error
 		log.Printf("failed to get pending emails: %v", err)
 		return err
 	}
-	log.Printf("pendingEmails : %v", pendingEmails)
+// 	log.Printf("pendingEmails : %v", pendingEmails)
 
 	for _, pending := range pendingEmails {
 		getOrcidAccessToken(ctx)
@@ -98,17 +98,17 @@ func (w *EmailWorker) ProcessPendingEmails(ctx context.Context, limit int) error
 		        if err != nil {
 		           markErr := w.emailQueueRepo.MarkEmailAsFailed(ctx, pending.Id, err.Error())
 		           if markErr != nil {
-		             log.Printf("send failed for queue_id=%d: %v", pending.Id, markErr)
+                       log.Printf("send failed for email:%d, error: %v", pending.Id, markErr)
 		             return markErr
 		           }
 		           continue
 		        }
 		        markErr := w.emailQueueRepo.MarkEmailAsSent(ctx, pending.Id)
 		        if markErr != nil {
-		           log.Printf("For=%d, error: %v", pending.Id, markErr)
+                    log.Printf("For email: %d, error: %v", pending.Id, markErr)
 		           return markErr
 		        }
-		        log.Printf("Email sent successfully for queue_id=%d to=%q", pending.Id, recipientEmail)
+                log.Printf("Email sent successfully for email: %d to: %q", pending.Id, recipientEmail)
 		*/
 	}
 	return nil
