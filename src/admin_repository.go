@@ -37,7 +37,7 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 }
 
 func (r *PostgresAdminRepository) GetNotifiableAdmins(ctx context.Context) ([]Admin, error) {
-	rows, err := db.Query(`SELECT orcid, email, created_at, modified_at FROM admin_orcids WHERE email IS NOT NULL AND email != ''`)
+	rows, err := db.Query(`SELECT orcid, created_at, modified_at FROM admin_orcids`)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (r *PostgresAdminRepository) GetNotifiableAdmins(ctx context.Context) ([]Ad
 	var admins []Admin
 	for rows.Next() {
 		var admin Admin
-		if err := rows.Scan(&admin.Orcid, &admin.Email, &admin.CreatedAt, &admin.ModifiedAt); err != nil {
+		if err := rows.Scan(&admin.Orcid, &admin.CreatedAt, &admin.ModifiedAt); err != nil {
 			return admins, err
 		}
 		admins = append(admins, admin)
