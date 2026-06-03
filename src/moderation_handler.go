@@ -3,25 +3,25 @@ package main
 import (
 	"encoding/json"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
-    "log"
 )
 
 type ModerationHandler struct {
-	moderationRepo ModerationRepository
-	adminRepo      AdminRepository
+	moderationRepo      ModerationRepository
+	adminRepo           AdminRepository
 	notificationService *NotificationService
 	emailWorker         *EmailWorker
 }
 
 func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker) *ModerationHandler {
 	return &ModerationHandler{
-		moderationRepo: moderationRepo,
-		adminRepo:      adminRepo,
+		moderationRepo:      moderationRepo,
+		adminRepo:           adminRepo,
 		notificationService: notificationService,
-        emailWorker: emailWorker,
+		emailWorker:         emailWorker,
 	}
 }
 
@@ -56,6 +56,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 
 	// Get pending items (both new entries and pending versions)
 	items, totalCount, err := h.moderationRepo.GetPendingItems(ctx, pageSize, offset)
+
 	if err != nil {
 		http.Error(w, "Error fetching pending items", http.StatusInternalServerError)
 		return
@@ -192,19 +193,19 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Validate action
 	var newStatus ModerationStatus
-    uploaderOrcid, err := h.moderationRepo.GetRecordOwnerOrcid(ctx, id)
+	uploaderOrcid, err := h.moderationRepo.GetRecordOwnerOrcid(ctx, id)
 	switch req.Action {
 	case "approve":
 		newStatus = StatusApproved
-        log.Printf("record id: %q", id)
+		log.Printf("record id: %q", id)
 
 		// Check if there's a pending version to approve
 		if err := h.moderationRepo.ApprovePendingVersion(ctx, id); err != nil {
 			http.Error(w, "Error approving record/version", http.StatusInternalServerError)
 			return
 		}
-        h.notificationService.CreateRecordModerationNotification(ctx, id, uploaderOrcid)
-	    h.emailWorker.ProcessPendingEmails(ctx, 20)
+		h.notificationService.CreateRecordModeration(ctx, id, uploaderOrcid, "approved")
+		h.emailWorker.ProcessPending(ctx, 20)
 	case "reject":
 		newStatus = StatusRejected
 		// Check if there's a pending version to reject
@@ -212,6 +213,8 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Error rejecting record/version", http.StatusInternalServerError)
 			return
 		}
+		h.notificationService.CreateRecordModeration(ctx, id, uploaderOrcid, "reject")
+		h.emailWorker.ProcessPending(ctx, 20)
 	case "flag":
 		newStatus = StatusFlagged
 		// Update record status

@@ -14,7 +14,7 @@ type OrcidService struct {
 }
 
 type OrcidResolver interface {
-	GetEmailFromOrcid(ctx context.Context, orcid string) (string, error)
+	GetEmail(ctx context.Context, orcid string) (string, error)
 }
 
 func NewOrcidService() *OrcidService {
@@ -22,7 +22,7 @@ func NewOrcidService() *OrcidService {
 }
 
 // https://info.orcid.org/documentation/api-tutorials/api-tutorial-read-data-on-a-record
-func getOrcidAccessToken(ctx context.Context) (string, error) {
+func getAccessToken(ctx context.Context) (string, error) {
 	data := url.Values{}
 	data.Set("client_id", os.Getenv("ORCID_CLIENT_ID"))
 	data.Set("client_secret", os.Getenv("ORCID_CLIENT_SECRET"))
@@ -63,8 +63,8 @@ func getOrcidAccessToken(ctx context.Context) (string, error) {
 	return token.AccessToken, nil
 }
 
-func (o *OrcidService) GetEmailFromOrcid(ctx context.Context, orcid string) (string, error) {
-	token, err := getOrcidAccessToken(ctx)
+func (o *OrcidService) GetEmail(ctx context.Context, orcid string) (string, error) {
+	token, err := getAccessToken(ctx)
 	if err != nil {
 		return "", fmt.Errorf("Orcid Service: fail to get access token: %v", err)
 	}

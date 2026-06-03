@@ -19,17 +19,17 @@ func NewEmailWorker(emailQueueRepo EmailQueueRepository, emailSender *EmailSende
 	}
 }
 
-func (w *EmailWorker) ProcessPendingEmails(ctx context.Context, limit int) error {
-	pendingEmails, err := w.emailQueueRepo.GetPendingEmails(ctx, limit)
+func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
+	pendingEmails, err := w.emailQueueRepo.GetPending(ctx, limit)
 	if err != nil {
 		log.Printf("Email worker: failed to fetch pending emails. Error: %v", err)
 		return err
 	}
 
 	for _, pending := range pendingEmails {
-		recipientEmail, err := w.orcidService.GetEmailFromOrcid(ctx, pending.RecipientOrcid)
+		recipientEmail, err := w.orcidService.GetEmail(ctx, pending.RecipientOrcid)
 		if err != nil {
-			markErr := w.emailQueueRepo.MarkEmailAsFailed(ctx, pending.Id, err.Error())
+			markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
 			if markErr != nil {
 				log.Printf("Email worker: failed to mark email as failed queue_id:%d after resolving recipient email failed. Error: %v", pending.Id, markErr)
 				return markErr
@@ -40,7 +40,7 @@ func (w *EmailWorker) ProcessPendingEmails(ctx context.Context, limit int) error
 		err = w.emailSender.Send(recipientEmail, pending.Subject, pending.Body)
 
 		if err != nil {
-			markErr := w.emailQueueRepo.MarkEmailAsFailed(ctx, pending.Id, err.Error())
+			markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
 			if markErr != nil {
 				log.Printf("Email worker: failed to mark email as failed queue_id:%d after send failure. Error: %v", pending.Id, markErr)
 				return markErr
@@ -48,7 +48,7 @@ func (w *EmailWorker) ProcessPendingEmails(ctx context.Context, limit int) error
 			continue
 		}
 
-		markErr := w.emailQueueRepo.MarkEmailAsSent(ctx, pending.Id)
+		markErr := w.emailQueueRepo.MarkAsSent(ctx, pending.Id)
 		if markErr != nil {
 			log.Printf("Email worker: failed to mark email as sent queue_id:%d. Error: %v", pending.Id, markErr)
 			return markErr

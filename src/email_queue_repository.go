@@ -7,9 +7,9 @@ import (
 
 type EmailQueueRepository interface {
 	Enqueue(ctx context.Context, item *EmailQueue) (*EmailQueue, error)
-	GetPendingEmails(ctx context.Context, limit int) ([]EmailQueue, error)
-	MarkEmailAsSent(ctx context.Context, id int64) error
-	MarkEmailAsFailed(ctx context.Context, id int64, errMsg string) error
+	GetPending(ctx context.Context, limit int) ([]EmailQueue, error)
+	MarkAsSent(ctx context.Context, id int64) error
+	MarkAsFailed(ctx context.Context, id int64, errMsg string) error
 }
 
 type PostgresEmailQueueRepository struct {
@@ -34,7 +34,7 @@ func (r *PostgresEmailQueueRepository) Enqueue(ctx context.Context, item *EmailQ
 	return &queue, nil
 }
 
-func (r *PostgresEmailQueueRepository) GetPendingEmails(ctx context.Context, limit int) ([]EmailQueue, error) {
+func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int) ([]EmailQueue, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, record_id, comment_id, recipient_orcid, send_from, subject, body, recipient_type, notification_type, status, attempts, last_error, created_at, sent_at FROM email_queue WHERE status = 'pending' ORDER BY created_at ASC  LIMIT $1`, limit)
 
 	if err != nil {
@@ -57,7 +57,7 @@ func (r *PostgresEmailQueueRepository) GetPendingEmails(ctx context.Context, lim
 	return pendingEmails, nil
 }
 
-func (r *PostgresEmailQueueRepository) MarkEmailAsSent(ctx context.Context, id int64) error {
+func (r *PostgresEmailQueueRepository) MarkAsSent(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = 'sent', last_error = NULL, sent_at = NOW() WHERE id = $1`, id)
 
 	if err != nil {
@@ -66,7 +66,7 @@ func (r *PostgresEmailQueueRepository) MarkEmailAsSent(ctx context.Context, id i
 	return nil
 }
 
-func (r *PostgresEmailQueueRepository) MarkEmailAsFailed(ctx context.Context, id int64, errMsg string) error {
+func (r *PostgresEmailQueueRepository) MarkAsFailed(ctx context.Context, id int64, errMsg string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = 'failed', attempts = (attempts + 1), last_error = $1 WHERE id = $2`, errMsg, id)
 
 	if err != nil {

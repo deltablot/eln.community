@@ -12,8 +12,8 @@ type NotificationService struct {
 }
 
 type NotificationCreator interface {
-	CreateRecordNotification(ctx context.Context, record *Record) error
-    CreateRecordModerationNotification(ctx context.Context, id string, uploaderOrcid string) error
+	CreateRecord(ctx context.Context, record *Record) error
+	CreateRecordModeration(ctx context.Context, id string, uploaderOrcid string, notifType string) error
 }
 
 func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueueRepository) *NotificationService {
@@ -23,7 +23,7 @@ func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueue
 	}
 }
 
-func (s *NotificationService) CreateRecordNotification(ctx context.Context, record *Record) error {
+func (s *NotificationService) CreateRecord(ctx context.Context, record *Record) error {
 	notifiableAdmins, err := s.adminRepo.GetAllAdmins(ctx)
 	if err != nil {
 		log.Printf("failed to get notifiable admins: %v", err)
@@ -46,37 +46,44 @@ func (s *NotificationService) CreateRecordNotification(ctx context.Context, reco
 			NotificationType: RecordCreatedAdminNotif,
 		}
 
-		queuedItem, err := s.emailQueueRepo.Enqueue(ctx, item)
+		_, err := s.emailQueueRepo.Enqueue(ctx, item)
 		if err != nil {
 			log.Printf("failed to enqueue email notification: %v", err)
 		} else {
-			log.Printf("\nEnqueue email notification success: %v\n", queuedItem)
+			log.Printf("\n\nEnqueue email notification success\n")
 		}
 	}
 
 	return nil
 }
 
-func (s *NotificationService) CreateRecordModerationNotification(ctx context.Context, id string, uploaderOrcid string) error {
+func (s *NotificationService) CreateRecordModeration(ctx context.Context, id string, uploaderOrcid string, notifType string) error {
 	if s.emailQueueRepo == nil {
 		log.Printf("emailQueueRepo is nil")
 		return nil
 	}
-	item := &EmailQueue{
-		RecordID:         id,
-		CommentID:        sql.NullInt64{Valid: false},
-		RecipientOrcid:   uploaderOrcid,
-		Subject:          "ELN Community: update your record submiddion",
-        Body:             "Hello,\n\nGood news!\nYour record has been approved by the ELN Community moderation team.\n\nIt is now avalaible on the plaform and can be shared with the community.\n\n You ou can view it here: https://eln.community\n\nThank you for contributing to open science.",
-		RecipientType:    RecordOwner,
-		NotificationType: RecordApprovedNotif,
+
+	var body string
+	if notifType == "approved" {
+		body = "Good news!\nYour record has been approved by the ELN Community moderation team.\n\nIt is now avalaible on the plaform and can be shared with the community."
+	}
+	if notifType == "reject" {
+		body = "Your record has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team."
 	}
 
-	queuedItem, err := s.emailQueueRepo.Enqueue(ctx, item)
+	item := &EmailQueue{
+		RecordID:       id,
+		CommentID:      sql.NullInt64{Valid: false},
+		RecipientOrcid: uploaderOrcid,
+		Subject:        "ELN Community: update your record submission",
+		Body:           "Hello,\n\n" + body + "\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science.",
+	}
+
+	_, err := s.emailQueueRepo.Enqueue(ctx, item)
 	if err != nil {
 		log.Printf("failed to enqueue email notification: %v", err)
 	} else {
-		log.Printf("\nEnqueue email notification success: %v\n", queuedItem)
+		log.Printf("\nEnqueue email notification success\n")
 	}
 
 	return nil

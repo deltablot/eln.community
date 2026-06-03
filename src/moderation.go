@@ -77,7 +77,7 @@ func NewPostgresModerationRepository(db *sql.DB, categoryRepo CategoryRepository
 }
 
 func (r *PostgresModerationRepository) GetRecordOwnerOrcid(ctx context.Context, recordID string) (string, error) {
-    var uploaderOrcid string
+	var uploaderOrcid string
 	err := r.db.QueryRowContext(ctx, "SELECT uploader_orcid FROM records WHERE id = $1", recordID).Scan(&uploaderOrcid)
 	if err != nil {
 		return "", err
