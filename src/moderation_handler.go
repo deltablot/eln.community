@@ -6,17 +6,22 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+    "log"
 )
 
 type ModerationHandler struct {
 	moderationRepo ModerationRepository
 	adminRepo      AdminRepository
+	notificationService *NotificationService
+	emailWorker         *EmailWorker
 }
 
-func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRepository) *ModerationHandler {
+func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker) *ModerationHandler {
 	return &ModerationHandler{
 		moderationRepo: moderationRepo,
 		adminRepo:      adminRepo,
+		notificationService: notificationService,
+        emailWorker: emailWorker,
 	}
 }
 
@@ -166,7 +171,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	// Try to get pending version name first
 	var pendingName string
 	err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
-		`SELECT name FROM record_history 
+		`SELECT name FROM record_history
 		 WHERE record_id = $1 AND moderation_status = 'pending' AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC LIMIT 1`,
 		id,
@@ -187,14 +192,19 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Validate action
 	var newStatus ModerationStatus
+    uploaderOrcid, err := h.moderationRepo.GetRecordOwnerOrcid(ctx, id)
 	switch req.Action {
 	case "approve":
 		newStatus = StatusApproved
+        log.Printf("record id: %q", id)
+
 		// Check if there's a pending version to approve
 		if err := h.moderationRepo.ApprovePendingVersion(ctx, id); err != nil {
 			http.Error(w, "Error approving record/version", http.StatusInternalServerError)
 			return
 		}
+        h.notificationService.CreateRecordModerationNotification(ctx, id, uploaderOrcid)
+	    h.emailWorker.ProcessPendingEmails(ctx, 20)
 	case "reject":
 		newStatus = StatusRejected
 		// Check if there's a pending version to reject

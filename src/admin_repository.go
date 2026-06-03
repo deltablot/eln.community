@@ -15,7 +15,7 @@ type Admin struct {
 
 type AdminRepository interface {
 	IsAdmin(ctx context.Context, orcid string) (bool, error)
-	GetNotifiableAdmins(ctx context.Context) ([]Admin, error)
+	GetAllAdmins(ctx context.Context) ([]Admin, error)
 }
 
 type PostgresAdminRepository struct {
@@ -36,7 +36,7 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 	return exists, nil
 }
 
-func (r *PostgresAdminRepository) GetNotifiableAdmins(ctx context.Context) ([]Admin, error) {
+func (r *PostgresAdminRepository) GetAllAdmins(ctx context.Context) ([]Admin, error) {
 	rows, err := db.Query(`SELECT orcid, created_at, modified_at FROM admin_orcids`)
 	if err != nil {
 		return nil, err

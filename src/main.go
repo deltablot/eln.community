@@ -481,7 +481,7 @@ func main() {
 
 	// Initialize moderation handler
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
-	moderationHandler := NewModerationHandler(moderationRepo, adminRepo)
+	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, emailWorker)
 
 	// Initialize comment handler
 	commentRepo := NewPostgresCommentRepository(db)

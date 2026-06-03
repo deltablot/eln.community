@@ -34,19 +34,19 @@ func getOrcidAccessToken(ctx context.Context) (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://orcid.org/oauth/token", body)
 	if err != nil {
-        return "", fmt.Errorf("Orcid Service: failed to create token request: %w", err)
+		return "", fmt.Errorf("Orcid Service: failed to create token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-        return "", fmt.Errorf("Orcid Service: failed to send token request: %w", err)
+		return "", fmt.Errorf("Orcid Service: failed to send token request: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-        return "", fmt.Errorf("Orcid Service: token request failed with status %d", res.StatusCode)
+		return "", fmt.Errorf("Orcid Service: token request failed with status %d", res.StatusCode)
 	}
 
 	var token struct {
@@ -54,10 +54,10 @@ func getOrcidAccessToken(ctx context.Context) (string, error) {
 	}
 	err = json.NewDecoder(res.Body).Decode(&token)
 	if err != nil {
-        return "", fmt.Errorf("Orcid Service: failed to decode token response: %w", err)
+		return "", fmt.Errorf("Orcid Service: failed to decode token response: %w", err)
 	}
 	if token.AccessToken == "" {
-        return "", fmt.Errorf("Orcid Service: token response did not contain access_token")
+		return "", fmt.Errorf("Orcid Service: token response did not contain access_token")
 	}
 
 	return token.AccessToken, nil
@@ -66,14 +66,14 @@ func getOrcidAccessToken(ctx context.Context) (string, error) {
 func (o *OrcidService) GetEmailFromOrcid(ctx context.Context, orcid string) (string, error) {
 	token, err := getOrcidAccessToken(ctx)
 	if err != nil {
-        return "", fmt.Errorf("Orcid Service: fail to get access token: %v", err)
+		return "", fmt.Errorf("Orcid Service: fail to get access token: %v", err)
 	}
 
 	address := strings.Join([]string{"https://pub.orcid.org/v3.0/", orcid, "/email"}, "")
 
 	req, err := http.NewRequestWithContext(ctx, "GET", address, nil)
 	if err != nil {
-        return "", fmt.Errorf("Orcid Service: failed to create email request for orcid %q: %w", orcid, err)
+		return "", fmt.Errorf("Orcid Service: failed to create email request for orcid %q: %w", orcid, err)
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -81,12 +81,12 @@ func (o *OrcidService) GetEmailFromOrcid(ctx context.Context, orcid string) (str
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-        return "", fmt.Errorf("Orcid Service: failed to send email request for orcid %q: %w",orcid, err)
+		return "", fmt.Errorf("Orcid Service: failed to send email request for orcid %q: %w", orcid, err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-        return "", fmt.Errorf("Orcid Service: email request for orcid %q failed with status: %d", orcid, res.StatusCode)
+		return "", fmt.Errorf("Orcid Service: email request for orcid %q failed with status: %d", orcid, res.StatusCode)
 	}
 
 	var apiResponse struct {
@@ -99,11 +99,11 @@ func (o *OrcidService) GetEmailFromOrcid(ctx context.Context, orcid string) (str
 	}
 	err = json.NewDecoder(res.Body).Decode(&apiResponse)
 	if err != nil {
-        return "", fmt.Errorf("Orcid Service: failed to decode email response for orcid %q: %w", orcid, err)
+		return "", fmt.Errorf("Orcid Service: failed to decode email response for orcid %q: %w", orcid, err)
 	}
 
 	if len(apiResponse.Emails) == 0 {
-        return "", fmt.Errorf("Orcid Service error: no email return for orcid %q", orcid)
+		return "", fmt.Errorf("Orcid Service error: no email return for orcid %q", orcid)
 	}
 
 	for _, email := range apiResponse.Emails {
@@ -112,5 +112,5 @@ func (o *OrcidService) GetEmailFromOrcid(ctx context.Context, orcid string) (str
 		}
 	}
 
-    return "", fmt.Errorf("Orcid Service: email is not available for orcid: %s", orcid)
+	return "", fmt.Errorf("Orcid Service: email is not available for orcid: %s", orcid)
 }
