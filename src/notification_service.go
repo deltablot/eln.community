@@ -27,6 +27,31 @@ func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueue
 	}
 }
 
+func displayBodyCreation(item string, action string, owner string, content string) string {
+	var body string
+
+	var commentContent string
+	if len(content) > 0 {
+		commentContent = "See the comment below:\n\"" + content + "\"\n"
+	}
+	body = "Hello\n\nA new " + item + " has been " + action + " by " + owner + " to ELN Community and is awaiting moderation.\n" + commentContent + "\nAs an administrator, please review the comment and approve it if it can be shared with the community. If you are unsure or if the comment does not meet the platform requirements, you can reject it.\nOpen ELN Community: https://eln.community\n\nThank you."
+
+	return body
+}
+
+func displayBodyModeration(item string, status ModerationStatus) string {
+	var body string
+
+	switch status {
+	case StatusApproved:
+		body = "Good news!\nYour " + item + " has been approved by the ELN Community moderation team.\n\nIt is now avalaible on the plaform and can be shared with the community."
+	case StatusRejected:
+		body = "Your " + item + " has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team."
+	}
+
+	return "Hello,\n\n" + body + "\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science."
+}
+
 func (s *NotificationService) CreateRecord(ctx context.Context, record *Record) error {
 	notifiableAdmins, err := s.adminRepo.GetAllAdmins(ctx)
 	if err != nil {
@@ -39,13 +64,15 @@ func (s *NotificationService) CreateRecord(ctx context.Context, record *Record) 
 		log.Printf("emailQueueRepo is nil")
 		return nil
 	}
+
+	body := displayBodyCreation("record", "uploaded", record.UploaderName, "")
 	for _, admin := range notifiableAdmins {
 		item := &EmailQueue{
 			RecordID:         record.Id,
 			CommentID:        sql.NullInt64{Valid: false},
 			RecipientOrcid:   admin.Orcid,
 			Subject:          "ELN Community: new record awaiting moderation",
-			Body:             "Hello,\n\nA new record has been uploaded to ELN Community and is awaiting moderation.\n\nAs an administrator, please review the record and approve it if it can be shared with the community. If you are unsure or if the record does not meet the platform requirements, you can reject it.\nOpen ELN Community: https://eln.community\n\nThank you.",
+			Body:             body,
 			RecipientType:    AdminRecipient,
 			NotificationType: RecordCreatedAdminNotif,
 		}
@@ -67,21 +94,14 @@ func (s *NotificationService) CreateRecordModeration(ctx context.Context, id str
 		return nil
 	}
 
-	var body string
-
-	switch status {
-	case StatusApproved:
-		body = "Good news!\nYour record has been approved by the ELN Community moderation team.\n\nIt is now avalaible on the plaform and can be shared with the community."
-	case StatusRejected:
-		body = "Your record has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team."
-	}
+	body := displayBodyModeration("record", status)
 
 	item := &EmailQueue{
 		RecordID:       id,
 		CommentID:      sql.NullInt64{Valid: false},
 		RecipientOrcid: uploaderOrcid,
 		Subject:        "ELN Community: update on your record submission",
-		Body:           "Hello,\n\n" + body + "\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science.",
+		Body:           body,
 	}
 
 	_, err := s.emailQueueRepo.Enqueue(ctx, item)
@@ -106,6 +126,7 @@ func (s *NotificationService) CreateComment(ctx context.Context, comment *Commen
 		log.Printf("emailQueueRepo is nil")
 		return nil
 	}
+	body := displayBodyCreation("comment", "posted", comment.CommenterName, comment.Content)
 	for _, admin := range notifiableAdmins {
 		item := &EmailQueue{
 			RecordID: comment.RecordID,
@@ -115,7 +136,7 @@ func (s *NotificationService) CreateComment(ctx context.Context, comment *Commen
 			},
 			RecipientOrcid: admin.Orcid,
 			Subject:        "ELN Community: new comment awaiting moderation",
-			Body:           "Hello,\n\nA new comment has been posted by " + comment.CommenterName + " to ELN Community and is awaiting moderation.\nSee the comment below:\n\"" + comment.Content + "\"\n\nAs an administrator, please review the comment and approve it if it can be shared with the community. If you are unsure or if the comment does not meet the platform requirements, you can reject it.\nOpen ELN Community: https://eln.community\n\nThank you.",
+			Body:           body,
 		}
 
 		_, err := s.emailQueueRepo.Enqueue(ctx, item)
@@ -135,14 +156,7 @@ func (s *NotificationService) CreateCommentModeration(ctx context.Context, comme
 		return nil
 	}
 
-	var body string
-
-	switch status {
-	case StatusApproved:
-		body = "Good news!\nYour comment has been approved by the ELN Community moderation team.\n\nIt is now avalaible on the plaform and can be shared with the community."
-	case StatusRejected:
-		body = "Your comment has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team."
-	}
+	body := displayBodyModeration("comment", status)
 
 	item := &EmailQueue{
 		RecordID: comment.RecordID,
@@ -151,8 +165,8 @@ func (s *NotificationService) CreateCommentModeration(ctx context.Context, comme
 			Valid: true,
 		},
 		RecipientOrcid: comment.CommenterOrcid,
-		Subject:        "ELN Community: update on your record submission",
-		Body:           "Hello,\n\n" + body + "\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science.",
+		Subject:        "ELN Community: update on your comment submission",
+		Body:           body,
 	}
 
 	_, err := s.emailQueueRepo.Enqueue(ctx, item)
