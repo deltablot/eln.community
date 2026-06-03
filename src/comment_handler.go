@@ -9,20 +9,20 @@ import (
 )
 
 type CommentHandler struct {
-	commentRepo CommentRepository
-	recordRepo  RecordRepository
-	adminRepo   AdminRepository
+	commentRepo         CommentRepository
+	recordRepo          RecordRepository
+	adminRepo           AdminRepository
 	notificationService *NotificationService
-    emailWorker *EmailWorker
+	emailWorker         *EmailWorker
 }
 
 func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker) *CommentHandler {
 	return &CommentHandler{
-		commentRepo: commentRepo,
-		recordRepo:  recordRepo,
-		adminRepo:   adminRepo,
-        notificationService: notificationService,
-        emailWorker: emailWorker,
+		commentRepo:         commentRepo,
+		recordRepo:          recordRepo,
+		adminRepo:           adminRepo,
+		notificationService: notificationService,
+		emailWorker:         emailWorker,
 	}
 }
 
@@ -99,8 +99,8 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(comment)
-    h.notificationService.CreateComment(ctx, comment)
-    h.emailWorker.ProcessPending(ctx, 20)
+	h.notificationService.CreateComment(ctx, comment)
+	h.emailWorker.ProcessPending(ctx, 20)
 }
 
 // GET /api/v1/records/{id}/comments - Get comments for a record
@@ -234,6 +234,10 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "approved"})
+
+	comment, err := h.commentRepo.GetByID(ctx, commentID)
+	h.notificationService.CreateCommentModeration(ctx, comment, "approved")
+	h.emailWorker.ProcessPending(ctx, 20)
 }
 
 // POST /api/v1/moderation/comments/{id}/reject - Reject a comment (admin only)
@@ -286,6 +290,10 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "rejected"})
+
+	comment, err := h.commentRepo.GetByID(ctx, commentID)
+	h.notificationService.CreateCommentModeration(ctx, comment, StatusRejected)
+	h.emailWorker.ProcessPending(ctx, 20)
 }
 
 // DELETE /api/v1/moderation/comments/{id} - Delete a comment (admin only)
