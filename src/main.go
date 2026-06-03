@@ -465,10 +465,12 @@ func main() {
 	recordRepo := NewPostgresRecordRepository(db, categoryRepo, rorRepo)
 	rorClient := NewRorClient()
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
-	notificationService := NewNotificationService(adminRepo, emailQueueRepo)
+	commentRepo := NewPostgresCommentRepository(db)
+	notificationService := NewNotificationService(adminRepo, emailQueueRepo, commentRepo)
 	emailSender := NewEmailSender()
 	orcidService := NewOrcidService()
 	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidService)
+	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService, emailWorker)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()
@@ -482,10 +484,6 @@ func main() {
 	// Initialize moderation handler
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
 	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, emailWorker)
-
-	// Initialize comment handler
-	commentRepo := NewPostgresCommentRepository(db)
-	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo)
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)

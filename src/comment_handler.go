@@ -12,13 +12,17 @@ type CommentHandler struct {
 	commentRepo CommentRepository
 	recordRepo  RecordRepository
 	adminRepo   AdminRepository
+	notificationService *NotificationService
+    emailWorker *EmailWorker
 }
 
-func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository) *CommentHandler {
+func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker) *CommentHandler {
 	return &CommentHandler{
 		commentRepo: commentRepo,
 		recordRepo:  recordRepo,
 		adminRepo:   adminRepo,
+        notificationService: notificationService,
+        emailWorker: emailWorker,
 	}
 }
 
@@ -95,6 +99,8 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(comment)
+    h.notificationService.CreateComment(ctx, comment)
+    h.emailWorker.ProcessPending(ctx, 20)
 }
 
 // GET /api/v1/records/{id}/comments - Get comments for a record

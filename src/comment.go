@@ -78,7 +78,7 @@ func (r *PostgresCommentRepository) Create(ctx context.Context, comment *Comment
 // GetByRecordID retrieves comments for a specific record
 func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID string, includeModerated bool) ([]Comment, error) {
 	query := `
-		SELECT id, record_id, commenter_name, commenter_orcid, content, 
+		SELECT id, record_id, commenter_name, commenter_orcid, content,
 		       moderation_status, created_at, modified_at
 		FROM comments
 		WHERE record_id = $1`

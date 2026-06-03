@@ -204,7 +204,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Error approving record/version", http.StatusInternalServerError)
 			return
 		}
-		h.notificationService.CreateRecordModeration(ctx, id, uploaderOrcid, "approved")
+		h.notificationService.CreateRecordModeration(ctx, id, uploaderOrcid, StatusApproved)
 		h.emailWorker.ProcessPending(ctx, 20)
 	case "reject":
 		newStatus = StatusRejected
@@ -213,7 +213,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Error rejecting record/version", http.StatusInternalServerError)
 			return
 		}
-		h.notificationService.CreateRecordModeration(ctx, id, uploaderOrcid, "reject")
+		h.notificationService.CreateRecordModeration(ctx, id, uploaderOrcid, StatusRejected)
 		h.emailWorker.ProcessPending(ctx, 20)
 	case "flag":
 		newStatus = StatusFlagged
