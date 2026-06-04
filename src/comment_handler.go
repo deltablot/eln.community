@@ -14,15 +14,17 @@ type CommentHandler struct {
 	adminRepo           AdminRepository
 	notificationService *NotificationService
 	emailWorker         *EmailWorker
+	moderationRepo      ModerationRepository
 }
 
-func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker) *CommentHandler {
+func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker, moderationRepo ModerationRepository) *CommentHandler {
 	return &CommentHandler{
 		commentRepo:         commentRepo,
 		recordRepo:          recordRepo,
 		adminRepo:           adminRepo,
 		notificationService: notificationService,
 		emailWorker:         emailWorker,
+		moderationRepo:      moderationRepo,
 	}
 }
 
@@ -99,6 +101,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(comment)
+
 	h.notificationService.CreateComment(ctx, comment)
 	h.emailWorker.ProcessPending(ctx, 20)
 }
@@ -232,12 +235,25 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 	}
 	h.commentRepo.LogModerationAction(ctx, action)
 
+	comment, err := h.commentRepo.GetByID(ctx, commentID)
+	if err != nil {
+		return
+	}
+
+	recordOwner, err := h.moderationRepo.GetRecordOwnerOrcid(ctx, comment.RecordID)
+	if err != nil {
+		return
+	}
+	commentOwner, err := h.commentRepo.GetCommenterOrcid(ctx, commentID)
+
+	h.notificationService.CreateCommentModeration(ctx, comment, "approved")
+	if commentOwner != recordOwner {
+		h.notificationService.CreateCommentOwner(ctx, recordOwner, comment)
+	}
+	h.emailWorker.ProcessPending(ctx, 20)
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "approved"})
-
-	comment, err := h.commentRepo.GetByID(ctx, commentID)
-	h.notificationService.CreateCommentModeration(ctx, comment, "approved")
-	h.emailWorker.ProcessPending(ctx, 20)
 }
 
 // POST /api/v1/moderation/comments/{id}/reject - Reject a comment (admin only)

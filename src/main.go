@@ -470,7 +470,9 @@ func main() {
 	emailSender := NewEmailSender()
 	orcidService := NewOrcidService()
 	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidService)
-	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService, emailWorker)
+	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
+	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, emailWorker)
+	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService, emailWorker, moderationRepo)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()
@@ -480,10 +482,6 @@ func main() {
 	historyRepo := NewPostgresHistoryRepository(db)
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
-
-	// Initialize moderation handler
-	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
-	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, emailWorker)
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
