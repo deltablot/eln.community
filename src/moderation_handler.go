@@ -14,14 +14,16 @@ type ModerationHandler struct {
 	adminRepo           AdminRepository
 	notificationService *NotificationService
 	emailWorker         *EmailWorker
+	recordRepo          RecordRepository
 }
 
-func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker) *ModerationHandler {
+func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker, recordRepo RecordRepository) *ModerationHandler {
 	return &ModerationHandler{
 		moderationRepo:      moderationRepo,
 		adminRepo:           adminRepo,
 		notificationService: notificationService,
 		emailWorker:         emailWorker,
+        recordRepo: recordRepo,
 	}
 }
 
@@ -193,7 +195,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Validate action
 	var newStatus ModerationStatus
-	uploaderOrcid, err := h.moderationRepo.GetRecordOwnerOrcid(ctx, id)
+	uploaderOrcid, err := h.recordRepo.GetRecordOwnerOrcid(ctx, id)
 	switch req.Action {
 	case "approve":
 		newStatus = StatusApproved

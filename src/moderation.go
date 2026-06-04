@@ -58,7 +58,6 @@ type ModerationRepository interface {
 	GetPendingItems(ctx context.Context, limit, offset int) ([]PendingItem, int, error)
 	LogModerationAction(ctx context.Context, action ModerationAction) error
 	GetModerationHistory(ctx context.Context, recordID string) ([]ModerationAction, error)
-	GetRecordOwnerOrcid(ctx context.Context, recordID string) (string, error)
 }
 
 // PostgresModerationRepository implements ModerationRepository
@@ -74,15 +73,6 @@ func NewPostgresModerationRepository(db *sql.DB, categoryRepo CategoryRepository
 		categoryRepo: categoryRepo,
 		rorRepo:      rorRepo,
 	}
-}
-
-func (r *PostgresModerationRepository) GetRecordOwnerOrcid(ctx context.Context, recordID string) (string, error) {
-	var uploaderOrcid string
-	err := r.db.QueryRowContext(ctx, "SELECT uploader_orcid FROM records WHERE id = $1", recordID).Scan(&uploaderOrcid)
-	if err != nil {
-		return "", err
-	}
-	return uploaderOrcid, nil
 }
 
 func (r *PostgresModerationRepository) GetRecordStatus(ctx context.Context, recordID string) (ModerationStatus, error) {

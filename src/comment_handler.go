@@ -240,11 +240,11 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	recordOwner, err := h.moderationRepo.GetRecordOwnerOrcid(ctx, comment.RecordID)
+	recordOwner, err := h.recordRepo.GetRecordOwnerOrcid(ctx, comment.RecordID)
 	if err != nil {
 		return
 	}
-	commentOwner, err := h.commentRepo.GetCommenterOrcid(ctx, commentID)
+	commentOwner, err := h.recordRepo.GetCommenterOrcid(ctx, commentID)
 
 	h.notificationService.CreateCommentModeration(ctx, comment, "approved")
 	if commentOwner != recordOwner {
