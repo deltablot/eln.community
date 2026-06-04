@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
-    "log"
 	"strings"
 )
 
@@ -255,18 +255,17 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 		h.notificationService.CreateCommentOwner(ctx, recordOwner, comment)
 	}
 	commentators, err := h.commentRepo.GetAllOrcids(ctx, comment.RecordID)
-    log.Printf("all commentator of this record: %q", commentators)
-    for _, commentator := range commentators {
-	  if commentator != commentOwner && commentator != recordOwner {
-	  h.notificationService.CreateOtherCommentator(ctx, commentator, comment)
-     }
-    }
+	log.Printf("all commentator of this record: %q", commentators)
+	for _, commentator := range commentators {
+		if commentator != commentOwner && commentator != recordOwner {
+			h.notificationService.CreateOtherCommentator(ctx, commentator, comment)
+		}
+	}
 	h.emailWorker.ProcessPending(ctx, 20)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "approved"})
 }
-
 
 // POST /api/v1/moderation/comments/{id}/reject - Reject a comment (admin only)
 func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+    "fmt"
 )
 
 type NotificationService struct {
@@ -11,17 +12,6 @@ type NotificationService struct {
 	emailQueueRepo EmailQueueRepository
 	commentRepo    CommentRepository
 }
-
-/*
-type NotificationCreator interface {
-	CreateRecord(ctx context.Context, record *Record) error
-	CreateRecordModeration(ctx context.Context, id string, uploaderOrcid string, notifType string) error
-	CreateComment(ctx context.Context, comment *Comment) error
-	CreateCommentModeration(ctx context.Context, comment *Comment, status ModerationStatus) error
-    CreateCommentOwner(ctx context.Context, record *Record, comment *Comment, status ModerationStatus) error
-CreateCommentOwner(ctx context.Context, recordOwner string, comment *Comment) error
-}
-*/
 
 func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueueRepository, commentRepo CommentRepository) *NotificationService {
 	return &NotificationService{
@@ -31,7 +21,7 @@ func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueue
 	}
 }
 
-func displayBodyCreation(item string, action string, owner string, content string) string {
+func buildCreationBody(item string, action string, owner string, content string) string {
 	var body string
 
 	var commentContent string
@@ -43,7 +33,7 @@ func displayBodyCreation(item string, action string, owner string, content strin
 	return body
 }
 
-func displayBodyModeration(item string, status ModerationStatus) string {
+func buildModerationBody(item string, status ModerationStatus) string {
 	var body string
 
 	switch status {
@@ -56,7 +46,21 @@ func displayBodyModeration(item string, status ModerationStatus) string {
 	return "Hello,\n\n" + body + "\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science."
 }
 
-func (s *NotificationService) CreateRecord(ctx context.Context, record *Record) error {
+func (s *NotificationService) handleData(ctx context.Context, recordId string, commentId sql.NullInt64, recipient string, subject string, body string) error {
+		item := &EmailQueue{
+			RecordID:       recordId,
+			CommentID:      commentId,
+			RecipientOrcid: recipient,
+			Subject:        subject,
+			Body:           body,
+		}
+		if _, err := s.emailQueueRepo.Enqueue(ctx, item); err != nil {
+            return fmt.Errorf("Notification Service: failed to enqueue admin notification: %w", err)
+        }
+        return nil
+}
+
+func (s *NotificationService) createAdmin(ctx context.Context, recordId string, commentId sql.NullInt64, subject string, body string) error {
 	notifiableAdmins, err := s.adminRepo.GetAllAdmins(ctx)
 	if err != nil {
 		log.Printf("failed to get notifiable admins: %v", err)
@@ -68,63 +72,22 @@ func (s *NotificationService) CreateRecord(ctx context.Context, record *Record) 
 		log.Printf("emailQueueRepo is nil")
 		return nil
 	}
-
-	body := displayBodyCreation("record", "uploaded", record.UploaderName, "")
 	for _, admin := range notifiableAdmins {
-		item := &EmailQueue{
-			RecordID:       record.Id,
-			CommentID:      sql.NullInt64{Valid: false},
-			RecipientOrcid: admin.Orcid,
-			Subject:        "ELN Community: new record awaiting moderation",
-			Body:           body,
-		}
+        s.handleData(ctx, recordId, commentId, admin.Orcid, subject, body)
+    }
+     return nil
+}
 
-		_, err := s.emailQueueRepo.Enqueue(ctx, item)
-		if err != nil {
-			log.Printf("failed to enqueue email notification: %v", err)
-		} else {
-			log.Printf("\n\nEnqueue email notification success\n")
-		}
-	}
+func (s *NotificationService) CreateRecord(ctx context.Context, record *Record) error {
+	body := buildCreationBody("record", "uploaded", record.UploaderName, "")
 
-	return nil
+    return s.createAdmin(ctx, record.Id, sql.NullInt64{Valid: false}, "ELN Community: new record awaiting moderation", body)
 }
 
 func (s *NotificationService) CreateComment(ctx context.Context, comment *Comment) error {
-	notifiableAdmins, err := s.adminRepo.GetAllAdmins(ctx)
-	if err != nil {
-		log.Printf("failed to get notifiable admins: %v", err)
-		return err
-	}
-	log.Printf("notifiable admins: %+v", notifiableAdmins)
+	body := buildCreationBody("comment", "posted", comment.CommenterName, comment.Content)
 
-	if s.emailQueueRepo == nil {
-		log.Printf("emailQueueRepo is nil")
-		return nil
-	}
-
-	body := displayBodyCreation("comment", "posted", comment.CommenterName, comment.Content)
-	for _, admin := range notifiableAdmins {
-		item := &EmailQueue{
-			RecordID: comment.RecordID,
-			CommentID: sql.NullInt64{
-				Int64: comment.ID,
-				Valid: true,
-			},
-			RecipientOrcid: admin.Orcid,
-			Subject:        "ELN Community: new comment awaiting moderation",
-			Body:           body,
-		}
-
-		_, err := s.emailQueueRepo.Enqueue(ctx, item)
-		if err != nil {
-			log.Printf("failed to enqueue email notification: %v", err)
-		} else {
-			log.Printf("\n\nEnqueue email notification success\n")
-		}
-	}
-
-	return nil
+    return s.createAdmin(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, "ELN Community: new record awaiting moderation", body)
 }
 
 func (s *NotificationService) CreateRecordModeration(ctx context.Context, id string, uploaderOrcid string, status ModerationStatus) error {
@@ -133,7 +96,7 @@ func (s *NotificationService) CreateRecordModeration(ctx context.Context, id str
 		return nil
 	}
 
-	body := displayBodyModeration("record", status)
+	body := buildModerationBody("record", status)
 
 	item := &EmailQueue{
 		RecordID:       id,
@@ -159,7 +122,7 @@ func (s *NotificationService) CreateCommentModeration(ctx context.Context, comme
 		return nil
 	}
 
-	body := displayBodyModeration("comment", status)
+	body := buildModerationBody("comment", status)
 
 	item := &EmailQueue{
 		RecordID: comment.RecordID,
@@ -188,7 +151,7 @@ func (s *NotificationService) CreateCommentOwner(ctx context.Context, recordOwne
 		return nil
 	}
 
-	body := displayBodyCreation("comment", "posted on your record", comment.CommenterName, comment.Content)
+	body := buildCreationBody("comment", "posted on your record", comment.CommenterName, comment.Content)
 
 	item := &EmailQueue{
 		RecordID: comment.RecordID,
@@ -217,7 +180,7 @@ func (s *NotificationService) CreateOtherCommentator(ctx context.Context, commen
 		return nil
 	}
 
-	body := displayBodyCreation("comment", "posted on a record you previously commented on", comment.CommenterName, comment.Content)
+	body := buildCreationBody("comment", "posted on a record you previously commented on", comment.CommenterName, comment.Content)
 
 	item := &EmailQueue{
 		RecordID: comment.RecordID,
