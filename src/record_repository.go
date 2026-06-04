@@ -30,8 +30,7 @@ type RecordRepository interface {
 	Unarchive(ctx context.Context, id string) error
 	GetS3Key(ctx context.Context, id string) (string, error)
 	IncrementDownloadCount(ctx context.Context, id string) (int, error)
-	GetRecordOwnerOrcid(ctx context.Context, recordID string) (string, error)
-	GetCommenterOrcid(ctx context.Context, id int64) (string, error)
+	GetOwnerOrcid(ctx context.Context, recordID string) (string, error)
 }
 
 // PostgresRecordRepository implements RecordRepository using PostgreSQL
@@ -1095,16 +1094,7 @@ func (r *PostgresRecordRepository) IncrementDownloadCount(ctx context.Context, i
 	return newCount, nil
 }
 
-func (r *PostgresRecordRepository) GetCommenterOrcid(ctx context.Context, id int64) (string, error) {
-	var commenterOrcid string
-	err := r.db.QueryRowContext(ctx, "SELECT commenter_orcid FROM comments WHERE id = $1", id).Scan(&commenterOrcid)
-	if err != nil {
-		return "", err
-	}
-	return commenterOrcid, nil
-}
-
-func (r *PostgresRecordRepository) GetRecordOwnerOrcid(ctx context.Context, recordID string) (string, error) {
+func (r *PostgresRecordRepository) GetOwnerOrcid(ctx context.Context, recordID string) (string, error) {
 	var uploaderOrcid string
 	err := r.db.QueryRowContext(ctx, "SELECT uploader_orcid FROM records WHERE id = $1", recordID).Scan(&uploaderOrcid)
 	if err != nil {

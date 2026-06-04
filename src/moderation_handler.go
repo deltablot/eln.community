@@ -23,7 +23,7 @@ func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRe
 		adminRepo:           adminRepo,
 		notificationService: notificationService,
 		emailWorker:         emailWorker,
-        recordRepo: recordRepo,
+		recordRepo:          recordRepo,
 	}
 }
 
@@ -195,7 +195,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Validate action
 	var newStatus ModerationStatus
-	uploaderOrcid, err := h.recordRepo.GetRecordOwnerOrcid(ctx, id)
+	uploaderOrcid, err := h.recordRepo.GetOwnerOrcid(ctx, id)
 	switch req.Action {
 	case "approve":
 		newStatus = StatusApproved

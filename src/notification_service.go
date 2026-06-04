@@ -210,3 +210,32 @@ func (s *NotificationService) CreateCommentOwner(ctx context.Context, recordOwne
 
 	return nil
 }
+
+func (s *NotificationService) CreateOtherCommentator(ctx context.Context, commentator string, comment *Comment) error {
+	if s.emailQueueRepo == nil {
+		log.Printf("emailQueueRepo is nil")
+		return nil
+	}
+
+	body := displayBodyCreation("comment", "posted on a record you previously commented on", comment.CommenterName, comment.Content)
+
+	item := &EmailQueue{
+		RecordID: comment.RecordID,
+		CommentID: sql.NullInt64{
+			Int64: comment.ID,
+			Valid: true,
+		},
+		RecipientOrcid: commentator,
+		Subject:        "ELN Community: new activity on a record you follow",
+		Body:           body,
+	}
+
+	_, err := s.emailQueueRepo.Enqueue(ctx, item)
+	if err != nil {
+		log.Printf("failed to enqueue email notification: %v", err)
+	} else {
+		log.Printf("\nEnqueue email notification success\n")
+	}
+
+	return nil
+}

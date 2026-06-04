@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+    "log"
 	"strings"
 )
 
@@ -240,21 +241,32 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	recordOwner, err := h.recordRepo.GetRecordOwnerOrcid(ctx, comment.RecordID)
+	recordOwner, err := h.recordRepo.GetOwnerOrcid(ctx, comment.RecordID)
 	if err != nil {
 		return
 	}
-	commentOwner, err := h.recordRepo.GetCommenterOrcid(ctx, commentID)
+	commentOwner, err := h.commentRepo.GetOrcid(ctx, commentID)
+	if err != nil {
+		return
+	}
 
 	h.notificationService.CreateCommentModeration(ctx, comment, "approved")
 	if commentOwner != recordOwner {
 		h.notificationService.CreateCommentOwner(ctx, recordOwner, comment)
 	}
+	commentators, err := h.commentRepo.GetAllOrcids(ctx, comment.RecordID)
+    log.Printf("all commentator of this record: %q", commentators)
+    for _, commentator := range commentators {
+	  if commentator != commentOwner && commentator != recordOwner {
+	  h.notificationService.CreateOtherCommentator(ctx, commentator, comment)
+     }
+    }
 	h.emailWorker.ProcessPending(ctx, 20)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "approved"})
 }
+
 
 // POST /api/v1/moderation/comments/{id}/reject - Reject a comment (admin only)
 func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
