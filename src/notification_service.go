@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
-    "fmt"
 )
 
 type NotificationService struct {
@@ -47,17 +47,17 @@ func buildModerationBody(item string, status ModerationStatus) string {
 }
 
 func (s *NotificationService) handleData(ctx context.Context, recordId string, commentId sql.NullInt64, recipient string, subject string, body string) error {
-		item := &EmailQueue{
-			RecordID:       recordId,
-			CommentID:      commentId,
-			RecipientOrcid: recipient,
-			Subject:        subject,
-			Body:           body,
-		}
-		if _, err := s.emailQueueRepo.Enqueue(ctx, item); err != nil {
-            return fmt.Errorf("Notification Service: failed to enqueue admin notification: %w", err)
-        }
-        return nil
+	item := &EmailQueue{
+		RecordID:       recordId,
+		CommentID:      commentId,
+		RecipientOrcid: recipient,
+		Subject:        subject,
+		Body:           body,
+	}
+	if _, err := s.emailQueueRepo.Enqueue(ctx, item); err != nil {
+		return fmt.Errorf("Notification Service: failed to enqueue admin notification: %w", err)
+	}
+	return nil
 }
 
 func (s *NotificationService) createAdmin(ctx context.Context, recordId string, commentId sql.NullInt64, subject string, body string) error {
@@ -73,21 +73,21 @@ func (s *NotificationService) createAdmin(ctx context.Context, recordId string, 
 		return nil
 	}
 	for _, admin := range notifiableAdmins {
-        s.handleData(ctx, recordId, commentId, admin.Orcid, subject, body)
-    }
-     return nil
+		s.handleData(ctx, recordId, commentId, admin.Orcid, subject, body)
+	}
+	return nil
 }
 
 func (s *NotificationService) CreateRecord(ctx context.Context, record *Record) error {
 	body := buildCreationBody("record", "uploaded", record.UploaderName, "")
 
-    return s.createAdmin(ctx, record.Id, sql.NullInt64{Valid: false}, "ELN Community: new record awaiting moderation", body)
+	return s.createAdmin(ctx, record.Id, sql.NullInt64{Valid: false}, "ELN Community: new record awaiting moderation", body)
 }
 
 func (s *NotificationService) CreateComment(ctx context.Context, comment *Comment) error {
 	body := buildCreationBody("comment", "posted", comment.CommenterName, comment.Content)
 
-    return s.createAdmin(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, "ELN Community: new record awaiting moderation", body)
+	return s.createAdmin(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, "ELN Community: new record awaiting moderation", body)
 }
 
 func (s *NotificationService) CreateRecordModeration(ctx context.Context, id string, uploaderOrcid string, status ModerationStatus) error {
