@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 )
 
 type NotificationService struct {
@@ -21,14 +20,30 @@ func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueue
 	}
 }
 
-func buildCreationBody(item string, action string, owner string, content string) string {
+func notificationErr(msg string, err error) error {
+	return fmt.Errorf("notification service: failed to create notification for %s: %w", msg, err)
+}
+
+func buildAdminModerationRequestBody(item string, action string, owner string, content string) string {
 	var body string
 
 	var commentContent string
 	if len(content) > 0 {
-		commentContent = "See the comment below:\n\"" + content + "\"\n"
+		commentContent = fmt.Sprintf("See the comment below:\n\"%s\"\n", content)
 	}
-	body = "Hello\n\nA new " + item + " has been " + action + " by " + owner + " to ELN Community and is awaiting moderation.\n" + commentContent + "\nAs an administrator, please review the " + item + "  and approve it if it can be shared with the community. If you are unsure or if the " + item + " does not meet the platform requirements, you can reject it.\nOpen ELN Community: https://eln.community\n\nThank you."
+	body = fmt.Sprintf("Hello,\n\nA new %s has been %s by %s to ELN Community and is awaiting moderation.\n%s\nAs an administrator, please review the %s and approve it if it can be shared with the community. If you are unsure or if the %s does not meet the platform requirements, you can reject it.\nOpen ELN Community: https://eln.community\n\nThank you.", item, action, owner, commentContent, item, item)
+
+	return body
+}
+
+func buildApprovedCommentBody(action string, owner string, content string) string {
+	var body string
+
+	var commentContent string
+	if len(content) > 0 {
+		commentContent = fmt.Sprintf("See the comment below:\n\"%s\"\n", content)
+	}
+	body = fmt.Sprintf("Hello,\n\nA new comment from %s has been %s in ELN Community.\n%s\nIt is now available on the platform and can be shared with the community.\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science.", owner, action, commentContent)
 
 	return body
 }
@@ -38,166 +53,90 @@ func buildModerationBody(item string, status ModerationStatus) string {
 
 	switch status {
 	case StatusApproved:
-		body = "Good news!\nYour " + item + " has been approved by the ELN Community moderation team.\n\nIt is now avalaible on the plaform and can be shared with the community."
+		body = fmt.Sprintf("Good news!\nYour %s has been approved by the ELN Community moderation team.\n\nIt is now available on the platform and can be shared with the community.", item)
 	case StatusRejected:
-		body = "Your " + item + " has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team at <TODO: ADD ADDRESS>."
+		body = fmt.Sprintf("Your %s has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team at <TODO: ADD ADDRESS>.", item)
 	}
 
-	return "Hello,\n\n" + body + "\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science."
+	return fmt.Sprintf("Hello,\n\n%s\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science.", body)
 }
 
-func (s *NotificationService) handleData(ctx context.Context, recordId string, commentId sql.NullInt64, recipient string, subject string, body string) error {
+func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string, commentId sql.NullInt64, recipientOrcid string, subject string, body string) error {
+	if s.emailQueueRepo == nil {
+		return fmt.Errorf("notification service: emailQueueRepo is nil")
+	}
+
 	item := &EmailQueue{
 		RecordID:       recordId,
 		CommentID:      commentId,
-		RecipientOrcid: recipient,
-		Subject:        subject,
+		RecipientOrcid: recipientOrcid,
+		Subject:        fmt.Sprintf("ELN Community: %s", subject),
 		Body:           body,
 	}
 	if _, err := s.emailQueueRepo.Enqueue(ctx, item); err != nil {
-		return fmt.Errorf("Notification Service: failed to enqueue admin notification: %w", err)
+		return fmt.Errorf("notification service: failed to enqueue notification: %w", err)
 	}
 	return nil
 }
 
-func (s *NotificationService) createAdmin(ctx context.Context, recordId string, commentId sql.NullInt64, subject string, body string) error {
+func (s *NotificationService) enqueueForAdmins(ctx context.Context, recordId string, commentId sql.NullInt64, item string, body string) error {
 	notifiableAdmins, err := s.adminRepo.GetAllAdmins(ctx)
 	if err != nil {
-		log.Printf("failed to get notifiable admins: %v", err)
-		return err
+		return fmt.Errorf("notification service: failed to get notifiable admins: %w", err)
 	}
-	log.Printf("notifiable admins: %+v", notifiableAdmins)
 
-	if s.emailQueueRepo == nil {
-		log.Printf("emailQueueRepo is nil")
-		return nil
-	}
+	subject := fmt.Sprintf("new %s awaiting moderation", item)
 	for _, admin := range notifiableAdmins {
-		s.handleData(ctx, recordId, commentId, admin.Orcid, subject, body)
+		if err := s.enqueueEmail(ctx, recordId, commentId, admin.Orcid, subject, body); err != nil {
+			return notificationErr("admins", err)
+		}
 	}
 	return nil
 }
 
-func (s *NotificationService) CreateRecord(ctx context.Context, record *Record) error {
-	body := buildCreationBody("record", "uploaded", record.UploaderName, "")
+func (s *NotificationService) CreateForRecord(ctx context.Context, record *Record) error {
+	body := buildAdminModerationRequestBody("record", "uploaded", record.UploaderName, "")
 
-	return s.createAdmin(ctx, record.Id, sql.NullInt64{Valid: false}, "ELN Community: new record awaiting moderation", body)
-}
-
-func (s *NotificationService) CreateComment(ctx context.Context, comment *Comment) error {
-	body := buildCreationBody("comment", "posted", comment.CommenterName, comment.Content)
-
-	return s.createAdmin(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, "ELN Community: new record awaiting moderation", body)
-}
-
-func (s *NotificationService) CreateRecordModeration(ctx context.Context, id string, uploaderOrcid string, status ModerationStatus) error {
-	if s.emailQueueRepo == nil {
-		log.Printf("emailQueueRepo is nil")
-		return nil
+	if err := s.enqueueForAdmins(ctx, record.Id, sql.NullInt64{Valid: false}, "record", body); err != nil {
+		return notificationErr("record uploaded", err)
 	}
+	return nil
+}
 
+func (s *NotificationService) CreateForComment(ctx context.Context, comment *Comment) error {
+	body := buildAdminModerationRequestBody("comment", "posted", comment.CommenterName, comment.Content)
+
+	if err := s.enqueueForAdmins(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, "comment", body); err != nil {
+		return notificationErr("comment posted", err)
+	}
+	return nil
+}
+
+func (s *NotificationService) CreateForRecordModeration(ctx context.Context, id string, uploaderOrcid string, status ModerationStatus) error {
 	body := buildModerationBody("record", status)
 
-	item := &EmailQueue{
-		RecordID:       id,
-		CommentID:      sql.NullInt64{Valid: false},
-		RecipientOrcid: uploaderOrcid,
-		Subject:        "ELN Community: update on your record submission",
-		Body:           body,
-	}
-
-	_, err := s.emailQueueRepo.Enqueue(ctx, item)
-	if err != nil {
-		log.Printf("failed to enqueue email notification: %v", err)
-	} else {
-		log.Printf("\nEnqueue email notification success\n")
+	if err := s.enqueueEmail(ctx, id, sql.NullInt64{Valid: false}, uploaderOrcid, "update on your record submission", body); err != nil {
+		return notificationErr("record moderation", err)
 	}
 
 	return nil
 }
 
-func (s *NotificationService) CreateCommentModeration(ctx context.Context, comment *Comment, status ModerationStatus) error {
-	if s.emailQueueRepo == nil {
-		log.Printf("emailQueueRepo is nil")
-		return nil
-	}
-
+func (s *NotificationService) CreateForCommentModeration(ctx context.Context, comment *Comment, status ModerationStatus) error {
 	body := buildModerationBody("comment", status)
 
-	item := &EmailQueue{
-		RecordID: comment.RecordID,
-		CommentID: sql.NullInt64{
-			Int64: comment.ID,
-			Valid: true,
-		},
-		RecipientOrcid: comment.CommenterOrcid,
-		Subject:        "ELN Community: update on your comment submission",
-		Body:           body,
-	}
-
-	_, err := s.emailQueueRepo.Enqueue(ctx, item)
-	if err != nil {
-		log.Printf("failed to enqueue email notification: %v", err)
-	} else {
-		log.Printf("\nEnqueue email notification success\n")
+	if err := s.enqueueEmail(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, comment.CommenterOrcid, "update on your comment submission", body); err != nil {
+		return notificationErr("comment moderation", err)
 	}
 
 	return nil
 }
 
-func (s *NotificationService) CreateCommentOwner(ctx context.Context, recordOwner string, comment *Comment) error {
-	if s.emailQueueRepo == nil {
-		log.Printf("emailQueueRepo is nil")
-		return nil
-	}
+func (s *NotificationService) CreateForApprovedComment(ctx context.Context, recipientOrcid string, comment *Comment, subject string, action string) error {
+	body := buildApprovedCommentBody(action, comment.CommenterName, comment.Content)
 
-	body := buildCreationBody("comment", "posted on your record", comment.CommenterName, comment.Content)
-
-	item := &EmailQueue{
-		RecordID: comment.RecordID,
-		CommentID: sql.NullInt64{
-			Int64: comment.ID,
-			Valid: true,
-		},
-		RecipientOrcid: recordOwner,
-		Subject:        "ELN Community: a new comment has been posted on your record",
-		Body:           body,
-	}
-
-	_, err := s.emailQueueRepo.Enqueue(ctx, item)
-	if err != nil {
-		log.Printf("failed to enqueue email notification: %v", err)
-	} else {
-		log.Printf("\nEnqueue email notification success\n")
-	}
-
-	return nil
-}
-
-func (s *NotificationService) CreateOtherCommentator(ctx context.Context, commentator string, comment *Comment) error {
-	if s.emailQueueRepo == nil {
-		log.Printf("emailQueueRepo is nil")
-		return nil
-	}
-
-	body := buildCreationBody("comment", "posted on a record you previously commented on", comment.CommenterName, comment.Content)
-
-	item := &EmailQueue{
-		RecordID: comment.RecordID,
-		CommentID: sql.NullInt64{
-			Int64: comment.ID,
-			Valid: true,
-		},
-		RecipientOrcid: commentator,
-		Subject:        "ELN Community: new activity on a record you follow",
-		Body:           body,
-	}
-
-	_, err := s.emailQueueRepo.Enqueue(ctx, item)
-	if err != nil {
-		log.Printf("failed to enqueue email notification: %v", err)
-	} else {
-		log.Printf("\nEnqueue email notification success\n")
+	if err := s.enqueueEmail(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, recipientOrcid, subject, body); err != nil {
+		return notificationErr("comment approved", err)
 	}
 
 	return nil

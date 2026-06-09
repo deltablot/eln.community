@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -14,20 +13,20 @@ type CommentHandler struct {
 	recordRepo          RecordRepository
 	adminRepo           AdminRepository
 	notificationService *NotificationService
-	emailWorker         *EmailWorker
 	moderationRepo      ModerationRepository
 }
 
-func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker, moderationRepo ModerationRepository) *CommentHandler {
+func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService, moderationRepo ModerationRepository) *CommentHandler {
 	return &CommentHandler{
 		commentRepo:         commentRepo,
 		recordRepo:          recordRepo,
 		adminRepo:           adminRepo,
 		notificationService: notificationService,
-		emailWorker:         emailWorker,
 		moderationRepo:      moderationRepo,
 	}
 }
+
+const handler = "comment handler"
 
 // POST /api/v1/records/{id}/comments - Create a new comment
 func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
@@ -103,8 +102,9 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(comment)
 
-	h.notificationService.CreateComment(ctx, comment)
-	h.emailWorker.ProcessPending(ctx, 20)
+    if err := h.notificationService.CreateForComment(ctx, comment); err != nil {
+        errorLogger.Printf("%s: failed to create comment notification: %v", handler, err)
+    }
 }
 
 // GET /api/v1/records/{id}/comments - Get comments for a record
@@ -250,18 +250,25 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.notificationService.CreateCommentModeration(ctx, comment, "approved")
+    if err := h.notificationService.CreateForCommentModeration(ctx, comment, StatusApproved); err != nil {
+        errorLogger.Printf("%s: failed to create moderation notification: %v", handler, err)
+    }
 	if commentOwner != recordOwner {
-		h.notificationService.CreateCommentOwner(ctx, recordOwner, comment)
+        if err := h.notificationService.CreateForApprovedComment(ctx, recordOwner, comment, "a new comment has been posted on your record", "posted on your record"); err != nil {
+        errorLogger.Printf("%s: failed to create record owner notification: %v", handler, err)
+        }
 	}
 	commentators, err := h.commentRepo.GetAllOrcids(ctx, comment.RecordID)
-	log.Printf("all commentator of this record: %q", commentators)
+	if err != nil {
+        errorLogger.Printf("%s: failed to get commentators for record: %v", handler, err)
+	}
 	for _, commentator := range commentators {
 		if commentator != commentOwner && commentator != recordOwner {
-			h.notificationService.CreateOtherCommentator(ctx, commentator, comment)
+            if err := h.notificationService.CreateForApprovedComment(ctx, commentator, comment, "new activity on a record you follow", "posted on a record you previously commented on"); err != nil {
+        errorLogger.Printf("%s: failed to create other commentator notification: %v", handler, err)
+            }
 		}
 	}
-	h.emailWorker.ProcessPending(ctx, 20)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "approved"})
@@ -319,8 +326,10 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "rejected"})
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
-	h.notificationService.CreateCommentModeration(ctx, comment, StatusRejected)
-	h.emailWorker.ProcessPending(ctx, 20)
+    if err := h.notificationService.CreateForCommentModeration(ctx, comment, StatusRejected); err != nil {
+         errorLogger.Printf("%s: case rejected: %v", handler, err)
+    }
+
 }
 
 // DELETE /api/v1/moderation/comments/{id} - Delete a comment (admin only)

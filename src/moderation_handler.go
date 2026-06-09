@@ -13,16 +13,14 @@ type ModerationHandler struct {
 	moderationRepo      ModerationRepository
 	adminRepo           AdminRepository
 	notificationService *NotificationService
-	emailWorker         *EmailWorker
 	recordRepo          RecordRepository
 }
 
-func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker, recordRepo RecordRepository) *ModerationHandler {
+func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRepository, notificationService *NotificationService, recordRepo RecordRepository) *ModerationHandler {
 	return &ModerationHandler{
 		moderationRepo:      moderationRepo,
 		adminRepo:           adminRepo,
 		notificationService: notificationService,
-		emailWorker:         emailWorker,
 		recordRepo:          recordRepo,
 	}
 }
@@ -195,7 +193,9 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Validate action
 	var newStatus ModerationStatus
+
 	uploaderOrcid, err := h.recordRepo.GetOwnerOrcid(ctx, id)
+
 	switch req.Action {
 	case "approve":
 		newStatus = StatusApproved
@@ -206,8 +206,9 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Error approving record/version", http.StatusInternalServerError)
 			return
 		}
-		h.notificationService.CreateRecordModeration(ctx, id, uploaderOrcid, StatusApproved)
-		h.emailWorker.ProcessPending(ctx, 20)
+		if err := h.notificationService.CreateForRecordModeration(ctx, id, uploaderOrcid, StatusApproved); err != nil {
+            errorLogger.Printf("moderation handler: case approved: %v", err)
+		}
 	case "reject":
 		newStatus = StatusRejected
 		// Check if there's a pending version to reject
@@ -215,8 +216,9 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Error rejecting record/version", http.StatusInternalServerError)
 			return
 		}
-		h.notificationService.CreateRecordModeration(ctx, id, uploaderOrcid, StatusRejected)
-		h.emailWorker.ProcessPending(ctx, 20)
+		if err := h.notificationService.CreateForRecordModeration(ctx, id, uploaderOrcid, StatusRejected); err != nil {
+            errorLogger.Printf("moderation handler: case rejected: %v", err)
+		}
 	case "flag":
 		newStatus = StatusFlagged
 		// Update record status

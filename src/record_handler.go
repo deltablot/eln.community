@@ -38,19 +38,16 @@ type RecordHandler struct {
 	categoryRepo        CategoryRepository
 	adminRepo           AdminRepository
 	notificationService *NotificationService
-	emailWorker         *EmailWorker
 	rorNameCache        *RorNameCache
 	rorClient           *RorClient
 }
 
-func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, notificationService *NotificationService, emailWorker *EmailWorker,
-	rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
+func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, notificationService *NotificationService, rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
 	return &RecordHandler{
 		recordRepo:          recordRepo,
 		categoryRepo:        categoryRepo,
 		adminRepo:           adminRepo,
 		notificationService: notificationService,
-		emailWorker:         emailWorker,
 		rorNameCache:        rorNameCache,
 		rorClient:           rorClient,
 	}
@@ -277,11 +274,9 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.notificationService.CreateRecord(ctx, &record); err != nil {
-		log.Printf("Failed to create record notification: %v", err)
-		return
+	if err := h.notificationService.CreateForRecord(ctx, &record); err != nil {
+		errorLogger.Printf("record handler: failed to create record notification: %v", err)
 	}
-	h.emailWorker.ProcessPending(ctx, 20)
 
 	// 2) Decide: JSON (API clients) vs. redirect (browser form)
 	accept := r.Header.Get("Accept")

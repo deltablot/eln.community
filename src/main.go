@@ -471,17 +471,31 @@ func main() {
 	orcidService := NewOrcidService()
 	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidService)
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
-	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, emailWorker, recordRepo)
-	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService, emailWorker, moderationRepo)
+	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, recordRepo)
+	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService, moderationRepo)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
-	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, notificationService, emailWorker, rorNameCache, rorClient)
+	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, notificationService, rorNameCache, rorClient)
 	historyRepo := NewPostgresHistoryRepository(db)
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
+
+	// process notification event every minute
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+		for {
+			emailWorker.ProcessPending(ctx, 20)
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 )
 
@@ -19,11 +20,12 @@ func NewEmailWorker(emailQueueRepo EmailQueueRepository, emailSender *EmailSende
 	}
 }
 
+const worker = "email worker"
+
 func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 	pendingEmails, err := w.emailQueueRepo.GetPending(ctx, limit)
 	if err != nil {
-		log.Printf("Email worker: failed to fetch pending emails. Error: %v", err)
-		return err
+		return fmt.Errorf("%s: failed to fetch pending emails: %w", worker, err)
 	}
 
 	for _, pending := range pendingEmails {
@@ -31,8 +33,7 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 		if err != nil {
 			markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
 			if markErr != nil {
-				log.Printf("Email worker: failed to mark email as failed queue_id:%d after resolving recipient email failed. Error: %v", pending.Id, markErr)
-				return markErr
+                return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after recipient email resolution failure: %w", worker, pending.Id, markErr)
 			}
 			continue
 		}
@@ -42,18 +43,16 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 		if err != nil {
 			markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
 			if markErr != nil {
-				log.Printf("Email worker: failed to mark email as failed queue_id:%d after send failure. Error: %v", pending.Id, markErr)
-				return markErr
+                return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after send failure: %w", worker, pending.Id, markErr)
 			}
 			continue
 		}
 
 		markErr := w.emailQueueRepo.MarkAsSent(ctx, pending.Id)
 		if markErr != nil {
-			log.Printf("Email worker: failed to mark email as sent queue_id:%d. Error: %v", pending.Id, markErr)
-			return markErr
+            return fmt.Errorf("%s: failed to mark email as sent (queue_id %d): %w", worker, pending.Id, markErr)
 		}
-		log.Printf("Email worker: email sent successfully for email queue_id:%d record: %s", pending.Id, pending.RecordID)
+		log.Printf("%s: email sent successfully", worker)
 	}
 	return nil
 }

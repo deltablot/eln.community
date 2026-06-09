@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 )
 
 type EmailQueueRepository interface {
@@ -20,15 +21,19 @@ func NewPostgresEmailQueueRepository(db *sql.DB) *PostgresEmailQueueRepository {
 	return &PostgresEmailQueueRepository{db: db}
 }
 
+const repo = "email queue repository"
+
+// https://pkg.go.dev/database/sql#DB.QueryRowContext
+// https://www.postgresql.org/docs/current/sql-insert.html
 func (r *PostgresEmailQueueRepository) Enqueue(ctx context.Context, item *EmailQueue) (*EmailQueue, error) {
 	var queue EmailQueue
 
-	query := `INSERT INTO email_queue (record_id, comment_id, recipient_orcid, subject, body) VALUES($1, $2, $3, $4, $5)`
+	query := `INSERT INTO email_queue (record_id, comment_id, recipient_orcid, subject, body) VALUES($1, $2, $3, $4, $5) RETURNING id, record_id, comment_id, recipient_orcid, subject, body, status, attempts, last_error, created_at, modified_at, sent_at`
 
 	err := r.db.QueryRowContext(ctx, query, item.RecordID, item.CommentID, item.RecipientOrcid, item.Subject, item.Body).Scan(&queue.Id, &queue.RecordID, &queue.CommentID, &queue.RecipientOrcid, &queue.Subject, &queue.Body, &queue.Status, &queue.Attempts, &queue.LastError, &queue.CreatedAt, &queue.ModifiedAt, &queue.SentAt)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: failed to enqueue email for record %s: %w", repo, item.RecordID, err)
 	}
 
 	return &queue, nil
@@ -38,7 +43,7 @@ func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int
 	rows, err := r.db.QueryContext(ctx, `SELECT id, record_id, comment_id, recipient_orcid, subject, body, status, attempts, last_error, created_at, modified_at, sent_at FROM email_queue WHERE status = $1 ORDER BY created_at ASC LIMIT $2`, PendingStatus, limit)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: failed to get pending emails: %w", repo, err)
 	}
 	defer rows.Close()
 
@@ -46,12 +51,12 @@ func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int
 	for rows.Next() {
 		var email EmailQueue
 		if err := rows.Scan(&email.Id, &email.RecordID, &email.CommentID, &email.RecipientOrcid, &email.Subject, &email.Body, &email.Status, &email.Attempts, &email.LastError, &email.CreatedAt, &email.ModifiedAt, &email.SentAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: failed to scan pending email row: %w", repo, err)
 		}
 		pendingEmails = append(pendingEmails, email)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: failed to read pending email row: %w", repo, err)
 	}
 
 	return pendingEmails, nil
@@ -61,7 +66,7 @@ func (r *PostgresEmailQueueRepository) MarkAsSent(ctx context.Context, id int64)
 	_, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, last_error = NULL, sent_at = NOW() WHERE id = $2`, SentStatus, id)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: failed to mark email queue item %d as sent: %w", repo, id, err)
 	}
 	return nil
 }
@@ -70,7 +75,7 @@ func (r *PostgresEmailQueueRepository) MarkAsFailed(ctx context.Context, id int6
 	_, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, attempts = (attempts + 1), last_error = $2 WHERE id = $3`, FailedStatus, errMsg, id)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: failed to mark email queue item %d as failed: %w", repo, id, err)
 	}
 	return nil
 }
