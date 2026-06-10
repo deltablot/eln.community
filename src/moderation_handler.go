@@ -207,7 +207,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		if err := h.notificationService.CreateForRecordModeration(ctx, id, uploaderOrcid, StatusApproved); err != nil {
-            errorLogger.Printf("moderation handler: case approved: %v", err)
+			errorLogger.Printf("moderation handler: case approved: %v", err)
 		}
 	case "reject":
 		newStatus = StatusRejected
@@ -217,7 +217,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		if err := h.notificationService.CreateForRecordModeration(ctx, id, uploaderOrcid, StatusRejected); err != nil {
-            errorLogger.Printf("moderation handler: case rejected: %v", err)
+			errorLogger.Printf("moderation handler: case rejected: %v", err)
 		}
 	case "flag":
 		newStatus = StatusFlagged

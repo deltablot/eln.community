@@ -33,7 +33,7 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 		if err != nil {
 			markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
 			if markErr != nil {
-                return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after recipient email resolution failure: %w", worker, pending.Id, markErr)
+				return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after recipient email resolution failure: %w", worker, pending.Id, markErr)
 			}
 			continue
 		}
@@ -43,14 +43,14 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 		if err != nil {
 			markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
 			if markErr != nil {
-                return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after send failure: %w", worker, pending.Id, markErr)
+				return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after send failure: %w", worker, pending.Id, markErr)
 			}
 			continue
 		}
 
 		markErr := w.emailQueueRepo.MarkAsSent(ctx, pending.Id)
 		if markErr != nil {
-            return fmt.Errorf("%s: failed to mark email as sent (queue_id %d): %w", worker, pending.Id, markErr)
+			return fmt.Errorf("%s: failed to mark email as sent (queue_id %d): %w", worker, pending.Id, markErr)
 		}
 		log.Printf("%s: email sent successfully", worker)
 	}

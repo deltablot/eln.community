@@ -25,7 +25,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-    "sync"
+	"sync"
 	"time"
 
 	"github.com/alexedwards/scs/postgresstore"
@@ -69,6 +69,8 @@ var app App
 var version string = "dev"
 
 var siteUrl = "http://localhost"
+
+const EMAIL_NOTIF_INTERVAL_SEC = 60
 
 // uuidv7Regex ensures that the filename follows the format:
 // UUID with version 7 (third group starts with '7')
@@ -484,22 +486,21 @@ func main() {
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
 
-    var wg sync.WaitGroup
+	var wg sync.WaitGroup
 
 	// process notification event every minute
-	go func() {
-		ticker := time.NewTicker(60 * time.Second)
+	wg.Go(func() {
+		ticker := time.NewTicker(EMAIL_NOTIF_INTERVAL_SEC * time.Second)
 		defer ticker.Stop()
 		for {
-			wg.Go(func() {emailWorker.ProcessPending(ctx, 20)})
 			select {
 			case <-ticker.C:
+				emailWorker.ProcessPending(ctx, 20)
 			case <-ctx.Done():
 				return
 			}
 		}
-        wg.Wait()
-	}()
+	})
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)

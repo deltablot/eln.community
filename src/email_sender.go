@@ -1,10 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"net/smtp"
 	"os"
-    "fmt"
 )
 
 type EmailSender struct {
@@ -42,7 +42,7 @@ func (e *EmailSender) Send(to string, subject string, body string) error {
 
 	err := smtp.SendMail(smtpAddr, auth, e.smtpFromAddress, recipients, msg)
 	if err != nil {
-        return fmt.Errorf("email sender: failed to send email: %w", err)
+		return fmt.Errorf("email sender: failed to send email: %w", err)
 	}
 	return nil
 }

@@ -102,9 +102,9 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(comment)
 
-    if err := h.notificationService.CreateForComment(ctx, comment); err != nil {
-        errorLogger.Printf("%s: failed to create comment notification: %v", handler, err)
-    }
+	if err := h.notificationService.CreateForComment(ctx, comment); err != nil {
+		errorLogger.Printf("%s: failed to create comment notification: %v", handler, err)
+	}
 }
 
 // GET /api/v1/records/{id}/comments - Get comments for a record
@@ -250,23 +250,23 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-    if err := h.notificationService.CreateForCommentModeration(ctx, comment, StatusApproved); err != nil {
-        errorLogger.Printf("%s: failed to create moderation notification: %v", handler, err)
-    }
+	if err := h.notificationService.CreateForCommentModeration(ctx, comment, StatusApproved); err != nil {
+		errorLogger.Printf("%s: failed to create moderation notification: %v", handler, err)
+	}
 	if commentOwner != recordOwner {
-        if err := h.notificationService.CreateForApprovedComment(ctx, recordOwner, comment, "a new comment has been posted on your record", "posted on your record"); err != nil {
-        errorLogger.Printf("%s: failed to create record owner notification: %v", handler, err)
-        }
+		if err := h.notificationService.CreateForApprovedComment(ctx, recordOwner, comment, "a new comment has been posted on your record", "posted on your record"); err != nil {
+			errorLogger.Printf("%s: failed to create record owner notification: %v", handler, err)
+		}
 	}
 	commentators, err := h.commentRepo.GetAllOrcids(ctx, comment.RecordID)
 	if err != nil {
-        errorLogger.Printf("%s: failed to get commentators for record: %v", handler, err)
+		errorLogger.Printf("%s: failed to get commentators for record: %v", handler, err)
 	}
 	for _, commentator := range commentators {
 		if commentator != commentOwner && commentator != recordOwner {
-            if err := h.notificationService.CreateForApprovedComment(ctx, commentator, comment, "new activity on a record you follow", "posted on a record you previously commented on"); err != nil {
-        errorLogger.Printf("%s: failed to create other commentator notification: %v", handler, err)
-            }
+			if err := h.notificationService.CreateForApprovedComment(ctx, commentator, comment, "new activity on a record you follow", "posted on a record you previously commented on"); err != nil {
+				errorLogger.Printf("%s: failed to create other commentator notification: %v", handler, err)
+			}
 		}
 	}
 
@@ -326,9 +326,9 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "rejected"})
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
-    if err := h.notificationService.CreateForCommentModeration(ctx, comment, StatusRejected); err != nil {
-         errorLogger.Printf("%s: case rejected: %v", handler, err)
-    }
+	if err := h.notificationService.CreateForCommentModeration(ctx, comment, StatusRejected); err != nil {
+		errorLogger.Printf("%s: case rejected: %v", handler, err)
+	}
 
 }
 
