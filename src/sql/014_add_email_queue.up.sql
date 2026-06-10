@@ -15,4 +15,10 @@ CREATE TABLE IF NOT EXISTS email_queue (
 );
 
 -- Indexes for efficient queries
-CREATE INDEX idx_email_queue_status_created_at ON email_queue(status);
+CREATE INDEX idx_email_queue_status ON email_queue(status);
+
+-- Trigger for modified_at
+CREATE TRIGGER trigger_update_modified_at_email_queue
+    BEFORE UPDATE ON email_queue
+    FOR EACH ROW
+    EXECUTE FUNCTION update_modified_at();

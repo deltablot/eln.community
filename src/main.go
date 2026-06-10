@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+    "sync"
 	"time"
 
 	"github.com/alexedwards/scs/postgresstore"
@@ -483,18 +484,21 @@ func main() {
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
 
+    var wg sync.WaitGroup
+
 	// process notification event every minute
 	go func() {
 		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 		for {
-			emailWorker.ProcessPending(ctx, 20)
+			wg.Go(func() {emailWorker.ProcessPending(ctx, 20)})
 			select {
 			case <-ticker.C:
 			case <-ctx.Done():
 				return
 			}
 		}
+        wg.Wait()
 	}()
 
 	// API
