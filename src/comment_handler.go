@@ -238,16 +238,17 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
-		return
+		errorLogger.Printf("%s: failed to get comment id: %v", handler, err)
 	}
 
 	recordOwner, err := h.recordRepo.GetOwnerOrcid(ctx, comment.RecordID)
 	if err != nil {
-		return
+		errorLogger.Printf("%s: failed to get record owner orcid: %v", handler, err)
 	}
+
 	commentOwner, err := h.commentRepo.GetOrcid(ctx, commentID)
 	if err != nil {
-		return
+		errorLogger.Printf("%s: failed to get commentator orcid: %v", handler, err)
 	}
 
 	if err := h.notificationService.CreateForCommentModeration(ctx, comment, StatusApproved); err != nil {
@@ -326,6 +327,10 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "rejected"})
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
+	if err != nil {
+		errorLogger.Printf("%s: failed to get comment id: %v", handler, err)
+		return
+	}
 	if err := h.notificationService.CreateForCommentModeration(ctx, comment, StatusRejected); err != nil {
 		errorLogger.Printf("%s: case rejected: %v", handler, err)
 	}

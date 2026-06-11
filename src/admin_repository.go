@@ -37,7 +37,7 @@ func (r *PostgresAdminRepository) IsAdmin(ctx context.Context, orcid string) (bo
 }
 
 func (r *PostgresAdminRepository) GetAllAdmins(ctx context.Context) ([]Admin, error) {
-	rows, err := db.Query(`SELECT orcid, created_at, modified_at FROM admin_orcids`)
+	rows, err := r.db.Query(`SELECT orcid, created_at, modified_at FROM admin_orcids`)
 	if err != nil {
 		return nil, err
 	}

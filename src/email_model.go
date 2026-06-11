@@ -9,14 +9,16 @@ type EmailStatus int
 
 const (
 	PendingStatus EmailStatus = iota
+	ProcessingStatus
 	SentStatus
 	FailedStatus
 )
 
 var statusName = map[EmailStatus]string{
-	PendingStatus: "pending",
-	SentStatus:    "sent",
-	FailedStatus:  "failed",
+	PendingStatus:    "pending",
+	ProcessingStatus: "processing",
+	SentStatus:       "sent",
+	FailedStatus:     "failed",
 }
 
 type EmailQueue struct {

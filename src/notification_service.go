@@ -55,7 +55,7 @@ func buildModerationBody(item string, status ModerationStatus) string {
 	case StatusApproved:
 		body = fmt.Sprintf("Good news!\nYour %s has been approved by the ELN Community moderation team.\n\nIt is now available on the platform and can be shared with the community.", item)
 	case StatusRejected:
-		body = fmt.Sprintf("Your %s has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team at <TODO: ADD ADDRESS>.", item)
+		body = fmt.Sprintf("Your %s has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team at contact@deltablot.email.", item)
 	}
 
 	return fmt.Sprintf("Hello,\n\n%s\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science.", body)

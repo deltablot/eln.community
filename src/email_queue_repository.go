@@ -11,6 +11,7 @@ type EmailQueueRepository interface {
 	GetPending(ctx context.Context, limit int) ([]EmailQueue, error)
 	MarkAsSent(ctx context.Context, id int64) error
 	MarkAsFailed(ctx context.Context, id int64, errMsg string) error
+    MarkForRetry(ctx context.Context, id int64, errMsg string) error
 }
 
 type PostgresEmailQueueRepository struct {
@@ -39,8 +40,14 @@ func (r *PostgresEmailQueueRepository) Enqueue(ctx context.Context, item *EmailQ
 	return &queue, nil
 }
 
+// https://www.postgresql.org/docs/current/sql-select.html
 func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int) ([]EmailQueue, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, record_id, comment_id, recipient_orcid, subject, body, status, attempts, last_error, created_at, modified_at, sent_at FROM email_queue WHERE status = $1 ORDER BY created_at ASC LIMIT $2`, PendingStatus, limit)
+	rows, err := r.db.QueryContext(ctx, `WITH processing AS (
+        SELECT id FROM email_queue WHERE status = $1 ORDER BY created_at ASC
+        LIMIT $2 FOR UPDATE SKIP LOCKED)
+        UPDATE email_queue AS q SET status = $3, modified_at = NOW() FROM processing
+        WHERE q.id = processing.id
+        RETURNING q.id, q.record_id, q.comment_id, q.recipient_orcid, q.subject, q.body, q.status, q.attempts, q.last_error, q.created_at, q.modified_at, q.sent_at;`, PendingStatus, limit, ProcessingStatus)
 
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to get pending emails: %w", repo, err)
@@ -76,6 +83,15 @@ func (r *PostgresEmailQueueRepository) MarkAsFailed(ctx context.Context, id int6
 
 	if err != nil {
 		return fmt.Errorf("%s: failed to mark email queue item %d as failed: %w", repo, id, err)
+	}
+	return nil
+}
+
+func (r *PostgresEmailQueueRepository) MarkForRetry(ctx context.Context, id int64, errMsg string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, attempts = (attempts + 1), last_error = $2 WHERE id = $3`, PendingStatus, errMsg, id)
+
+	if err != nil {
+		return fmt.Errorf("%s: failed to mark email queue item %d as pending for retry: %w", repo, id, err)
 	}
 	return nil
 }
