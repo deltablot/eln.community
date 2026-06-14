@@ -3,7 +3,7 @@
   "packageManager": "yarn@4.6.0",
   "dependencies": {
     "dompurify": "^3.0.0",
-    "esbuild": "^0.25.2",
+    "esbuild": "^0.28.1",
     "marked": "^15.0.0"
   }
 }
