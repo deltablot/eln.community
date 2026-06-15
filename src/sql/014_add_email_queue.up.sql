@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS email_queue (
     id INTEGER       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     record_id UUID NOT NULL REFERENCES records(id),
-    comment_id BIGINT REFERENCES comments(id),
+    comment_id BIGINT REFERENCES comments(id) ON DELETE SET NULL,
     recipient_orcid orcid_type NOT NULL,
     subject TEXT NOT NULL,
     body TEXT NOT NULL,

@@ -23,6 +23,7 @@ func NewPostgresEmailQueueRepository(db *sql.DB) *PostgresEmailQueueRepository {
 }
 
 const repo = "email queue repository"
+const processingTimeout = "15 minutes"
 
 // https://pkg.go.dev/database/sql#DB.QueryRowContext
 // https://www.postgresql.org/docs/current/sql-insert.html
@@ -43,11 +44,14 @@ func (r *PostgresEmailQueueRepository) Enqueue(ctx context.Context, item *EmailQ
 // https://www.postgresql.org/docs/current/sql-select.html
 func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int) ([]EmailQueue, error) {
 	rows, err := r.db.QueryContext(ctx, `WITH processing AS (
-        SELECT id FROM email_queue WHERE status = $1 ORDER BY created_at ASC
-        LIMIT $2 FOR UPDATE SKIP LOCKED)
-        UPDATE email_queue AS q SET status = $3, modified_at = NOW() FROM processing
+        SELECT id FROM email_queue WHERE status = $1
+        OR (status = $2 AND modified_at < NOW() - ($3::interval))
+        ORDER BY created_at ASC
+        LIMIT $4 FOR UPDATE SKIP LOCKED)
+        UPDATE email_queue AS q
+        SET status = $2, modified_at = NOW() FROM processing
         WHERE q.id = processing.id
-        RETURNING q.id, q.record_id, q.comment_id, q.recipient_orcid, q.subject, q.body, q.status, q.attempts, q.last_error, q.created_at, q.modified_at, q.sent_at;`, PendingStatus, limit, ProcessingStatus)
+        RETURNING q.id, q.record_id, q.comment_id, q.recipient_orcid, q.subject, q.body, q.status, q.attempts, q.last_error, q.created_at, q.modified_at, q.sent_at;`, PendingStatus, ProcessingStatus, processingTimeout, limit)
 
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to get pending emails: %w", repo, err)
