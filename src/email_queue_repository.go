@@ -74,28 +74,40 @@ func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int
 }
 
 func (r *PostgresEmailQueueRepository) MarkAsSent(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, last_error = NULL, sent_at = NOW() WHERE id = $2`, SentStatus, id)
+	res, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, last_error = NULL, sent_at = NOW() WHERE id = $2`, SentStatus, id)
 
 	if err != nil {
 		return fmt.Errorf("%s: failed to mark email queue item %d as sent: %w", repo, id, err)
 	}
+    n, err := res.RowsAffected()
+    if err != nil || n != 1 {
+		return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
+    }
 	return nil
 }
 
 func (r *PostgresEmailQueueRepository) MarkAsFailed(ctx context.Context, id int64, errMsg string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, attempts = (attempts + 1), last_error = $2 WHERE id = $3`, FailedStatus, errMsg, id)
+	res, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, attempts = (attempts + 1), last_error = $2 WHERE id = $3`, FailedStatus, errMsg, id)
 
 	if err != nil {
 		return fmt.Errorf("%s: failed to mark email queue item %d as failed: %w", repo, id, err)
 	}
+    n, err := res.RowsAffected()
+    if err != nil || n != 1 {
+		return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
+    }
 	return nil
 }
 
 func (r *PostgresEmailQueueRepository) MarkForRetry(ctx context.Context, id int64, errMsg string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, attempts = (attempts + 1), last_error = $2 WHERE id = $3`, PendingStatus, errMsg, id)
+	res, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, attempts = (attempts + 1), last_error = $2 WHERE id = $3`, PendingStatus, errMsg, id)
 
 	if err != nil {
 		return fmt.Errorf("%s: failed to mark email queue item %d as pending for retry: %w", repo, id, err)
 	}
+    n, err := res.RowsAffected()
+    if err != nil || n != 1 {
+		return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
+    }
 	return nil
 }

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS email_queue (
     recipient_orcid orcid_type NOT NULL,
     subject TEXT NOT NULL,
     body TEXT NOT NULL,
-    status INTEGER NOT NULL DEFAULT 0,
+    status INTEGER NOT NULL DEFAULT 0 CHECK (status IN (0, 1, 2, 3)),
     attempts INTEGER NOT NULL DEFAULT 0,
     last_error TEXT DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

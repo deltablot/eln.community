@@ -279,7 +279,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 // Create creates a new record within a transaction
 func (r *PostgresRecordRepository) Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error {
 	// Get initial moderation status based on configuration
-	moderationStatus := GetInitialModerationStatus()
+    moderationStatus := StatusPendingReview
 
 	// Default license if not provided
 	if record.License == "" {

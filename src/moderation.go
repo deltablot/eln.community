@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"os"
+//	"os"
 	"time"
 )
 
@@ -545,21 +545,4 @@ func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Co
 	}
 
 	return entries, rows.Err()
-}
-
-// IsModerationEnabled checks if moderation is enabled via environment variable
-// Default is true (enabled)
-func IsModerationEnabled() bool {
-	enabled := os.Getenv("MODERATION_ENABLED")
-	// Default to enabled if not set or set to anything other than "false"
-	return enabled != "false"
-}
-
-// GetInitialModerationStatus returns the initial status for new records
-// based on whether moderation is enabled
-func GetInitialModerationStatus() ModerationStatus {
-	if IsModerationEnabled() {
-		return StatusPendingReview
-	}
-	return StatusApproved
 }
