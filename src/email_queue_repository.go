@@ -79,10 +79,10 @@ func (r *PostgresEmailQueueRepository) MarkAsSent(ctx context.Context, id int64)
 	if err != nil {
 		return fmt.Errorf("%s: failed to mark email queue item %d as sent: %w", repo, id, err)
 	}
-    n, err := res.RowsAffected()
-    if err != nil || n != 1 {
+	n, err := res.RowsAffected()
+	if err != nil || n != 1 {
 		return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
-    }
+	}
 	return nil
 }
 
@@ -92,10 +92,10 @@ func (r *PostgresEmailQueueRepository) MarkAsFailed(ctx context.Context, id int6
 	if err != nil {
 		return fmt.Errorf("%s: failed to mark email queue item %d as failed: %w", repo, id, err)
 	}
-    n, err := res.RowsAffected()
-    if err != nil || n != 1 {
+	n, err := res.RowsAffected()
+	if err != nil || n != 1 {
 		return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
-    }
+	}
 	return nil
 }
 
@@ -105,9 +105,9 @@ func (r *PostgresEmailQueueRepository) MarkForRetry(ctx context.Context, id int6
 	if err != nil {
 		return fmt.Errorf("%s: failed to mark email queue item %d as pending for retry: %w", repo, id, err)
 	}
-    n, err := res.RowsAffected()
-    if err != nil || n != 1 {
-        return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
-    }
+	n, err := res.RowsAffected()
+	if err != nil || n != 1 {
+		return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
+	}
 	return nil
 }

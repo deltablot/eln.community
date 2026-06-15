@@ -21,7 +21,24 @@ func NewEmailWorker(emailQueueRepo EmailQueueRepository, emailSender *EmailSende
 }
 
 const worker = "email worker"
-const MAX_ATTEMPTS = 3
+const maxAttempts = 3
+
+func (w *EmailWorker) retryOrFail(ctx context.Context, pending EmailQueue, reason string, err error) error {
+	if pending.Attempts+1 < maxAttempts {
+		markErr := w.emailQueueRepo.MarkForRetry(ctx, pending.Id, err.Error())
+		if markErr != nil {
+			return fmt.Errorf("%s: failed to mark email as pending for retry (queue_id %d) after %s failure: %w", worker, pending.Id, reason, markErr)
+		}
+		return nil
+	}
+
+	markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
+	if markErr != nil {
+		return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after %s failure: %w", worker, pending.Id, reason, markErr)
+	}
+
+	return nil
+}
 
 func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 	pendingEmails, err := w.emailQueueRepo.GetPending(ctx, limit)
@@ -32,26 +49,16 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 	for _, pending := range pendingEmails {
 		recipientEmail, err := w.orcidService.GetEmail(ctx, pending.RecipientOrcid)
 		if err != nil {
-			if pending.Attempts+1 < MAX_ATTEMPTS {
-				markErr := w.emailQueueRepo.MarkForRetry(ctx, pending.Id, err.Error())
-				if markErr != nil {
-					return fmt.Errorf("%s: failed to mark email as pending for retry (queue_id %d) after recipient email resolution failure: %w", worker, pending.Id, markErr)
-				}
-			} else {
-				markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
-				if markErr != nil {
-					return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after recipient email resolution failure: %w", worker, pending.Id, markErr)
-				}
+			if markErr := w.retryOrFail(ctx, pending, "recipient email resolution", err); markErr != nil {
+				return markErr
 			}
 			continue
 		}
 
 		err = w.emailSender.Send(recipientEmail, pending.Subject, pending.Body)
-
 		if err != nil {
-			markErr := w.emailQueueRepo.MarkAsFailed(ctx, pending.Id, err.Error())
-			if markErr != nil {
-				return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after send failure: %w", worker, pending.Id, markErr)
+			if markErr := w.retryOrFail(ctx, pending, "send", err); markErr != nil {
+				return markErr
 			}
 			continue
 		}
