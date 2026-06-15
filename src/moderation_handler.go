@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"html/template"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -195,11 +194,13 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	var newStatus ModerationStatus
 
 	uploaderOrcid, err := h.recordRepo.GetOwnerOrcid(ctx, id)
+	if err != nil {
+		uploaderOrcid = ""
+	}
 
 	switch req.Action {
 	case "approve":
 		newStatus = StatusApproved
-		log.Printf("record id: %q", id)
 
 		// Check if there's a pending version to approve
 		if err := h.moderationRepo.ApprovePendingVersion(ctx, id); err != nil {

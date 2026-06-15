@@ -41,7 +41,7 @@ type CommentRepository interface {
 	DeleteComment(ctx context.Context, id int64) error
 	LogModerationAction(ctx context.Context, action CommentModerationAction) error
 	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationAction, error)
-	GetOrcid(ctx context.Context, id int64) (string, error)
+	GetCommentatorOrcid(ctx context.Context, id int64) (string, error)
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
 }
 
@@ -277,7 +277,7 @@ func sanitizeCommentContent(content string) string {
 	return content
 }
 
-func (r *PostgresCommentRepository) GetOrcid(ctx context.Context, id int64) (string, error) {
+func (r *PostgresCommentRepository) GetCommentatorOrcid(ctx context.Context, id int64) (string, error) {
 	var commenterOrcid string
 	err := r.db.QueryRowContext(ctx, `SELECT commenter_orcid FROM comments WHERE id = $1`, id).Scan(&commenterOrcid)
 	if err != nil {

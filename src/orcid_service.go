@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	//	"net/url"
-	//	"os"
 	"strings"
+	"time"
 )
 
 type OrcidService struct {
@@ -21,6 +20,10 @@ func NewOrcidService() *OrcidService {
 	return &OrcidService{}
 }
 
+var orcidHTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
 // https://info.orcid.org/documentation/api-tutorials/api-tutorial-read-data-on-a-record
 func (o *OrcidService) GetEmail(ctx context.Context, orcid string) (string, error) {
 	address := strings.Join([]string{"https://pub.orcid.org/v3.0/", orcid, "/email"}, "")
@@ -32,7 +35,8 @@ func (o *OrcidService) GetEmail(ctx context.Context, orcid string) (string, erro
 
 	req.Header.Set("Accept", "application/json")
 
-	res, err := http.DefaultClient.Do(req)
+	//res, err := http.DefaultClient.Do(req)
+	res, err := orcidHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("Orcid Service: failed to send email request for orcid %q: %w", orcid, err)
 	}

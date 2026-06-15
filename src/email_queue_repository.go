@@ -11,7 +11,7 @@ type EmailQueueRepository interface {
 	GetPending(ctx context.Context, limit int) ([]EmailQueue, error)
 	MarkAsSent(ctx context.Context, id int64) error
 	MarkAsFailed(ctx context.Context, id int64, errMsg string) error
-    MarkForRetry(ctx context.Context, id int64, errMsg string) error
+	MarkForRetry(ctx context.Context, id int64, errMsg string) error
 }
 
 type PostgresEmailQueueRepository struct {

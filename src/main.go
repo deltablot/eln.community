@@ -21,11 +21,13 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/alexedwards/scs/postgresstore"
@@ -486,21 +488,28 @@ func main() {
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
 
+	shutdown, stop := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
 	var wg sync.WaitGroup
 
 	// process notification event every minute
-	wg.Go(func() {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		ticker := time.NewTicker(EMAIL_NOTIF_INTERVAL_SEC * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				emailWorker.ProcessPending(ctx, 1)
-			case <-ctx.Done():
+				if err := emailWorker.ProcessPending(shutdown, 20); err != nil {
+					errorLogger.Printf("email worker failed: %v", err)
+				}
+			case <-shutdown.Done():
 				return
 			}
 		}
-	})
+	}()
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
@@ -556,9 +565,15 @@ func main() {
 	// Wrap all handlers so they get a request-scoped session context
 	handler := sessionManager.LoadAndSave(mux)
 
-	if err := http.ListenAndServe(addr, handler); err != nil {
-		errorLogger.Fatalf("failed to start server: %v", err)
-	}
+	go func() {
+		if err := http.ListenAndServe(addr, handler); err != nil {
+			errorLogger.Fatalf("failed to start server: %v", err)
+		}
+	}()
+
+	<-shutdown.Done()
+	wg.Wait()
+	infoLogger.Printf("service shutdown")
 }
 
 func getMigrationPath() string {
