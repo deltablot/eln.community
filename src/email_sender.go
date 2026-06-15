@@ -37,7 +37,7 @@ func (e *EmailSender) Send(to string, subject string, body string) error {
 	recipients := []string{to}
 	msg := []byte(
 		"From: " + e.smtpFromAddress + "\r\n" +
-			"To: " + to +
+			"To: " + to + "\r\n" +
 			"Subject: " + subject + "\r\n" +
 			"MIME-Version: 1.0\r\n" +
 			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
