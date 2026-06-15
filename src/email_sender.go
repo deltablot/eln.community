@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/smtp"
 	"os"
+    "strings"
 )
 
 type EmailSender struct {
@@ -26,13 +27,17 @@ func NewEmailSender() *EmailSender {
 }
 
 func (e *EmailSender) Send(to string, subject string, body string) error {
+    // Sanitize 'to' to prevent header injection
+    if strings.ContainsAny(to, "\r\n") {
+        return fmt.Errorf("email sender: recipient address contains invalid CRLF characters")
+    }
 	var smtpAddr = net.JoinHostPort(e.smtpHost, e.smtpPort)
 
 	auth := smtp.PlainAuth("", e.smtpUsername, e.smtpPassword, e.smtpHost)
 	recipients := []string{to}
 	msg := []byte(
 		"From: " + e.smtpFromAddress + "\r\n" +
-			"To: " + to + "\r\n" +
+			"To: " + to +
 			"Subject: " + subject + "\r\n" +
 			"MIME-Version: 1.0\r\n" +
 			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +

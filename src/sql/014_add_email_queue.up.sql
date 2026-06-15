@@ -1,7 +1,7 @@
 -- Queue of email notifications to be sent for record and comment moderation events
 CREATE TABLE IF NOT EXISTS email_queue (
     id INTEGER       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    record_id UUID NOT NULL REFERENCES records(id),
+    record_id UUID NOT NULL REFERENCES records(id) ON DELETE CASCADE,
     comment_id BIGINT REFERENCES comments(id) ON DELETE SET NULL,
     recipient_orcid orcid_type NOT NULL,
     subject TEXT NOT NULL,

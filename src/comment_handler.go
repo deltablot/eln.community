@@ -14,16 +14,14 @@ type CommentHandler struct {
 	recordRepo          RecordRepository
 	adminRepo           AdminRepository
 	notificationService *NotificationService
-	moderationRepo      ModerationRepository
 }
 
-func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService, moderationRepo ModerationRepository) *CommentHandler {
+func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService) *CommentHandler {
 	return &CommentHandler{
 		commentRepo:         commentRepo,
 		recordRepo:          recordRepo,
 		adminRepo:           adminRepo,
 		notificationService: notificationService,
-		moderationRepo:      moderationRepo,
 	}
 }
 

@@ -477,7 +477,7 @@ func main() {
 	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidService)
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
 	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, recordRepo)
-	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService, moderationRepo)
+	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()

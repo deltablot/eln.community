@@ -1097,8 +1097,8 @@ func (r *PostgresRecordRepository) IncrementDownloadCount(ctx context.Context, i
 func (r *PostgresRecordRepository) GetOwnerOrcid(ctx context.Context, recordID string) (string, error) {
 	var uploaderOrcid string
 	err := r.db.QueryRowContext(ctx, "SELECT uploader_orcid FROM records WHERE id = $1", recordID).Scan(&uploaderOrcid)
-	if err != nil {
-		return "", err
+	if err == sql.ErrNoRows {
+		return "", ErrRecordNotFound
 	}
 	return uploaderOrcid, nil
 }
