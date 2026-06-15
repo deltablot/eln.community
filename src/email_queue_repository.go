@@ -107,7 +107,7 @@ func (r *PostgresEmailQueueRepository) MarkForRetry(ctx context.Context, id int6
 	}
     n, err := res.RowsAffected()
     if err != nil || n != 1 {
-		return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
+        return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated: %d", repo, id, n)
     }
 	return nil
 }
