@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"mime/multipart"
 	"net"
 	"net/smtp"
 	"os"
-    "strings"
+	"strings"
 )
 
 type EmailSender struct {
@@ -26,12 +28,16 @@ func NewEmailSender() *EmailSender {
 	}
 }
 
-func (e *EmailSender) Send(to string, subject string, body string) error {
-    // Sanitize 'to' to prevent header injection
-    if strings.ContainsAny(to, "\r\n") {
-        return fmt.Errorf("email sender: recipient address contains invalid CRLF characters")
-    }
+func (e *EmailSender) Send(to string, subject string, bodyText string, bodyHTML string) error {
+	// Sanitize 'to' to prevent header injection
+	if strings.ContainsAny(to, "\r\n") {
+		return fmt.Errorf("email sender: recipient address contains invalid CRLF characters")
+	}
 	var smtpAddr = net.JoinHostPort(e.smtpHost, e.smtpPort)
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	boundary := w.Boundary()
 
 	auth := smtp.PlainAuth("", e.smtpUsername, e.smtpPassword, e.smtpHost)
 	recipients := []string{to}
@@ -40,9 +46,19 @@ func (e *EmailSender) Send(to string, subject string, body string) error {
 			"To: " + to + "\r\n" +
 			"Subject: " + subject + "\r\n" +
 			"MIME-Version: 1.0\r\n" +
+			"Content-Type: multipart/alternative; boundary=\"" + boundary + "\"\r\n" +
+			"\r\n" +
+			"--" + boundary + "\r\n" +
 			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
 			"\r\n" +
-			body + "\r\n",
+			bodyText + "\r\n" +
+			"\r\n" +
+			"--" + boundary + "\r\n" +
+			"Content-Type: text/html; charset=\"UTF-8\"\r\n" +
+			"\r\n" +
+			bodyHTML + "\r\n" +
+			"\r\n" +
+			"--" + boundary + "--\r\n",
 	)
 
 	err := smtp.SendMail(smtpAddr, auth, e.smtpFromAddress, recipients, msg)

@@ -27,7 +27,8 @@ type EmailQueue struct {
 	CommentID      sql.NullInt64  `json:"comment_id"`
 	RecipientOrcid string         `json:"recipient_orcid"`
 	Subject        string         `json:"subject"`
-	Body           string         `json:"body"`
+	BodyText       string         `json:"body_text"`
+	BodyHTML       string         `json:"body_html"`
 	Status         EmailStatus    `json:"status"`
 	Attempts       int            `json:"attempts"`
 	LastError      sql.NullString `json:"last_error"`

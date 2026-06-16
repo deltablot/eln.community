@@ -55,7 +55,7 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 			continue
 		}
 
-		err = w.emailSender.Send(recipientEmail, pending.Subject, pending.Body)
+		err = w.emailSender.Send(recipientEmail, pending.Subject, pending.BodyText, pending.BodyHTML)
 		if err != nil {
 			if markErr := w.retryOrFail(ctx, pending, "send", err); markErr != nil {
 				return markErr

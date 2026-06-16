@@ -1100,8 +1100,8 @@ func (r *PostgresRecordRepository) GetOwnerOrcid(ctx context.Context, recordID s
 	if err == sql.ErrNoRows {
 		return "", ErrRecordNotFound
 	}
-    if err != nil {
-        return "", err
-    }
+	if err != nil {
+		return "", err
+	}
 	return uploaderOrcid, nil
 }

@@ -30,9 +30,9 @@ const processingTimeout = "15 minutes"
 func (r *PostgresEmailQueueRepository) Enqueue(ctx context.Context, item *EmailQueue) (*EmailQueue, error) {
 	var queue EmailQueue
 
-	query := `INSERT INTO email_queue (record_id, comment_id, recipient_orcid, subject, body) VALUES($1, $2, $3, $4, $5) RETURNING id, record_id, comment_id, recipient_orcid, subject, body, status, attempts, last_error, created_at, modified_at, sent_at`
+	query := `INSERT INTO email_queue (record_id, comment_id, recipient_orcid, subject, body_text, body_html) VALUES($1, $2, $3, $4, $5, $6) RETURNING id, record_id, comment_id, recipient_orcid, subject, body_text, body_html, status, attempts, last_error, created_at, modified_at, sent_at`
 
-	err := r.db.QueryRowContext(ctx, query, item.RecordID, item.CommentID, item.RecipientOrcid, item.Subject, item.Body).Scan(&queue.Id, &queue.RecordID, &queue.CommentID, &queue.RecipientOrcid, &queue.Subject, &queue.Body, &queue.Status, &queue.Attempts, &queue.LastError, &queue.CreatedAt, &queue.ModifiedAt, &queue.SentAt)
+	err := r.db.QueryRowContext(ctx, query, item.RecordID, item.CommentID, item.RecipientOrcid, item.Subject, item.BodyText, item.BodyHTML).Scan(&queue.Id, &queue.RecordID, &queue.CommentID, &queue.RecipientOrcid, &queue.Subject, &queue.BodyText, &queue.BodyHTML, &queue.Status, &queue.Attempts, &queue.LastError, &queue.CreatedAt, &queue.ModifiedAt, &queue.SentAt)
 
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to enqueue email for record %s: %w", repo, item.RecordID, err)
@@ -51,7 +51,7 @@ func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int
         UPDATE email_queue AS q
         SET status = $2, modified_at = NOW() FROM processing
         WHERE q.id = processing.id
-        RETURNING q.id, q.record_id, q.comment_id, q.recipient_orcid, q.subject, q.body, q.status, q.attempts, q.last_error, q.created_at, q.modified_at, q.sent_at;`, PendingStatus, ProcessingStatus, processingTimeout, limit)
+        RETURNING q.id, q.record_id, q.comment_id, q.recipient_orcid, q.subject, q.body_text, q.body_html, q.status, q.attempts, q.last_error, q.created_at, q.modified_at, q.sent_at;`, PendingStatus, ProcessingStatus, processingTimeout, limit)
 
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to get pending emails: %w", repo, err)
@@ -61,7 +61,7 @@ func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int
 	var pendingEmails []EmailQueue
 	for rows.Next() {
 		var email EmailQueue
-		if err := rows.Scan(&email.Id, &email.RecordID, &email.CommentID, &email.RecipientOrcid, &email.Subject, &email.Body, &email.Status, &email.Attempts, &email.LastError, &email.CreatedAt, &email.ModifiedAt, &email.SentAt); err != nil {
+		if err := rows.Scan(&email.Id, &email.RecordID, &email.CommentID, &email.RecipientOrcid, &email.Subject, &email.BodyText, &email.BodyHTML, &email.Status, &email.Attempts, &email.LastError, &email.CreatedAt, &email.ModifiedAt, &email.SentAt); err != nil {
 			return nil, fmt.Errorf("%s: failed to scan pending email row: %w", repo, err)
 		}
 		pendingEmails = append(pendingEmails, email)
