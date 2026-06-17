@@ -194,9 +194,6 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	var newStatus ModerationStatus
 
 	uploaderOrcid, err := h.recordRepo.GetOwnerOrcid(ctx, id)
-	if err != nil {
-		uploaderOrcid = ""
-	}
 
 	switch req.Action {
 	case "approve":

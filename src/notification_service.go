@@ -34,8 +34,10 @@ func buildEmailBody(body string) EmailBody {
 	}
 }
 
+const service = "notification service"
+
 func notificationErr(msg string, err error) error {
-	return fmt.Errorf("notification service: failed to create notification for %s: %w", msg, err)
+	return fmt.Errorf("%s: failed to create notification for %s: %w", service, msg, err)
 }
 
 func textToHTML(body string) string {
@@ -85,7 +87,11 @@ func buildModerationBody(item string, status ModerationStatus) EmailBody {
 
 func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string, commentId sql.NullInt64, recipientOrcid string, subject string, bodyText string, bodyHTML string) error {
 	if s.emailQueueRepo == nil {
-		return fmt.Errorf("notification service: emailQueueRepo is nil")
+		return fmt.Errorf("%s: emailQueueRepo is nil", service)
+	}
+
+	if strings.TrimSpace(recipientOrcid) == "" {
+		return fmt.Errorf("%s: recipient ORCID is empty", service)
 	}
 
 	item := &EmailQueue{
@@ -97,7 +103,7 @@ func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string,
 		BodyHTML:       bodyHTML,
 	}
 	if _, err := s.emailQueueRepo.Enqueue(ctx, item); err != nil {
-		return fmt.Errorf("notification service: failed to enqueue notification: %w", err)
+		return fmt.Errorf("%s: failed to enqueue notification: %w", service, err)
 	}
 	return nil
 }
@@ -105,7 +111,7 @@ func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string,
 func (s *NotificationService) enqueueForAdmins(ctx context.Context, recordId string, commentId sql.NullInt64, item string, bodyText string, bodyHTML string) error {
 	notifiableAdmins, err := s.adminRepo.GetAllAdmins(ctx)
 	if err != nil {
-		return fmt.Errorf("notification service: failed to get notifiable admins: %w", err)
+		return fmt.Errorf("%s: failed to get notifiable admins: %w", service, err)
 	}
 
 	subject := fmt.Sprintf("new %s awaiting moderation", item)

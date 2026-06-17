@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
 	"fmt"
 	"mime/multipart"
 	"net"
 	"net/smtp"
 	"os"
 	"strings"
+	"time"
 )
 
 type EmailSender struct {
@@ -28,19 +31,24 @@ func NewEmailSender() *EmailSender {
 	}
 }
 
+const smtpTimeout = 60 * time.Second
+const dialTimeout = 10 * time.Second
+
+func emailSenderErr(msg string, err error) error {
+	return fmt.Errorf("email sender: failed to %s: %w", msg, err)
+}
+
 func (e *EmailSender) Send(to string, subject string, bodyText string, bodyHTML string) error {
 	// Sanitize 'to' to prevent header injection
 	if strings.ContainsAny(to, "\r\n") {
-		return fmt.Errorf("email sender: recipient address contains invalid CRLF characters")
+        return fmt.Errorf("email sender: failed to validate recipient address: contains CRLF characters")
 	}
-	var smtpAddr = net.JoinHostPort(e.smtpHost, e.smtpPort)
+	smtpAddr := net.JoinHostPort(e.smtpHost, e.smtpPort)
 
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	boundary := w.Boundary()
 
-	auth := smtp.PlainAuth("", e.smtpUsername, e.smtpPassword, e.smtpHost)
-	recipients := []string{to}
 	msg := []byte(
 		"From: " + e.smtpFromAddress + "\r\n" +
 			"To: " + to + "\r\n" +
@@ -50,20 +58,78 @@ func (e *EmailSender) Send(to string, subject string, bodyText string, bodyHTML 
 			"\r\n" +
 			"--" + boundary + "\r\n" +
 			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
+           	"Content-Transfer-Encoding: 8bit\r\n" +
 			"\r\n" +
 			bodyText + "\r\n" +
 			"\r\n" +
 			"--" + boundary + "\r\n" +
 			"Content-Type: text/html; charset=\"UTF-8\"\r\n" +
+           	"Content-Transfer-Encoding: 8bit\r\n" +
 			"\r\n" +
 			bodyHTML + "\r\n" +
 			"\r\n" +
 			"--" + boundary + "--\r\n",
 	)
 
-	err := smtp.SendMail(smtpAddr, auth, e.smtpFromAddress, recipients, msg)
-	if err != nil {
-		return fmt.Errorf("email sender: failed to send email: %w", err)
+	deadline := time.Now().Add(smtpTimeout)
+
+	ctx, cancel := context.WithTimeout(context.Background(), smtpTimeout)
+	defer cancel()
+
+	dialer := net.Dialer{
+		Timeout: dialTimeout,
 	}
+
+	conn, err := dialer.DialContext(ctx, "tcp", smtpAddr)
+	if err != nil {
+		return emailSenderErr("dial SMTP server", err)
+	}
+	defer conn.Close()
+
+	if err := conn.SetDeadline(deadline); err != nil {
+		return emailSenderErr("set SMTP connection deadline", err)
+	}
+
+	client, err := smtp.NewClient(conn, e.smtpHost)
+	if err != nil {
+		return emailSenderErr("create SMTP client", err)
+	}
+	defer client.Close()
+
+	tlsConfig := &tls.Config{
+		ServerName: e.smtpHost,
+	}
+	if err := client.StartTLS(tlsConfig); err != nil {
+		return emailSenderErr("start TLS", err)
+	}
+
+	auth := smtp.PlainAuth("", e.smtpUsername, e.smtpPassword, e.smtpHost)
+	if err := client.Auth(auth); err != nil {
+		return emailSenderErr("authenticate with SMTP server", err)
+	}
+
+	if err := client.Mail(e.smtpFromAddress); err != nil {
+		return emailSenderErr("set SMTP sender", err)
+	}
+
+	if err := client.Rcpt(to); err != nil {
+		return emailSenderErr("set SMTP recipient", err)
+	}
+
+	writer, err := client.Data()
+	if err != nil {
+		return emailSenderErr("open SMTP data writer", err)
+	}
+	if _, err := writer.Write(msg); err != nil {
+		return emailSenderErr("write SMTP message", err)
+	}
+	if err := writer.Close(); err != nil {
+		return emailSenderErr("close SMTP data writer", err)
+	}
+
+	if err := client.Quit(); err != nil {
+		return emailSenderErr("quit SMTP session", err)
+	}
+
 	return nil
 }

@@ -287,7 +287,7 @@ func (r *PostgresCommentRepository) GetCommentatorOrcid(ctx context.Context, id 
 }
 
 func (r *PostgresCommentRepository) GetAllOrcids(ctx context.Context, recordId string) ([]string, error) {
-	rows, err := r.db.Query(`SELECT DISTINCT commenter_orcid FROM comments WHERE record_id = $1 AND commenter_orcid IS NOT NULL AND commenter_orcid != '' AND moderation_status = 'approved'`, recordId)
+	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT commenter_orcid FROM comments WHERE record_id = $1 AND commenter_orcid IS NOT NULL AND commenter_orcid != '' AND moderation_status = 'approved'`, recordId)
 	if err != nil {
 		return nil, err
 	}
