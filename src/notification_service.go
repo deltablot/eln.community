@@ -73,16 +73,18 @@ func buildApprovedCommentBody(action string, owner string, content string) Email
 
 func buildModerationBody(item string, status ModerationStatus) EmailBody {
 	var body string
+	var link string
 
 	switch status {
 	case StatusApproved:
 		body = fmt.Sprintf("Good news!\nYour %s has been approved by the ELN Community moderation team.\n\nIt is now available on the platform and can be shared with the community.", item)
+		link = "\n\nYou can view it here: https://eln.community"
 	case StatusRejected:
 		body = fmt.Sprintf("Your %s has been reviewed by the ELN Community moderation team and was not approved for publication.\n\nIf you think this is a mistake or need more information, please contact the ELN Community team at contact@deltablot.email.", item)
+		link = ""
 	}
 
-	fullBody := fmt.Sprintf("Hello,\n\n%s\n\nYou can view it here: https://eln.community\n\nThank you for contributing to open science.", body)
-	return buildEmailBody(fullBody)
+	return buildEmailBody(fmt.Sprintf("Hello,\n\n%s%s\n\nThank you for contributing to open science.", body, link))
 }
 
 func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string, commentId sql.NullInt64, recipientOrcid string, subject string, bodyText string, bodyHTML string) error {

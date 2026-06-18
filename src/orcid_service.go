@@ -39,6 +39,9 @@ func (e *EmailUnavailable) Error() string {
 
 // https://info.orcid.org/documentation/api-tutorials/api-tutorial-read-data-on-a-record
 func GetEmail(ctx context.Context, orcid string) (string, error) {
+	if strings.TrimSpace(orcid) == "" {
+		return "", fmt.Errorf("%s: orcid parameter is empty", orcidService)
+	}
 	address := strings.Join([]string{"https://pub.orcid.org/v3.0/", orcid, "/email"}, "")
 
 	req, err := http.NewRequestWithContext(ctx, "GET", address, nil)
