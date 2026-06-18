@@ -72,6 +72,7 @@ var version string = "dev"
 
 var siteUrl = "http://localhost"
 
+// TODO: set to 60
 const EMAIL_NOTIF_INTERVAL_SEC = 20
 
 // uuidv7Regex ensures that the filename follows the format:
@@ -473,8 +474,7 @@ func main() {
 	commentRepo := NewPostgresCommentRepository(db)
 	notificationService := NewNotificationService(adminRepo, emailQueueRepo, commentRepo)
 	emailSender := NewEmailSender()
-	orcidService := NewOrcidService()
-	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidService)
+	emailWorker := NewEmailWorker(emailQueueRepo, emailSender)
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
 	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, recordRepo)
 	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService)

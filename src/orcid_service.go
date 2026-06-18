@@ -9,58 +9,69 @@ import (
 	"time"
 )
 
-type OrcidService struct {
-}
-
-type OrcidResolver interface {
+type OrcidService interface {
 	GetEmail(ctx context.Context, orcid string) (string, error)
 }
 
-func NewOrcidService() *OrcidService {
-	return &OrcidService{}
+type HTTPStatusError struct {
+	StatusCode int
+	Message    string
 }
+
+type EmailUnavailable struct {
+	Orcid   string
+	Message string
+}
+
+const orcidService = "orcid service"
 
 var orcidHTTPClient = &http.Client{
 	Timeout: 30 * time.Second,
 }
 
+func (e *HTTPStatusError) Error() string {
+	return fmt.Sprintf("%s: %d: failed to %s", orcidService, e.StatusCode, e.Message)
+}
+
+func (e *EmailUnavailable) Error() string {
+	return fmt.Sprintf("%s: %s for orcid %q", orcidService, e.Message, e.Orcid)
+}
+
 // https://info.orcid.org/documentation/api-tutorials/api-tutorial-read-data-on-a-record
-func (o *OrcidService) GetEmail(ctx context.Context, orcid string) (string, error) {
+func GetEmail(ctx context.Context, orcid string) (string, error) {
 	address := strings.Join([]string{"https://pub.orcid.org/v3.0/", orcid, "/email"}, "")
 
 	req, err := http.NewRequestWithContext(ctx, "GET", address, nil)
 	if err != nil {
-		return "", fmt.Errorf("Orcid Service: failed to create email request for orcid %q: %w", orcid, err)
+		return "", fmt.Errorf("%s: failed to create email request for orcid %q: %w", orcidService, orcid, err)
 	}
 
 	req.Header.Set("Accept", "application/json")
 
-	//res, err := http.DefaultClient.Do(req)
 	res, err := orcidHTTPClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("Orcid Service: failed to send email request for orcid %q: %w", orcid, err)
+		return "", fmt.Errorf("%s: failed to send email request for orcid %q: %w", orcidService, orcid, err)
 	}
 	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Orcid Service: email request for orcid %q failed with status: %d", orcid, res.StatusCode)
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return "", &HTTPStatusError{
+			StatusCode: res.StatusCode,
+			Message:    fmt.Sprintf("fetch email for orcid %s", orcid),
+		}
 	}
 
 	var apiResponse struct {
 		Emails []struct {
-			Email      string `json:"email"`
-			Visibility string `json:"visibility"`
-			Verified   bool   `json:"verified"`
-			Primary    bool   `json:"primary"`
+			Email string `json:"email"`
 		} `json:"email"`
 	}
 	err = json.NewDecoder(res.Body).Decode(&apiResponse)
 	if err != nil {
-		return "", fmt.Errorf("Orcid Service: failed to decode email response for orcid %q: %w", orcid, err)
+		return "", fmt.Errorf("%s: failed to decode email response for orcid %q: %w", orcidService, orcid, err)
 	}
 
 	if len(apiResponse.Emails) == 0 {
-		return "", fmt.Errorf("Orcid Service error: no email return for orcid %q", orcid)
+		return "", &EmailUnavailable{Orcid: orcid, Message: "no email return"}
 	}
 
 	for _, email := range apiResponse.Emails {
@@ -69,5 +80,5 @@ func (o *OrcidService) GetEmail(ctx context.Context, orcid string) (string, erro
 		}
 	}
 
-	return "", fmt.Errorf("Orcid Service: email is not available for orcid: %s", orcid)
+	return "", &EmailUnavailable{Orcid: orcid, Message: "email is not available"}
 }

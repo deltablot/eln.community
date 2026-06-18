@@ -17,3 +17,4 @@ build-errors.log
 
 # dev
 nginx/certs
+reset.sh

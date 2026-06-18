@@ -41,7 +41,7 @@ func emailSenderErr(msg string, err error) error {
 func (e *EmailSender) Send(to string, subject string, bodyText string, bodyHTML string) error {
 	// Sanitize 'to' to prevent header injection
 	if strings.ContainsAny(to, "\r\n") {
-        return fmt.Errorf("email sender: failed to validate recipient address: contains CRLF characters")
+		return fmt.Errorf("email sender: failed to validate recipient address: contains CRLF characters")
 	}
 	smtpAddr := net.JoinHostPort(e.smtpHost, e.smtpPort)
 
@@ -58,13 +58,13 @@ func (e *EmailSender) Send(to string, subject string, bodyText string, bodyHTML 
 			"\r\n" +
 			"--" + boundary + "\r\n" +
 			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
-           	"Content-Transfer-Encoding: 8bit\r\n" +
+			"Content-Transfer-Encoding: 8bit\r\n" +
 			"\r\n" +
 			bodyText + "\r\n" +
 			"\r\n" +
 			"--" + boundary + "\r\n" +
 			"Content-Type: text/html; charset=\"UTF-8\"\r\n" +
-           	"Content-Transfer-Encoding: 8bit\r\n" +
+			"Content-Transfer-Encoding: 8bit\r\n" +
 			"\r\n" +
 			bodyHTML + "\r\n" +
 			"\r\n" +
@@ -127,9 +127,8 @@ func (e *EmailSender) Send(to string, subject string, bodyText string, bodyHTML 
 		return emailSenderErr("close SMTP data writer", err)
 	}
 
-	if err := client.Quit(); err != nil {
-		return emailSenderErr("quit SMTP session", err)
-	}
+	// DATA already succeeded; QUIT failure should not trigger a resend path
+	_ = client.Quit()
 
 	return nil
 }
