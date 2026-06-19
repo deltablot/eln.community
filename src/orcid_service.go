@@ -9,9 +9,7 @@ import (
 	"time"
 )
 
-type OrcidService interface {
-	GetEmail(ctx context.Context, orcid string) (string, error)
-}
+type OrcidClient struct{}
 
 type HTTPStatusError struct {
 	StatusCode int
@@ -21,6 +19,10 @@ type HTTPStatusError struct {
 type EmailUnavailable struct {
 	Orcid   string
 	Message string
+}
+
+func NewOrcidClient() *OrcidClient {
+	return &OrcidClient{}
 }
 
 const orcidService = "orcid service"
@@ -38,7 +40,7 @@ func (e *EmailUnavailable) Error() string {
 }
 
 // https://info.orcid.org/documentation/api-tutorials/api-tutorial-read-data-on-a-record
-func GetEmail(ctx context.Context, orcid string) (string, error) {
+func (c *OrcidClient) GetEmail(ctx context.Context, orcid string) (string, error) {
 	if strings.TrimSpace(orcid) == "" {
 		return "", fmt.Errorf("%s: orcid parameter is empty", orcidService)
 	}

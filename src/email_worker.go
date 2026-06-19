@@ -8,15 +8,25 @@ import (
 	"net/textproto"
 )
 
-type EmailWorker struct {
-	emailQueueRepo EmailQueueRepository
-	emailSender    *EmailSender
+type Sender interface {
+	Send(to string, subject string, bodyText string, bodyHTML string) error
 }
 
-func NewEmailWorker(emailQueueRepo EmailQueueRepository, emailSender *EmailSender) *EmailWorker {
+type OrcidService interface {
+	GetEmail(ctx context.Context, orcid string) (string, error)
+}
+
+type EmailWorker struct {
+	emailQueueRepo EmailQueueRepository
+	emailSender    Sender
+	orcidService   OrcidService
+}
+
+func NewEmailWorker(emailQueueRepo EmailQueueRepository, emailSender Sender, orcidService OrcidService) *EmailWorker {
 	return &EmailWorker{
 		emailQueueRepo: emailQueueRepo,
 		emailSender:    emailSender,
+		orcidService:   orcidService,
 	}
 }
 
@@ -66,7 +76,7 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 	}
 
 	for _, pending := range pendingEmails {
-		recipientEmail, err := GetEmail(ctx, pending.RecipientOrcid)
+		recipientEmail, err := w.orcidService.GetEmail(ctx, pending.RecipientOrcid)
 		if err != nil {
 			if markErr := w.retryOrFail(ctx, pending, "recipient email resolution", err); markErr != nil {
 				return markErr
