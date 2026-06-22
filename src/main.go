@@ -72,8 +72,7 @@ var version string = "dev"
 
 var siteUrl = "http://localhost"
 
-// TODO: set to 60
-const EMAIL_NOTIF_INTERVAL_SEC = 20
+const EMAIL_NOTIF_INTERVAL_SEC = 60
 
 // uuidv7Regex ensures that the filename follows the format:
 // UUID with version 7 (third group starts with '7')
