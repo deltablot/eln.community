@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net/textproto"
+	"net/http"
 )
 
 type Sender interface {
-	Send(to string, subject string, bodyText string, bodyHTML string) error
+	Send(ctx context.Context, to string, subject string, bodyText string, bodyHTML string) error
 }
 
 type OrcidService interface {
@@ -59,7 +60,14 @@ func (w *EmailWorker) retry(ctx context.Context, pending EmailQueue, reason stri
 
 func (w *EmailWorker) retryOrFail(ctx context.Context, pending EmailQueue, reason string, err error) error {
 	var emailUnavailable *EmailUnavailable
+	var httpStatusError *HTTPStatusError
 	if errors.As(err, &emailUnavailable) || isSMTPPermanentErr(err) {
+		return w.failed(ctx, pending, reason, err)
+	}
+	if errors.As(err, &httpStatusError) &&
+		httpStatusError.StatusCode >= 400 &&
+		httpStatusError.StatusCode < 500 &&
+		httpStatusError.StatusCode != http.StatusTooManyRequests {
 		return w.failed(ctx, pending, reason, err)
 	}
 	if pending.Attempts+1 < maxAttempts {
@@ -84,7 +92,7 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 			continue
 		}
 
-		err = w.emailSender.Send(recipientEmail, pending.Subject, pending.BodyText, pending.BodyHTML)
+		err = w.emailSender.Send(ctx, recipientEmail, pending.Subject, pending.BodyText, pending.BodyHTML)
 		if err != nil {
 			if markErr := w.retryOrFail(ctx, pending, "send", err); markErr != nil {
 				return markErr

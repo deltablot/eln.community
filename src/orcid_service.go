@@ -9,7 +9,9 @@ import (
 	"time"
 )
 
-type OrcidClient struct{}
+type OrcidClient struct {
+	Url string
+}
 
 type HTTPStatusError struct {
 	StatusCode int
@@ -22,7 +24,9 @@ type EmailUnavailable struct {
 }
 
 func NewOrcidClient() *OrcidClient {
-	return &OrcidClient{}
+	return &OrcidClient{
+		Url: "https://pub.orcid.org/v3.0/",
+	}
 }
 
 const orcidService = "orcid service"
@@ -44,7 +48,7 @@ func (c *OrcidClient) GetEmail(ctx context.Context, orcid string) (string, error
 	if strings.TrimSpace(orcid) == "" {
 		return "", fmt.Errorf("%s: orcid parameter is empty", orcidService)
 	}
-	address := strings.Join([]string{"https://pub.orcid.org/v3.0/", orcid, "/email"}, "")
+	address := strings.Join([]string{c.Url, orcid, "/email"}, "")
 
 	req, err := http.NewRequestWithContext(ctx, "GET", address, nil)
 	if err != nil {

@@ -21,11 +21,12 @@ type MockEmailQueueRepository struct {
 }
 
 type MockEmailSender struct {
-	sendCalled bool
-	subject    string
-	bodyText   string
-	bodyHTML   string
-	to         string
+	sendCalled  bool
+	subject     string
+	bodyText    string
+	bodyHTML    string
+	to          string
+	errToReturn error
 }
 
 type MockOrcidService struct {
@@ -64,13 +65,13 @@ func (m *MockEmailQueueRepository) MarkForRetry(ctx context.Context, id int64, e
 	return nil
 }
 
-func (m *MockEmailSender) Send(to string, subject string, bodyText string, bodyHTML string) error {
+func (m *MockEmailSender) Send(ctx context.Context, to string, subject string, bodyText string, bodyHTML string) error {
 	m.sendCalled = true
 	m.to = to
 	m.subject = subject
 	m.bodyText = bodyText
 	m.bodyHTML = bodyHTML
-	return nil
+	return m.errToReturn
 }
 
 func (m *MockOrcidService) GetEmail(ctx context.Context, orcid string) (string, error) {
@@ -210,10 +211,6 @@ func TestProcessPendingMarkAsSentWhenSuccess(t *testing.T) {
 		t.Fatal("expected GetPending to be called")
 	}
 
-	if mockRepo.id != pending.Id {
-		t.Fatalf("expected queue id: %d, got: %d", pending.Id, mockRepo.id)
-	}
-
 	if !mockOrcid.getEmailCalled {
 		t.Fatal("expected getEmail to be called")
 	}
@@ -246,11 +243,143 @@ func TestProcessPendingMarkAsSentWhenSuccess(t *testing.T) {
 		t.Fatal("expected MarkAsSent to be called")
 	}
 
+	if mockRepo.id != pending.Id {
+		t.Fatalf("expected queue id: %d, got: %d", pending.Id, mockRepo.id)
+	}
+
 	if mockRepo.markForRetryCalled {
 		t.Fatal("expected MarkForRetry not to be called")
 	}
 
 	if mockRepo.markAsFailedCalled {
 		t.Fatal("expected MarkAsFailed not to be called")
+	}
+}
+
+func TestProcessPendingMarkAsFailedWhenEmailUnavailable(t *testing.T) {
+	ctx := context.Background()
+
+	mockRepo := &MockEmailQueueRepository{}
+	mockSender := &MockEmailSender{}
+	mockOrcid := &MockOrcidService{}
+
+	worker := &EmailWorker{
+		emailQueueRepo: mockRepo,
+		emailSender:    mockSender,
+		orcidService:   mockOrcid,
+	}
+
+	pending := EmailQueue{
+		Id:             2,
+		RecipientOrcid: "0000-0000-0000-0000",
+	}
+
+	mockRepo.pendingToReturn = []EmailQueue{pending}
+	mockOrcid.emailToReturn = ""
+	mockOrcid.errToReturn = &EmailUnavailable{Orcid: pending.RecipientOrcid}
+
+	err := worker.ProcessPending(ctx, 1)
+	if err != nil {
+		t.Fatalf("expected ProcessPending to succeed, got error: %v", err)
+	}
+
+	if !mockRepo.getPendingCalled {
+		t.Fatal("expected GetPending to be called")
+	}
+
+	if !mockOrcid.getEmailCalled {
+		t.Fatal("expected getEmail to be called")
+	}
+
+	if mockOrcid.orcidReceived != pending.RecipientOrcid {
+		t.Fatalf("expected orcid: %q, got: %q", pending.RecipientOrcid, mockOrcid.orcidReceived)
+	}
+
+	if mockSender.sendCalled {
+		t.Fatal("expected Send not to be called")
+	}
+
+	if mockRepo.markAsSentCalled {
+		t.Fatal("expected MarkAsSent not to be called")
+	}
+
+	if mockRepo.markForRetryCalled {
+		t.Fatal("expected MarkForRetry not to be called")
+	}
+
+	if !mockRepo.markAsFailedCalled {
+		t.Fatal("expected MarkAsFailed to be called")
+	}
+
+	if mockRepo.id != pending.Id {
+		t.Fatalf("expected queue id: %d, got: %d", pending.Id, mockRepo.id)
+	}
+}
+
+func TestProcessPendingMarkAsFailedWithSMTPPermanentErr(t *testing.T) {
+	ctx := context.Background()
+
+	mockRepo := &MockEmailQueueRepository{}
+	mockSender := &MockEmailSender{}
+	mockOrcid := &MockOrcidService{}
+
+	worker := &EmailWorker{
+		emailQueueRepo: mockRepo,
+		emailSender:    mockSender,
+		orcidService:   mockOrcid,
+	}
+
+	pending := EmailQueue{
+		Id:             2,
+		RecipientOrcid: "0000-0000-0000-0000",
+	}
+
+	mockRepo.pendingToReturn = []EmailQueue{pending}
+	mockOrcid.emailToReturn = "test@test.com"
+	smtpErr := fmt.Errorf("error: %w", &textproto.Error{
+		Code: smtpPermanentErr,
+		Msg:  "authentication required",
+	})
+	mockSender.errToReturn = smtpErr
+
+	err := worker.ProcessPending(ctx, 1)
+	if err != nil {
+		t.Fatalf("expected ProcessPending to succeed, got error: %v", err)
+	}
+
+	if !mockRepo.getPendingCalled {
+		t.Fatal("expected GetPending to be called")
+	}
+
+	if !mockOrcid.getEmailCalled {
+		t.Fatal("expected getEmail to be called")
+	}
+
+	if mockOrcid.orcidReceived != pending.RecipientOrcid {
+		t.Fatalf("expected orcid: %q, got: %q", pending.RecipientOrcid, mockOrcid.orcidReceived)
+	}
+
+	if !mockSender.sendCalled {
+		t.Fatal("expected Send to be called")
+	}
+
+	if mockSender.to != mockOrcid.emailToReturn {
+		t.Fatalf("expected email: %q, got: %q", mockOrcid.emailToReturn, mockSender.to)
+	}
+
+	if mockRepo.markAsSentCalled {
+		t.Fatal("expected MarkAsSent not to be called")
+	}
+
+	if mockRepo.markForRetryCalled {
+		t.Fatal("expected MarkForRetry not to be called")
+	}
+
+	if !mockRepo.markAsFailedCalled {
+		t.Fatal("expected MarkAsFailed to be called")
+	}
+
+	if mockRepo.id != pending.Id {
+		t.Fatalf("expected queue id: %d, got: %d", pending.Id, mockRepo.id)
 	}
 }

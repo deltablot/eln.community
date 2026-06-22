@@ -38,7 +38,7 @@ func emailSenderErr(msg string, err error) error {
 	return fmt.Errorf("email sender: failed to %s: %w", msg, err)
 }
 
-func (e *EmailSender) Send(to string, subject string, bodyText string, bodyHTML string) error {
+func (e *EmailSender) Send(ctx context.Context, to string, subject string, bodyText string, bodyHTML string) error {
 	// Sanitize 'to' to prevent header injection
 	if strings.ContainsAny(to, "\r\n") {
 		return fmt.Errorf("email sender: failed to validate recipient address: contains CRLF characters")
@@ -73,7 +73,7 @@ func (e *EmailSender) Send(to string, subject string, bodyText string, bodyHTML 
 
 	deadline := time.Now().Add(smtpTimeout)
 
-	ctx, cancel := context.WithTimeout(context.Background(), smtpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, smtpTimeout)
 	defer cancel()
 
 	dialer := net.Dialer{

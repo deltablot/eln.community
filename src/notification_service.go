@@ -111,6 +111,9 @@ func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string,
 }
 
 func (s *NotificationService) enqueueForAdmins(ctx context.Context, recordId string, commentId sql.NullInt64, item string, bodyText string, bodyHTML string) error {
+	if s.adminRepo == nil {
+		return fmt.Errorf("%s: adminRepo is nil", service)
+	}
 	notifiableAdmins, err := s.adminRepo.GetAllAdmins(ctx)
 	if err != nil {
 		return fmt.Errorf("%s: failed to get notifiable admins: %w", service, err)
@@ -126,6 +129,9 @@ func (s *NotificationService) enqueueForAdmins(ctx context.Context, recordId str
 }
 
 func (s *NotificationService) CreateForRecord(ctx context.Context, record *Record) error {
+	if record == nil {
+		return fmt.Errorf("%s: record is nil", service)
+	}
 	body := buildAdminModerationRequestBodyText("record", "uploaded", record.UploaderName, "")
 	bodyText := body.Text
 	bodyHTML := body.HTML
@@ -137,6 +143,9 @@ func (s *NotificationService) CreateForRecord(ctx context.Context, record *Recor
 }
 
 func (s *NotificationService) CreateForComment(ctx context.Context, comment *Comment) error {
+	if comment == nil {
+		return fmt.Errorf("%s: comment is nil", service)
+	}
 	body := buildAdminModerationRequestBodyText("comment", "posted", comment.CommenterName, comment.Content)
 	bodyText := body.Text
 	bodyHTML := body.HTML
@@ -160,6 +169,9 @@ func (s *NotificationService) CreateForRecordModeration(ctx context.Context, id 
 }
 
 func (s *NotificationService) CreateForCommentModeration(ctx context.Context, comment *Comment, status ModerationStatus) error {
+	if comment == nil {
+		return fmt.Errorf("%s: comment is nil", service)
+	}
 	body := buildModerationBody("comment", status)
 	bodyText := body.Text
 	bodyHTML := body.HTML
@@ -172,6 +184,9 @@ func (s *NotificationService) CreateForCommentModeration(ctx context.Context, co
 }
 
 func (s *NotificationService) CreateForApprovedComment(ctx context.Context, recipientOrcid string, comment *Comment, subject string, action string) error {
+	if comment == nil {
+		return fmt.Errorf("%s: comment is nil", service)
+	}
 	body := buildApprovedCommentBody(action, comment.CommenterName, comment.Content)
 	bodyText := body.Text
 	bodyHTML := body.HTML
