@@ -21,21 +21,49 @@ type EmailSender struct {
 	smtpPassword    string
 }
 
-func NewEmailSender() *EmailSender {
-	return &EmailSender{
-		smtpHost:        os.Getenv("SMTP_HOST"),
-		smtpPort:        os.Getenv("SMTP_PORT"),
-		smtpFromAddress: os.Getenv("SMTP_FROM_ADDRESS"),
-		smtpUsername:    os.Getenv("SMTP_USERNAME"),
-		smtpPassword:    os.Getenv("SMTP_PASSWORD"),
+func requiredEnv(envVar string) (string, error) {
+	value := os.Getenv(envVar)
+	if value == "" {
+		return "", fmt.Errorf("missing required environment variables: %q", envVar)
 	}
+	return value, nil
+}
+
+func NewEmailSender() (*EmailSender, error) {
+	smtpHost, err := requiredEnv("SMTP_HOST")
+	if err != nil {
+		return nil, err
+	}
+	smtpPort, err := requiredEnv("SMTP_PORT")
+	if err != nil {
+		return nil, err
+	}
+	smtpFromAddress, err := requiredEnv("SMTP_FROM_ADDRESS")
+	if err != nil {
+		return nil, err
+	}
+	smtpUsername, err := requiredEnv("SMTP_USERNAME")
+	if err != nil {
+		return nil, err
+	}
+	smtpPassword, err := requiredEnv("SMTP_PASSWORD")
+	if err != nil {
+		return nil, err
+	}
+	return &EmailSender{
+		smtpHost:        smtpHost,
+		smtpPort:        smtpPort,
+		smtpFromAddress: smtpFromAddress,
+		smtpUsername:    smtpUsername,
+		smtpPassword:    smtpPassword,
+	}, nil
 }
 
 const smtpTimeout = 60 * time.Second
 const dialTimeout = 10 * time.Second
 
 func emailSenderErr(msg string, err error) error {
-	return fmt.Errorf("email sender: failed to %s: %w", msg, err)
+	return fmt.Errorf("Error: email sender: failed to %s: %w", msg, err)
 }
 
 func (e *EmailSender) Send(ctx context.Context, to string, subject string, bodyText string, bodyHTML string) error {

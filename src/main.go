@@ -472,7 +472,10 @@ func main() {
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
 	commentRepo := NewPostgresCommentRepository(db)
 	notificationService := NewNotificationService(adminRepo, emailQueueRepo, commentRepo)
-	emailSender := NewEmailSender()
+	emailSender, err := NewEmailSender()
+	if err != nil {
+		errorLogger.Fatalf("Error: failed to configure email sender: %v", err)
+	}
 	orcidClient := NewOrcidClient()
 	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidClient)
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
@@ -503,7 +506,7 @@ func main() {
 			select {
 			case <-ticker.C:
 				if err := emailWorker.ProcessPending(shutdown, 20); err != nil {
-					errorLogger.Printf("email worker failed: %v", err)
+					errorLogger.Printf("Error: email worker failed: %v", err)
 				}
 			case <-shutdown.Done():
 				return

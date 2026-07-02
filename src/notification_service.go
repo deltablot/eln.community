@@ -34,7 +34,7 @@ func buildEmailBody(body string) EmailBody {
 	}
 }
 
-const service = "notification service"
+const service = "Error: notification service"
 
 func notificationErr(msg string, err error) error {
 	return fmt.Errorf("%s: failed to create notification for %s: %w", service, msg, err)

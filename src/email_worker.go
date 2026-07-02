@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/textproto"
 	"net/http"
+	"net/textproto"
 )
 
 type Sender interface {
@@ -31,7 +31,7 @@ func NewEmailWorker(emailQueueRepo EmailQueueRepository, emailSender Sender, orc
 	}
 }
 
-const worker = "email worker"
+const worker = "Error: email worker"
 const maxAttempts = 3
 
 func isSMTPPermanentErr(err error) bool {
@@ -47,6 +47,8 @@ func (w *EmailWorker) failed(ctx context.Context, pending EmailQueue, reason str
 	if markErr != nil {
 		return fmt.Errorf("%s: failed to mark email as failed (queue_id %d) after %s failure: %w", worker, pending.Id, reason, markErr)
 	}
+	log.Printf("%s: mark email as failed: queue_id %d, reason %q error: %v", worker, pending.Id, reason, markErr)
+
 	return nil
 }
 
@@ -55,6 +57,8 @@ func (w *EmailWorker) retry(ctx context.Context, pending EmailQueue, reason stri
 	if markErr != nil {
 		return fmt.Errorf("%s: failed to mark email as pending for retry (queue_id %d) after %s failure: %w", worker, pending.Id, reason, markErr)
 	}
+	log.Printf("%s: mark email for retry: queue_id %d, reason %q error: %v", worker, pending.Id, reason, markErr)
+
 	return nil
 }
 
@@ -104,7 +108,7 @@ func (w *EmailWorker) ProcessPending(ctx context.Context, limit int) error {
 		if markErr != nil {
 			return fmt.Errorf("%s: failed to mark email as sent (queue_id %d): %w", worker, pending.Id, markErr)
 		}
-		log.Printf("%s: email sent successfully", worker)
+		log.Printf("email worker: email sent successfully")
 	}
 	return nil
 }

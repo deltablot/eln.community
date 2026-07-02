@@ -29,7 +29,7 @@ func NewOrcidClient() *OrcidClient {
 	}
 }
 
-const orcidService = "orcid service"
+const orcidService = "Error: orcid service"
 
 var orcidHTTPClient = &http.Client{
 	Timeout: 30 * time.Second,

@@ -22,7 +22,7 @@ func NewPostgresEmailQueueRepository(db *sql.DB) *PostgresEmailQueueRepository {
 	return &PostgresEmailQueueRepository{db: db}
 }
 
-const repo = "email queue repository"
+const repo = "Error: email queue repository"
 const processingTimeout = "15 minutes"
 
 // https://pkg.go.dev/database/sql#DB.QueryRowContext
