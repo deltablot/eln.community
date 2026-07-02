@@ -1,0 +1,25 @@
+-- Queue of email notifications to be sent for record and comment moderation events
+CREATE TABLE IF NOT EXISTS email_queue (
+    id INTEGER       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    record_id UUID NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+    comment_id BIGINT REFERENCES comments(id) ON DELETE SET NULL,
+    recipient_orcid orcid_type NOT NULL,
+    subject TEXT NOT NULL,
+    body_text TEXT NOT NULL,
+    body_html TEXT NOT NULL,
+    status INTEGER NOT NULL DEFAULT 0 CHECK (status IN (0, 1, 2, 3)),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT DEFAULT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sent_at TIMESTAMPTZ DEFAULT NULL
+);
+
+-- Indexes for efficient queries
+CREATE INDEX idx_email_queue_status ON email_queue(status);
+
+-- Trigger for modified_at
+CREATE TRIGGER trigger_update_modified_at_email_queue
+    BEFORE UPDATE ON email_queue
+    FOR EACH ROW
+    EXECUTE FUNCTION update_modified_at();

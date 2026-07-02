@@ -34,23 +34,22 @@ const (
 )
 
 type RecordHandler struct {
-	recordRepo   RecordRepository
-	categoryRepo CategoryRepository
-	adminRepo    AdminRepository
-	rorNameCache *RorNameCache
-	rorClient    *RorClient
-	emailService *EmailService
+	recordRepo          RecordRepository
+	categoryRepo        CategoryRepository
+	adminRepo           AdminRepository
+	notificationService *NotificationService
+	rorNameCache        *RorNameCache
+	rorClient           *RorClient
 }
 
-func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository,
-	rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
+func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, notificationService *NotificationService, rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
 	return &RecordHandler{
-		recordRepo:   recordRepo,
-		categoryRepo: categoryRepo,
-		adminRepo:    adminRepo,
-		rorNameCache: rorNameCache,
-		rorClient:    rorClient,
-		emailService: NewEmailService(),
+		recordRepo:          recordRepo,
+		categoryRepo:        categoryRepo,
+		adminRepo:           adminRepo,
+		notificationService: notificationService,
+		rorNameCache:        rorNameCache,
+		rorClient:           rorClient,
 	}
 }
 
@@ -275,20 +274,9 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send email notification to admins (async, don't block on errors)
-	go func() {
-		adminEmails, err := h.adminRepo.GetAllEmails(context.Background())
-		if err != nil {
-			log.Printf("Failed to get admin emails: %v", err)
-			return
-		}
-
-		if len(adminEmails) > 0 {
-			if err := h.emailService.SendNewRecordNotification(adminEmails, &record, siteUrl); err != nil {
-				log.Printf("Failed to send email notification: %v", err)
-			}
-		}
-	}()
+	if err := h.notificationService.CreateForRecord(ctx, &record); err != nil {
+		errorLogger.Printf("record handler: failed to create record notification: %v", err)
+	}
 
 	// 2) Decide: JSON (API clients) vs. redirect (browser form)
 	accept := r.Header.Get("Accept")

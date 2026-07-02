@@ -60,6 +60,18 @@ The application is configured entirely through environment variables. This guide
 | `ORCID_CLIENT_ID` | **Yes** | None | ORCID OAuth client ID. Obtain from ORCID Developer Tools after registering your application. | `APP-1234567890ABCDEF` |
 | `ORCID_CLIENT_SECRET` | **Yes** | None | ORCID OAuth client secret. Keep secure and never expose in client-side code or logs. | `12345678-1234-1234-1234-123456789abc` |
 
+
+## SMTP configuration
+
+| Variable | Required | Default | Description | Example |
+|----------|----------|---------|-------------|---------|
+| `SMTP_HOST` | **Yes** | None | SMTP server hostname. | `mail.smtp2go.com` |
+| `SMTP_PORT` | **Yes** | None | SMTP server port. | `2525` |
+| `SMTP_FROM_ADDRESS` | **Yes** | None | Email address used as a sender. | `no-reply@example.com` |
+| `SMTP_USERNAME` | **Yes** | None | SMTP account username. | `your_username` |
+| `SMTP_PASSWORD` | **Yes** | None | SMTP account password. | `your_password` |
+
+
 ## S3 Storage Setup
 
 The application supports any S3-compatible storage service:
