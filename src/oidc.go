@@ -109,7 +109,7 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// now fetch UserInfo (where ORCID actually returns name/email)
+	// now fetch UserInfo (where ORCID actually returns name)
 	userInfo, err := provider.UserInfo(ctx, oauth2Config.TokenSource(ctx, token))
 	if err != nil {
 		http.Error(w, "Failed to get userinfo", http.StatusInternalServerError)

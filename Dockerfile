@@ -24,7 +24,7 @@ RUN bash build.sh
 
 # STEP 2
 # Go builder
-FROM golang:1.24-alpine@sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191 AS gobuilder
+FROM golang:1.26.4-alpine3.23@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS gobuilder
 # this is set at build time
 ARG VERSION=docker
 WORKDIR /app

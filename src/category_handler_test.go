@@ -128,6 +128,10 @@ func (m *MockAdminRepository) IsAdmin(ctx context.Context, orcid string) (bool, 
 	return m.adminOrcids[orcid], nil
 }
 
+func (m *MockAdminRepository) GetAllAdmins(ctx context.Context) ([]Admin, error) {
+	return []Admin{}, nil
+}
+
 func (m *MockAdminRepository) AddAdmin(orcid string) {
 	m.adminOrcids[orcid] = true
 }

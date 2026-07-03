@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"os"
 	"time"
 )
 
@@ -56,7 +55,6 @@ type ModerationRepository interface {
 	RejectPendingVersion(ctx context.Context, recordID string) error
 	GetPendingRecords(ctx context.Context, limit, offset int) ([]Record, int, error)
 	GetPendingItems(ctx context.Context, limit, offset int) ([]PendingItem, int, error)
-	GetFlaggedRecords(ctx context.Context, limit, offset int) ([]Record, int, error)
 	LogModerationAction(ctx context.Context, action ModerationAction) error
 	GetModerationHistory(ctx context.Context, recordID string) ([]ModerationAction, error)
 }
@@ -546,21 +544,4 @@ func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Co
 	}
 
 	return entries, rows.Err()
-}
-
-// IsModerationEnabled checks if moderation is enabled via environment variable
-// Default is true (enabled)
-func IsModerationEnabled() bool {
-	enabled := os.Getenv("MODERATION_ENABLED")
-	// Default to enabled if not set or set to anything other than "false"
-	return enabled != "false"
-}
-
-// GetInitialModerationStatus returns the initial status for new records
-// based on whether moderation is enabled
-func GetInitialModerationStatus() ModerationStatus {
-	if IsModerationEnabled() {
-		return StatusPendingReview
-	}
-	return StatusApproved
 }

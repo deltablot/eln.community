@@ -41,6 +41,8 @@ type CommentRepository interface {
 	DeleteComment(ctx context.Context, id int64) error
 	LogModerationAction(ctx context.Context, action CommentModerationAction) error
 	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationAction, error)
+	GetCommentatorOrcid(ctx context.Context, id int64) (string, error)
+	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
 }
 
 // PostgresCommentRepository implements CommentRepository
@@ -78,7 +80,7 @@ func (r *PostgresCommentRepository) Create(ctx context.Context, comment *Comment
 // GetByRecordID retrieves comments for a specific record
 func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID string, includeModerated bool) ([]Comment, error) {
 	query := `
-		SELECT id, record_id, commenter_name, commenter_orcid, content, 
+		SELECT id, record_id, commenter_name, commenter_orcid, content,
 		       moderation_status, created_at, modified_at
 		FROM comments
 		WHERE record_id = $1`
@@ -273,6 +275,36 @@ func sanitizeCommentContent(content string) string {
 	// Trim whitespace
 	content = strings.TrimSpace(content)
 	return content
+}
+
+func (r *PostgresCommentRepository) GetCommentatorOrcid(ctx context.Context, id int64) (string, error) {
+	var commenterOrcid string
+	err := r.db.QueryRowContext(ctx, `SELECT commenter_orcid FROM comments WHERE id = $1`, id).Scan(&commenterOrcid)
+	if err != nil {
+		return "", err
+	}
+	return commenterOrcid, nil
+}
+
+func (r *PostgresCommentRepository) GetAllOrcids(ctx context.Context, recordId string) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT commenter_orcid FROM comments WHERE record_id = $1 AND commenter_orcid IS NOT NULL AND commenter_orcid != '' AND moderation_status = 'approved'`, recordId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var commentators []string
+	for rows.Next() {
+		var commentator string
+		if err := rows.Scan(&commentator); err != nil {
+			return commentators, err
+		}
+		commentators = append(commentators, commentator)
+	}
+	if err = rows.Err(); err != nil {
+		return commentators, err
+	}
+
+	return commentators, nil
 }
 
 var ErrEmptyComment = sql.ErrNoRows

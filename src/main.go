@@ -21,10 +21,13 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/alexedwards/scs/postgresstore"
@@ -68,6 +71,8 @@ var app App
 var version string = "dev"
 
 var siteUrl = "http://localhost"
+
+const EMAIL_NOTIF_INTERVAL_SEC = 60
 
 // uuidv7Regex ensures that the filename follows the format:
 // UUID with version 7 (third group starts with '7')
@@ -460,27 +465,54 @@ func main() {
 	// Initialize repositories and handlers
 	categoryRepo := NewPostgresCategoryRepository(db)
 	adminRepo := NewPostgresAdminRepository(db)
+	emailQueueRepo := NewPostgresEmailQueueRepository(db)
 	rorRepo := NewPostgresRorRepository(db)
 	recordRepo := NewPostgresRecordRepository(db, categoryRepo, rorRepo)
 	rorClient := NewRorClient()
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
+	commentRepo := NewPostgresCommentRepository(db)
+	notificationService := NewNotificationService(adminRepo, emailQueueRepo, commentRepo)
+	emailSender, err := NewEmailSender()
+	if err != nil {
+		errorLogger.Fatalf("Error: failed to configure email sender: %v", err)
+	}
+	orcidClient := NewOrcidClient()
+	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidClient)
+	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
+	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, recordRepo)
+	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()
 
 	categoryHandler := NewCategoryHandler(categoryRepo, adminRepo)
-	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, rorNameCache, rorClient)
+	recordHandler := NewRecordHandlerWithRor(recordRepo, categoryRepo, adminRepo, notificationService, rorNameCache, rorClient)
 	historyRepo := NewPostgresHistoryRepository(db)
 	historyHandler := NewHistoryHandler(historyRepo, recordRepo, adminRepo)
 	organizationHandler := NewOrganizationHandler(rorRepo, rorNameCache, rorClient, recordRepo)
 
-	// Initialize moderation handler
-	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
-	moderationHandler := NewModerationHandler(moderationRepo, adminRepo)
+	shutdown, stop := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
 
-	// Initialize comment handler
-	commentRepo := NewPostgresCommentRepository(db)
-	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo)
+	var wg sync.WaitGroup
+
+	// process notification event every minute
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(EMAIL_NOTIF_INTERVAL_SEC * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := emailWorker.ProcessPending(shutdown, 20); err != nil {
+					errorLogger.Printf("Error: email worker failed: %v", err)
+				}
+			case <-shutdown.Done():
+				return
+			}
+		}
+	}()
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
@@ -536,9 +568,15 @@ func main() {
 	// Wrap all handlers so they get a request-scoped session context
 	handler := sessionManager.LoadAndSave(mux)
 
-	if err := http.ListenAndServe(addr, handler); err != nil {
-		errorLogger.Fatalf("failed to start server: %v", err)
-	}
+	go func() {
+		if err := http.ListenAndServe(addr, handler); err != nil {
+			errorLogger.Fatalf("failed to start server: %v", err)
+		}
+	}()
+
+	<-shutdown.Done()
+	wg.Wait()
+	infoLogger.Printf("service shutdown")
 }
 
 func getMigrationPath() string {
