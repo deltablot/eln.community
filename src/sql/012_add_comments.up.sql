@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS comments (
     commenter_name VARCHAR(255) NOT NULL,
     commenter_orcid orcid_type NOT NULL,
     content TEXT NOT NULL,
-    moderation_status VARCHAR(20) NOT NULL DEFAULT 'pending_review',
+    moderation_status INTEGER NOT NULL DEFAULT 0 CHECK (moderation_status IN (0, 1, 2, 3, 4)),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT content_not_empty CHECK (LENGTH(TRIM(content)) > 0)
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS comment_moderation_actions (
     id BIGSERIAL PRIMARY KEY,
     comment_id BIGINT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
     admin_orcid orcid_type NOT NULL,
-    action VARCHAR(20) NOT NULL, -- 'approve', 'reject', 'delete'
+    action INTEGER NOT NULL DEFAULT 0 CHECK (action IN (0, 1, 2, 3, 4)),
     reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -281,7 +281,8 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	recordRepo := NewPostgresRecordRepository(db, NewPostgresCategoryRepository(db), NewPostgresRorRepository(db))
 	records, totalCount, err := recordRepo.GetAllByOrcidPaginated(ctx, orcid, 100, 0)
 	if err != nil {
-		http.Error(w, "Error fetching records", http.StatusInternalServerError)
+        log.Printf("Error fetching records: %v", err)
+		http.Error(w, "ICI EN FAIT Error fetching records", http.StatusInternalServerError)
 		return
 	}
 

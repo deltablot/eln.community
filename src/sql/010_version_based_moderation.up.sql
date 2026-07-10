@@ -6,10 +6,11 @@
 -- 4. Add version_name to moderation_actions for history display
 
 -- Step 1: Add moderation_status to record_history table
-ALTER TABLE record_history ADD COLUMN IF NOT EXISTS moderation_status VARCHAR(20) DEFAULT 'approved';
+ALTER TABLE record_history ADD COLUMN IF NOT EXISTS moderation_status INTEGER NOT NULL DEFAULT 1 CHECK (moderation_status IN (0, 1, 2, 3, 4));
+
 
 -- Update existing history records to have approved status (backward compatibility)
-UPDATE record_history SET moderation_status = 'approved' WHERE moderation_status IS NULL;
+UPDATE record_history SET moderation_status = 1 WHERE moderation_status IS NULL;
 
 -- Step 2: Add version_name to moderation_actions table
 ALTER TABLE moderation_actions ADD COLUMN IF NOT EXISTS version_name VARCHAR(255);
@@ -46,7 +47,6 @@ BEGIN
         OLD.name IS DISTINCT FROM NEW.name OR
         OLD.sha256 IS DISTINCT FROM NEW.sha256 OR
         OLD.metadata IS DISTINCT FROM NEW.metadata) THEN
-        
         -- Get next version number for this record
         SELECT COALESCE(MAX(version), 0) + 1 INTO next_version
         FROM record_history

@@ -1,8 +1,8 @@
 -- Add moderation status to records table
-ALTER TABLE records ADD COLUMN moderation_status VARCHAR(20) DEFAULT 'approved';
+ALTER TABLE records ADD COLUMN moderation_status INTEGER NOT NULL DEFAULT 1 CHECK (moderation_status IN (0, 1, 2, 3, 4));
 
 -- Update existing records to be approved (for backward compatibility)
-UPDATE records SET moderation_status = 'approved' WHERE moderation_status IS NULL;
+UPDATE records SET moderation_status = 1 WHERE moderation_status IS NULL;
 
 CREATE INDEX idx_records_moderation_status ON records(moderation_status);
 

@@ -153,7 +153,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 
 	// Get total count - only approved and non-archived records for public view
 	var totalCount int
-	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM records r WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL%s`, filterClause)
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM records r WHERE r.moderation_status = %d AND r.archived_at IS NULL%s`, StatusApproved, filterClause)
 	err := r.db.QueryRowContext(ctx, countQuery, filterArgs...).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, err
@@ -166,10 +166,10 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 	query := fmt.Sprintf(`
 		SELECT id, sha256, name, description, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, license
 		FROM records r
-		WHERE moderation_status = 'approved' AND r.archived_at IS NULL%s
+		WHERE moderation_status = %d AND r.archived_at IS NULL%s
 		%s
 		LIMIT $%d OFFSET $%d
-	`, filterClause, orderByClause, len(filterArgs)+1, len(filterArgs)+2)
+	`, StatusApproved, filterClause, orderByClause, len(filterArgs)+1, len(filterArgs)+2)
 
 	queryArgs := append(filterArgs, limit, offset)
 	rows, err := r.db.QueryContext(ctx, query, queryArgs...)
@@ -224,7 +224,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 // GetByID retrieves a record by its ID with categories and ROR IDs
 func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Record, error) {
 	var record Record
-	var moderationStatus string
+	var moderationStatus int
 	var archiveReason sql.NullString
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, sha256, name, description, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, moderation_status, license, archived_at, archive_reason
@@ -290,7 +290,7 @@ func (r *PostgresRecordRepository) Create(ctx context.Context, tx *sql.Tx, recor
 		`INSERT INTO records (id, s3_key, sha256, name, description, metadata, uploader_name, uploader_orcid, moderation_status, license)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		record.Id, s3Key, record.Sha256, record.Name, record.Description, record.Metadata,
-		record.UploaderName, record.UploaderOrcid, string(moderationStatus), record.License,
+		record.UploaderName, record.UploaderOrcid, moderationStatus, record.License,
 	)
 	if err != nil {
 		return err
@@ -347,8 +347,8 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 		SELECT COUNT(DISTINCT r.id)
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
-		WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rc.category_id IN (%s)%s
-	`, inClause, filterClause)
+		WHERE r.moderation_status = %d AND r.archived_at IS NULL AND rc.category_id IN (%s)%s
+	`, StatusApproved, inClause, filterClause)
 
 	countArgs := append(args, filterArgs...)
 	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
@@ -364,10 +364,10 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 		SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_categories rc ON r.id = rc.record_id
-		WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rc.category_id IN (%s)%s
+		WHERE r.moderation_status = %d AND r.archived_at IS NULL AND rc.category_id IN (%s)%s
 		%s
 		LIMIT $%d OFFSET $%d
-	`, inClause, filterClause, orderByClause, len(countArgs)+1, len(countArgs)+2)
+	`, StatusApproved, inClause, filterClause, orderByClause, len(countArgs)+1, len(countArgs)+2)
 
 	queryArgs := append(countArgs, limit, offset)
 	rows, err := r.db.QueryContext(ctx, selectQuery, queryArgs...)
@@ -442,8 +442,8 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 		SELECT COUNT(DISTINCT r.id)
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
-		WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rr.ror IN (%s)%s
-	`, inClause, filterClause)
+		WHERE r.moderation_status = %d AND r.archived_at IS NULL AND rr.ror IN (%s)%s
+	`, StatusApproved, inClause, filterClause)
 
 	countArgs := append(args, filterArgs...)
 	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
@@ -459,10 +459,10 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 		SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 		FROM records r
 		JOIN records_ror rr ON r.id = rr.record_id
-		WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rr.ror IN (%s)%s
+		WHERE r.moderation_status = %d AND r.archived_at IS NULL AND rr.ror IN (%s)%s
 		%s
 		LIMIT $%d OFFSET $%d
-	`, inClause, filterClause, orderByClause, len(countArgs)+1, len(countArgs)+2)
+	`, StatusApproved, inClause, filterClause, orderByClause, len(countArgs)+1, len(countArgs)+2)
 
 	queryArgs := append(countArgs, limit, offset)
 	rows, err := r.db.QueryContext(ctx, selectQuery, queryArgs...)
@@ -531,16 +531,16 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rc.category_id = $1 AND (
-				r.name ILIKE $2 OR
-				r.metadata::text ILIKE $2 OR
-				r.uploader_name ILIKE $2 OR
-				r.uploader_orcid ILIKE $2 OR
-				rr.ror ILIKE $2 OR
-				c.name ILIKE $2
+			WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND rc.category_id = $2 AND (
+				r.name ILIKE $3 OR
+				r.metadata::text ILIKE $3 OR
+				r.uploader_name ILIKE $3 OR
+				r.uploader_orcid ILIKE $3 OR
+				rr.ror ILIKE $3 OR
+				c.name ILIKE $3
 			)
 		`
-		countArgs = []interface{}{categoryID, "%" + query + "%"}
+		countArgs = []interface{}{StatusApproved, categoryID, "%" + query + "%"}
 
 		// Search within a specific category
 		sqlQuery = fmt.Sprintf(`
@@ -549,7 +549,45 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
 			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rc.category_id = $1 AND (
+			WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND rc.category_id = $2 AND (
+				r.name ILIKE $3 OR
+				r.metadata::text ILIKE $3 OR
+				r.uploader_name ILIKE $3 OR
+				r.uploader_orcid ILIKE $3 OR
+				rr.ror ILIKE $3 OR
+				c.name ILIKE $3
+			)
+			%s
+			LIMIT $4 OFFSET $5
+		`, orderByClause)
+		args = []interface{}{StatusApproved, categoryID, "%" + query + "%", limit, offset}
+	} else {
+		// Count query for all records
+		countQuery = `
+			SELECT COUNT(DISTINCT r.id)
+			FROM records r
+			LEFT JOIN records_ror rr ON r.id = rr.record_id
+			LEFT JOIN records_categories rc ON r.id = rc.record_id
+			LEFT JOIN categories c ON rc.category_id = c.id
+			WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND (
+				r.name ILIKE $2 OR
+				r.metadata::text ILIKE $2 OR
+				r.uploader_name ILIKE $2 OR
+				r.uploader_orcid ILIKE $2 OR
+				rr.ror ILIKE $2 OR
+				c.name ILIKE $2
+			)
+		`
+		countArgs = []interface{}{StatusApproved, "%" + query + "%"}
+
+		// Search across all records
+		sqlQuery = fmt.Sprintf(`
+			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+			FROM records r
+			LEFT JOIN records_ror rr ON r.id = rr.record_id
+			LEFT JOIN records_categories rc ON r.id = rc.record_id
+			LEFT JOIN categories c ON rc.category_id = c.id
+			WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND (
 				r.name ILIKE $2 OR
 				r.metadata::text ILIKE $2 OR
 				r.uploader_name ILIKE $2 OR
@@ -560,45 +598,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 			%s
 			LIMIT $3 OFFSET $4
 		`, orderByClause)
-		args = []interface{}{categoryID, "%" + query + "%", limit, offset}
-	} else {
-		// Count query for all records
-		countQuery = `
-			SELECT COUNT(DISTINCT r.id)
-			FROM records r
-			LEFT JOIN records_ror rr ON r.id = rr.record_id
-			LEFT JOIN records_categories rc ON r.id = rc.record_id
-			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND (
-				r.name ILIKE $1 OR
-				r.metadata::text ILIKE $1 OR
-				r.uploader_name ILIKE $1 OR
-				r.uploader_orcid ILIKE $1 OR
-				rr.ror ILIKE $1 OR
-				c.name ILIKE $1
-			)
-		`
-		countArgs = []interface{}{"%" + query + "%"}
-
-		// Search across all records
-		sqlQuery = fmt.Sprintf(`
-			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
-			FROM records r
-			LEFT JOIN records_ror rr ON r.id = rr.record_id
-			LEFT JOIN records_categories rc ON r.id = rc.record_id
-			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND (
-				r.name ILIKE $1 OR
-				r.metadata::text ILIKE $1 OR
-				r.uploader_name ILIKE $1 OR
-				r.uploader_orcid ILIKE $1 OR
-				rr.ror ILIKE $1 OR
-				c.name ILIKE $1
-			)
-			%s
-			LIMIT $2 OFFSET $3
-		`, orderByClause)
-		args = []interface{}{"%" + query + "%", limit, offset}
+		args = []interface{}{StatusApproved, "%" + query + "%", limit, offset}
 	}
 
 	// Get total count
@@ -676,17 +676,17 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 				JOIN records_categories rc ON r.id = rc.record_id
 				LEFT JOIN records_ror rr ON r.id = rr.record_id
 				LEFT JOIN categories c ON rc.category_id = c.id
-				WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rc.category_id = $1 AND (
-					r.name ILIKE $2 OR
-					r.metadata::text ILIKE $2 OR
-					r.uploader_name ILIKE $2 OR
-					r.uploader_orcid ILIKE $2 OR
-					rr.ror ILIKE $2 OR
-					c.name ILIKE $2 OR
-					rr.ror = ANY($3)
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND rc.category_id = $2 AND (
+					r.name ILIKE $3 OR
+					r.metadata::text ILIKE $3 OR
+					r.uploader_name ILIKE $3 OR
+					r.uploader_orcid ILIKE $3 OR
+					rr.ror ILIKE $3 OR
+					c.name ILIKE $3 OR
+					rr.ror = ANY($4)
 				)
 			`
-			countArgs = []interface{}{categoryID, "%" + query + "%", pq.Array(rorIDs)}
+			countArgs = []interface{}{StatusApproved, categoryID, "%" + query + "%", pq.Array(rorIDs)}
 		} else {
 			countQuery = `
 				SELECT COUNT(DISTINCT r.id)
@@ -694,16 +694,16 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 				JOIN records_categories rc ON r.id = rc.record_id
 				LEFT JOIN records_ror rr ON r.id = rr.record_id
 				LEFT JOIN categories c ON rc.category_id = c.id
-				WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rc.category_id = $1 AND (
-					r.name ILIKE $2 OR
-					r.metadata::text ILIKE $2 OR
-					r.uploader_name ILIKE $2 OR
-					r.uploader_orcid ILIKE $2 OR
-					rr.ror ILIKE $2 OR
-					c.name ILIKE $2
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND rc.category_id = $2 AND (
+					r.name ILIKE $3 OR
+					r.metadata::text ILIKE $3 OR
+					r.uploader_name ILIKE $3 OR
+					r.uploader_orcid ILIKE $3 OR
+					rr.ror ILIKE $3 OR
+					c.name ILIKE $3
 				)
 			`
-			countArgs = []interface{}{categoryID, "%" + query + "%"}
+			countArgs = []interface{}{StatusApproved, categoryID, "%" + query + "%"}
 		}
 
 		// Search within a specific category
@@ -714,7 +714,87 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 				JOIN records_categories rc ON r.id = rc.record_id
 				LEFT JOIN records_ror rr ON r.id = rr.record_id
 				LEFT JOIN categories c ON rc.category_id = c.id
-				WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rc.category_id = $1 AND (
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND rc.category_id = $2 AND (
+					r.name ILIKE $3 OR
+					r.metadata::text ILIKE $3 OR
+					r.uploader_name ILIKE $3 OR
+					r.uploader_orcid ILIKE $3 OR
+					rr.ror ILIKE $3 OR
+					c.name ILIKE $3 OR
+					rr.ror = ANY($4)
+				)
+				%s
+				LIMIT $5 OFFSET $6
+			`, orderByClause)
+			args = []interface{}{StatusApproved, categoryID, "%" + query + "%", pq.Array(rorIDs), limit, offset}
+		} else {
+			sqlQuery = fmt.Sprintf(`
+				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				FROM records r
+				JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND rc.category_id = $2 AND (
+					r.name ILIKE $3 OR
+					r.metadata::text ILIKE $3 OR
+					r.uploader_name ILIKE $3 OR
+					r.uploader_orcid ILIKE $3 OR
+					rr.ror ILIKE $3 OR
+					c.name ILIKE $3
+				)
+				%s
+				LIMIT $4 OFFSET $5
+			`, orderByClause)
+			args = []interface{}{StatusApproved, categoryID, "%" + query + "%", limit, offset}
+		}
+	} else {
+		// Count query for all records
+		if len(rorIDs) > 0 {
+			countQuery = `
+				SELECT COUNT(DISTINCT r.id)
+				FROM records r
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND (
+					r.name ILIKE $2 OR
+					r.metadata::text ILIKE $2 OR
+					r.uploader_name ILIKE $2 OR
+					r.uploader_orcid ILIKE $2 OR
+					rr.ror ILIKE $2 OR
+					c.name ILIKE $2 OR
+					rr.ror = ANY($3)
+				)
+			`
+			countArgs = []interface{}{StatusApproved, "%" + query + "%", pq.Array(rorIDs)}
+		} else {
+			countQuery = `
+				SELECT COUNT(DISTINCT r.id)
+				FROM records r
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND (
+					r.name ILIKE $2 OR
+					r.metadata::text ILIKE $2 OR
+					r.uploader_name ILIKE $2 OR
+					r.uploader_orcid ILIKE $2 OR
+					rr.ror ILIKE $2 OR
+					c.name ILIKE $2
+				)
+			`
+			countArgs = []interface{}{StatusApproved, "%" + query + "%"}
+		}
+
+		// Search across all records
+		if len(rorIDs) > 0 {
+			sqlQuery = fmt.Sprintf(`
+				SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				FROM records r
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND (
 					r.name ILIKE $2 OR
 					r.metadata::text ILIKE $2 OR
 					r.uploader_name ILIKE $2 OR
@@ -726,15 +806,15 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 				%s
 				LIMIT $4 OFFSET $5
 			`, orderByClause)
-			args = []interface{}{categoryID, "%" + query + "%", pq.Array(rorIDs), limit, offset}
+			args = []interface{}{StatusApproved, "%" + query + "%", pq.Array(rorIDs), limit, offset}
 		} else {
 			sqlQuery = fmt.Sprintf(`
 				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 				FROM records r
-				JOIN records_categories rc ON r.id = rc.record_id
 				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
 				LEFT JOIN categories c ON rc.category_id = c.id
-				WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND rc.category_id = $1 AND (
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND (
 					r.name ILIKE $2 OR
 					r.metadata::text ILIKE $2 OR
 					r.uploader_name ILIKE $2 OR
@@ -745,87 +825,7 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 				%s
 				LIMIT $3 OFFSET $4
 			`, orderByClause)
-			args = []interface{}{categoryID, "%" + query + "%", limit, offset}
-		}
-	} else {
-		// Count query for all records
-		if len(rorIDs) > 0 {
-			countQuery = `
-				SELECT COUNT(DISTINCT r.id)
-				FROM records r
-				LEFT JOIN records_ror rr ON r.id = rr.record_id
-				LEFT JOIN records_categories rc ON r.id = rc.record_id
-				LEFT JOIN categories c ON rc.category_id = c.id
-				WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND (
-					r.name ILIKE $1 OR
-					r.metadata::text ILIKE $1 OR
-					r.uploader_name ILIKE $1 OR
-					r.uploader_orcid ILIKE $1 OR
-					rr.ror ILIKE $1 OR
-					c.name ILIKE $1 OR
-					rr.ror = ANY($2)
-				)
-			`
-			countArgs = []interface{}{"%" + query + "%", pq.Array(rorIDs)}
-		} else {
-			countQuery = `
-				SELECT COUNT(DISTINCT r.id)
-				FROM records r
-				LEFT JOIN records_ror rr ON r.id = rr.record_id
-				LEFT JOIN records_categories rc ON r.id = rc.record_id
-				LEFT JOIN categories c ON rc.category_id = c.id
-				WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND (
-					r.name ILIKE $1 OR
-					r.metadata::text ILIKE $1 OR
-					r.uploader_name ILIKE $1 OR
-					r.uploader_orcid ILIKE $1 OR
-					rr.ror ILIKE $1 OR
-					c.name ILIKE $1
-				)
-			`
-			countArgs = []interface{}{"%" + query + "%"}
-		}
-
-		// Search across all records
-		if len(rorIDs) > 0 {
-			sqlQuery = fmt.Sprintf(`
-				SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
-				FROM records r
-				LEFT JOIN records_ror rr ON r.id = rr.record_id
-				LEFT JOIN records_categories rc ON r.id = rc.record_id
-				LEFT JOIN categories c ON rc.category_id = c.id
-				WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND (
-					r.name ILIKE $1 OR
-					r.metadata::text ILIKE $1 OR
-					r.uploader_name ILIKE $1 OR
-					r.uploader_orcid ILIKE $1 OR
-					rr.ror ILIKE $1 OR
-					c.name ILIKE $1 OR
-					rr.ror = ANY($2)
-				)
-				%s
-				LIMIT $3 OFFSET $4
-			`, orderByClause)
-			args = []interface{}{"%" + query + "%", pq.Array(rorIDs), limit, offset}
-		} else {
-			sqlQuery = fmt.Sprintf(`
-				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
-				FROM records r
-				LEFT JOIN records_ror rr ON r.id = rr.record_id
-				LEFT JOIN records_categories rc ON r.id = rc.record_id
-				LEFT JOIN categories c ON rc.category_id = c.id
-				WHERE r.moderation_status = 'approved' AND r.archived_at IS NULL AND (
-					r.name ILIKE $1 OR
-					r.metadata::text ILIKE $1 OR
-					r.uploader_name ILIKE $1 OR
-					r.uploader_orcid ILIKE $1 OR
-					rr.ror ILIKE $1 OR
-					c.name ILIKE $1
-				)
-				%s
-				LIMIT $2 OFFSET $3
-			`, orderByClause)
-			args = []interface{}{"%" + query + "%", limit, offset}
+			args = []interface{}{StatusApproved, "%" + query + "%", limit, offset}
 		}
 	}
 
@@ -1007,17 +1007,17 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 				WHEN EXISTS (
 					SELECT 1 FROM record_history rh
 					WHERE rh.record_id = r.id
-					AND rh.moderation_status = 'pending'
+					AND rh.moderation_status = $1
 					AND rh.change_type = 'PENDING_VERSION'
-				) THEN 'pending'
+				) THEN $1
 				ELSE r.moderation_status
 			END as effective_status,
 			r.archived_at
 		FROM records r
-		WHERE r.uploader_orcid = $1
+		WHERE r.uploader_orcid = $2
 		ORDER BY r.created_at DESC
-		LIMIT $2 OFFSET $3
-	`, orcid, limit, offset)
+		LIMIT $3 OFFSET $4
+	`, StatusPendingReview, orcid, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1026,8 +1026,8 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 	var records []Record
 	for rows.Next() {
 		var rec Record
-		var moderationStatus string
-		var effectiveStatus string
+		var moderationStatus int
+		var effectiveStatus int
 		err := rows.Scan(
 			&rec.Id,
 			&rec.Name,

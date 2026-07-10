@@ -172,10 +172,9 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	var pendingName string
 	err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
 		`SELECT name FROM record_history
-		 WHERE record_id = $1 AND moderation_status = 'pending' AND change_type = 'PENDING_VERSION'
+		 WHERE record_id = $1 AND moderation_status = $2 AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC LIMIT 1`,
-		id,
-	).Scan(&pendingName)
+		id, StatusPendingReview,).Scan(&pendingName)
 	if err == nil {
 		versionName = pendingName
 	} else {

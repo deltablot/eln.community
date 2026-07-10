@@ -2044,11 +2044,11 @@ function initializeVersionHistory() {
 
           // Add moderation status indicator
           let statusText = '';
-          if (version.moderation_status === 'pending') {
+          if (version.moderation_status === 0) {
             statusText = ' [Pending Moderation]';
-          } else if (version.moderation_status === 'rejected') {
+          } else if (version.moderation_status === 2) {
             statusText = ' [Rejected]';
-          } else if (version.moderation_status === 'flagged') {
+          } else if (version.moderation_status === 4) {
             statusText = ' [Flagged]';
           }
 
