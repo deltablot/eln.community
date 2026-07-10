@@ -10,7 +10,7 @@ fi
 
 DUMP_FILE="$1"
 DB_NAME="$2"
-DB_USER="$2"
+DB_USER="eln"
 
 if [[ ! -f "$DUMP_FILE" ]]
 then
@@ -22,9 +22,7 @@ echo 'Stopping containers and removing local database'
 docker compose down
 sudo rm -rf data/postgres
 echo 'Starting postgreSQL container only'
-docker compose up -d postgres
-echo 'Waiting'
-sleep 5
+docker compose up -d --wait postgres
 
 docker compose ps
 docker compose exec -T postgres sh -lc 'echo "POSTGRES_USER=$POSTGRES_USER"; echo "POSTGRES_DB=$POSTGRES_DB"; cat "$PGDATA/PG_VERSION"'
