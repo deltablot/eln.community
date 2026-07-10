@@ -353,7 +353,6 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 	countArgs := append(args, filterArgs...)
 	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
 	if err != nil {
-        fmt.Printf("Error: %w", err)
 		return nil, 0, err
 	}
 

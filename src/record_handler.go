@@ -1357,7 +1357,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		// Filter by categories (single or multiple)
 		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(r.Context(), selectedCategoryIDs, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
 		if err != nil {
-			log.Printf("iii Error in GetBrowsePage filtering by categories %v: %v", selectedCategoryIDs, err)
+			log.Printf("Error in GetBrowsePage filtering by categories %v: %v", selectedCategoryIDs, err)
 			http.Error(w, fmt.Sprintf("Error fetching records for categories"), http.StatusInternalServerError)
 			return
 		}
