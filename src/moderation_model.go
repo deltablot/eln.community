@@ -11,7 +11,6 @@ import (
 type ModerationStatus int
 
 const (
-    StatusUnknown ModerationStatus = -1
 	StatusPendingReview ModerationStatus = iota
 	StatusApproved
 	StatusRejected
@@ -19,30 +18,22 @@ const (
 	StatusFlagged
 )
 
+const StatusUnknown ModerationStatus = -1
+
 var moderationStatusName = map[ModerationStatus]string{
-    StatusPendingReview: "pending_review",
+    StatusPendingReview: "pending",
     StatusApproved: "approved",
     StatusRejected: "rejected",
     StatusDeleted: "deleted",
     StatusFlagged: "flagged",
 }
-/*
-type ModerationStatus string
-
-const (
-	StatusPendingReview ModerationStatus = "pending_review"
-	StatusApproved      ModerationStatus = "approved"
-	StatusRejected      ModerationStatus = "rejected"
-	StatusFlagged       ModerationStatus = "flagged"
-)
-*/
 
 // ModerationAction represents an admin action on a record
 type ModerationAction struct {
 	ID          int64
 	RecordID    string
 	AdminOrcid  string
-	//Action      ModerationStatus // "approve", "reject", "flag"
+	// Action      ModerationStatus
 	Action      string // "approve", "reject", "flag"
 	Reason      string
 	VersionName string // Name of the version that was moderated
