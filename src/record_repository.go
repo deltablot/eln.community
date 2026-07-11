@@ -383,7 +383,6 @@ func (r *PostgresRecordRepository) GetAllByCategoriesPaginated(ctx context.Conte
 			&record.Id,
 			&record.Sha256,
 			&record.Name,
-		//	&record.Description,
 			&record.Metadata,
 			&record.CreatedAt,
 			&record.ModifiedAt,
