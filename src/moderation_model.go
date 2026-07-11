@@ -33,8 +33,8 @@ type ModerationAction struct {
 	ID          int64
 	RecordID    string
 	AdminOrcid  string
-	// Action      ModerationStatus
-	Action      string // "approve", "reject", "flag"
+	Action      ModerationStatus
+	//Action      string // "approve", "reject", "flag"
 	Reason      string
 	VersionName string // Name of the version that was moderated
 	CreatedAt   time.Time

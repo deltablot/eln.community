@@ -262,7 +262,7 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 	action := CommentModerationAction{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		Action:     "approve",
+		Action:     StatusApproved,
 		Reason:     req.Reason,
 	}
 	h.commentRepo.LogModerationAction(ctx, action)
@@ -318,7 +318,7 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 	action := CommentModerationAction{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		Action:     "reject",
+		Action:     StatusRejected,
 		Reason:     req.Reason,
 	}
 	h.commentRepo.LogModerationAction(ctx, action)
@@ -372,7 +372,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	action := CommentModerationAction{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		Action:     "delete",
+		Action:     StatusDeleted,
 		Reason:     req.Reason,
 	}
 	h.commentRepo.LogModerationAction(ctx, action)

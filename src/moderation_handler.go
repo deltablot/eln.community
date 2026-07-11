@@ -232,7 +232,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	action := ModerationAction{
 		RecordID:    id,
 		AdminOrcid:  orcid,
-		Action:      req.Action,
+		Action:      newStatus,
 		Reason:      req.Reason,
 		VersionName: versionName,
 	}

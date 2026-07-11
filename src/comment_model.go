@@ -21,8 +21,7 @@ type CommentModerationAction struct {
 	ID         int64
 	CommentID  int64
 	AdminOrcid string
-	Action     string // "approve", "reject", "delete"
-	//Action     ModerationStatus
+	Action     ModerationStatus
 	Reason     string
 	CreatedAt  time.Time
 }
