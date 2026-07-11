@@ -1365,7 +1365,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		// Get all records
 		records, totalCount, err = h.recordRepo.GetAllPaginated(r.Context(), pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
 		if err != nil {
-            http.Error(w, "C'est là : Error fetching records", http.StatusInternalServerError)
+			http.Error(w, "C'est là : Error fetching records", http.StatusInternalServerError)
 			return
 		}
 	}

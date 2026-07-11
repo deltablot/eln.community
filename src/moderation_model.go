@@ -1,7 +1,7 @@
 package main
 
 import (
-//	"context"
+	//	"context"
 	"database/sql"
 	"encoding/json"
 	"time"
@@ -11,29 +11,29 @@ import (
 type ModerationStatus int
 
 const (
-	StatusPendingReview ModerationStatus = iota
+	StatusPending ModerationStatus = iota
 	StatusApproved
 	StatusRejected
-    StatusDeleted
+	StatusDeleted
 	StatusFlagged
 )
 
 const StatusUnknown ModerationStatus = -1
 
 var moderationStatusName = map[ModerationStatus]string{
-    StatusPendingReview: "pending",
-    StatusApproved: "approved",
-    StatusRejected: "rejected",
-    StatusDeleted: "deleted",
-    StatusFlagged: "flagged",
+	StatusPending:  "pending",
+	StatusApproved: "approved",
+	StatusRejected: "rejected",
+	StatusDeleted:  "deleted",
+	StatusFlagged:  "flagged",
 }
 
 // ModerationAction represents an admin action on a record
 type ModerationAction struct {
-	ID          int64
-	RecordID    string
-	AdminOrcid  string
-	Action      ModerationStatus
+	ID         int64
+	RecordID   string
+	AdminOrcid string
+	Action     ModerationStatus
 	//Action      string // "approve", "reject", "flag"
 	Reason      string
 	VersionName string // Name of the version that was moderated

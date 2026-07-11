@@ -174,7 +174,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 		`SELECT name FROM record_history
 		 WHERE record_id = $1 AND moderation_status = $2 AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC LIMIT 1`,
-		id, StatusPendingReview,).Scan(&pendingName)
+		id, StatusPending).Scan(&pendingName)
 	if err == nil {
 		versionName = pendingName
 	} else {

@@ -61,11 +61,11 @@ func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID 
 		FROM comments
 		WHERE record_id = $1`
 
-    args := []any{recordID}
+	args := []any{recordID}
 
 	if !includeModerated {
 		query += ` AND moderation_status = $2`
-        args = append(args, StatusApproved)
+		args = append(args, StatusApproved)
 	}
 
 	query += ` ORDER BY created_at ASC`
@@ -130,7 +130,7 @@ func (r *PostgresCommentRepository) GetPendingComments(ctx context.Context, limi
 	var total int
 	err := r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM comments WHERE moderation_status = $1`,
-        StatusPendingReview).Scan(&total)
+		StatusPending).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -144,7 +144,7 @@ func (r *PostgresCommentRepository) GetPendingComments(ctx context.Context, limi
 		ORDER BY c.created_at ASC
 		LIMIT $2 OFFSET $3`
 
-	rows, err := r.db.QueryContext(ctx, query, StatusPendingReview, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, StatusPending, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -176,7 +176,7 @@ func (r *PostgresCommentRepository) GetPendingComments(ctx context.Context, limi
 func (r *PostgresCommentRepository) ApproveComment(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2`,
-        StatusApproved, id)
+		StatusApproved, id)
 	return err
 }
 

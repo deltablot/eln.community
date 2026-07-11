@@ -71,7 +71,7 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 		 WHERE record_id = $1 AND moderation_status = $2 AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC
 		 LIMIT 1`,
-		recordID, StatusPendingReview,
+		recordID, StatusPending,
 	).Scan(&historyID, &s3Key, &name, &sha256, &metadata, &description)
 	if err == sql.ErrNoRows {
 		// No pending version, just approve the main record (status change only, no history entry)
@@ -128,7 +128,7 @@ func (r *PostgresModerationRepository) RejectPendingVersion(ctx context.Context,
 			ORDER BY version DESC
 			LIMIT 1
 		 )`,
-		StatusRejected, recordID, StatusPendingReview,
+		StatusRejected, recordID, StatusPending,
 	)
 	if err != nil {
 		return err
@@ -157,7 +157,7 @@ func (r *PostgresModerationRepository) GetPendingRecords(ctx context.Context, li
 			UNION
 			SELECT DISTINCT record_id as id FROM record_history WHERE moderation_status = $1 AND change_type = 'PENDING_VERSION'
 		) AS pending_items`,
-		StatusPendingReview,
+		StatusPending,
 	).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, err
@@ -171,7 +171,7 @@ func (r *PostgresModerationRepository) GetPendingRecords(ctx context.Context, li
 		 WHERE r.moderation_status = $1 OR rh.record_id IS NOT NULL
 		 ORDER BY r.created_at DESC
 		 LIMIT $2 OFFSET $3`,
-		StatusPendingReview, limit, offset,
+		StatusPending, limit, offset,
 	)
 	if err != nil {
 		return nil, 0, err
@@ -238,7 +238,7 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 				AND rh2.change_type = 'PENDING_VERSION'
 			)
 		) AS pending_items`,
-		StatusPendingReview,
+		StatusPending,
 	).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, err
@@ -297,7 +297,7 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 		) AS pending_items
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3`,
-		StatusPendingReview, limit, offset,
+		StatusPending, limit, offset,
 	)
 	if err != nil {
 		return nil, 0, err

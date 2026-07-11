@@ -278,7 +278,7 @@ func (r *PostgresRecordRepository) GetByID(ctx context.Context, id string) (*Rec
 
 // Create creates a new record within a transaction
 func (r *PostgresRecordRepository) Create(ctx context.Context, tx *sql.Tx, record *Record, s3Key string) error {
-	moderationStatus := StatusPendingReview
+	moderationStatus := StatusPending
 
 	// Default license if not provided
 	if record.License == "" {
@@ -1017,7 +1017,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 		WHERE r.uploader_orcid = $2
 		ORDER BY r.created_at DESC
 		LIMIT $3 OFFSET $4
-	`, StatusPendingReview, orcid, limit, offset)
+	`, StatusPending, orcid, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}

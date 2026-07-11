@@ -81,7 +81,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 		CommenterName:    user.Name,
 		CommenterOrcid:   user.Orcid,
 		Content:          req.Content,
-		ModerationStatus: StatusPendingReview,
+		ModerationStatus: StatusPending,
 	}
 
 	if err := h.commentRepo.Create(ctx, comment); err != nil {
