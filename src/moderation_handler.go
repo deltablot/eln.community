@@ -242,8 +242,8 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":  string(newStatus),
+	json.NewEncoder(w).Encode(map[string]any{
+		"status":  newStatus,
 		"message": "Record moderation status updated successfully",
 	})
 }

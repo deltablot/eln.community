@@ -1,5 +1,5 @@
 -- Add moderation status to records table
-ALTER TABLE records ADD COLUMN moderation_status INTEGER NOT NULL DEFAULT 1 CHECK (moderation_status IN (0, 1, 2, 3, 4));
+ALTER TABLE records ADD COLUMN moderation_status INTEGER NOT NULL DEFAULT 0 CHECK (moderation_status IN (0, 1, 2, 3, 4));
 
 -- Update existing records to be approved (for backward compatibility)
 UPDATE records SET moderation_status = 1 WHERE moderation_status IS NULL;
