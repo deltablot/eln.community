@@ -11,7 +11,7 @@ CREATE TABLE moderation_actions (
     id BIGSERIAL PRIMARY KEY,
     record_id UUID NOT NULL REFERENCES records(id) ON DELETE CASCADE,
     admin_orcid orcid_type NOT NULL,
-    action VARCHAR(20) NOT NULL, -- 'approve', 'reject', 'flag'
+    action INTEGER NOT NULL DEFAULT 0 CHECK (action IN (0, 1, 2, 3, 4)),
     reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
