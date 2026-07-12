@@ -114,7 +114,13 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get comments
-	comments, err := h.commentRepo.GetByRecordID(ctx, recordID, isAdmin)
+	var comments []Comment
+	var err error
+	if isAdmin {
+		comments, err = h.commentRepo.GetByRecordID(ctx, recordID)
+	} else {
+		comments, err = h.commentRepo.GetApprovedByRecordID(ctx, recordID)
+	}
 	if err != nil {
 		errorLogger.Printf("Failed to get comments: %v", err)
 		http.Error(w, "Failed to get comments", http.StatusInternalServerError)

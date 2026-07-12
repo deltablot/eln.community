@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
-	"strings"
+	"fmt"
+	//"strings"
 )
 
-// CommentRepository defines the interface for comment data operations
 type CommentRepository interface {
 	Create(ctx context.Context, comment *Comment) error
-	GetByRecordID(ctx context.Context, recordID string, includeModerated bool) ([]Comment, error)
+	GetByRecordID(ctx context.Context, recordID string) ([]Comment, error)
+	GetApprovedByRecordID(ctx context.Context, recordID string) ([]Comment, error)
 	GetByID(ctx context.Context, id int64) (*Comment, error)
 	GetPendingComments(ctx context.Context, limit, offset int) ([]Comment, int, error)
 	ApproveComment(ctx context.Context, id int64) error
@@ -21,7 +22,6 @@ type CommentRepository interface {
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
 }
 
-// PostgresCommentRepository implements CommentRepository
 type PostgresCommentRepository struct {
 	db *sql.DB
 }
@@ -30,72 +30,100 @@ func NewPostgresCommentRepository(db *sql.DB) *PostgresCommentRepository {
 	return &PostgresCommentRepository{db: db}
 }
 
-// Create adds a new comment (sanitized as plain text)
+const commentErr = "Error: comment repository"
+
 func (r *PostgresCommentRepository) Create(ctx context.Context, comment *Comment) error {
-	// Sanitize content: strip any HTML and trim whitespace
-	comment.Content = sanitizeCommentContent(comment.Content)
-
-	if len(strings.TrimSpace(comment.Content)) == 0 {
-		return ErrEmptyComment
-	}
-
 	query := `
-		INSERT INTO comments (record_id, commenter_name, commenter_orcid, content, moderation_status)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, created_at, modified_at`
+      INSERT INTO comments (record_id, commenter_name, commenter_orcid, content, moderation_status)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, created_at, modified_at`
 
-	return r.db.QueryRowContext(ctx, query,
+	err := r.db.QueryRowContext(ctx, query,
 		comment.RecordID,
 		comment.CommenterName,
 		comment.CommenterOrcid,
 		comment.Content,
 		comment.ModerationStatus,
 	).Scan(&comment.ID, &comment.CreatedAt, &comment.ModifiedAt)
+
+	if err != nil {
+		return fmt.Errorf("%s: failed to create comment: %w", commentErr, err)
+	}
+	return nil
 }
 
-// GetByRecordID retrieves comments for a specific record
-func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID string, includeModerated bool) ([]Comment, error) {
-	query := `
+func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID string) ([]Comment, error) {
+	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, record_id, commenter_name, commenter_orcid, content,
 		       moderation_status, created_at, modified_at
 		FROM comments
-		WHERE record_id = $1`
+		WHERE record_id = $1
+	    ORDER BY created_at ASC`, recordID)
 
-	args := []any{recordID}
-
-	if !includeModerated {
-		query += ` AND moderation_status = $2`
-		args = append(args, StatusApproved)
-	}
-
-	query += ` ORDER BY created_at ASC`
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: failed to get comments by record id %q: %w", commentErr, recordID, err)
 	}
 	defer rows.Close()
 
 	var comments []Comment
 	for rows.Next() {
-		var c Comment
-		err := rows.Scan(
-			&c.ID,
-			&c.RecordID,
-			&c.CommenterName,
-			&c.CommenterOrcid,
-			&c.Content,
-			&c.ModerationStatus,
-			&c.CreatedAt,
-			&c.ModifiedAt,
-		)
-		if err != nil {
-			return nil, err
+		var comment Comment
+		if err := rows.Scan(
+			&comment.ID,
+			&comment.RecordID,
+			&comment.CommenterName,
+			&comment.CommenterOrcid,
+			&comment.Content,
+			&comment.ModerationStatus,
+			&comment.CreatedAt,
+			&comment.ModifiedAt,
+		); err != nil {
+			return nil, fmt.Errorf("%s: failed to scan comment row: %w", commentErr, err)
 		}
-		comments = append(comments, c)
+		comments = append(comments, comment)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: failed to read comment row: %w", commentErr, err)
 	}
 
-	return comments, rows.Err()
+	return comments, nil
+}
+
+func (r *PostgresCommentRepository) GetApprovedByRecordID(ctx context.Context, recordID string) ([]Comment, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, record_id, commenter_name, commenter_orcid, content,
+		       moderation_status, created_at, modified_at
+		FROM comments
+		WHERE record_id = $1 AND moderation_status = $2
+	    ORDER BY created_at ASC`, recordID, StatusApproved)
+
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to get approved comments by record id %q: %w", commentErr, recordID, err)
+	}
+	defer rows.Close()
+
+	var comments []Comment
+	for rows.Next() {
+		var comment Comment
+		if err := rows.Scan(
+			&comment.ID,
+			&comment.RecordID,
+			&comment.CommenterName,
+			&comment.CommenterOrcid,
+			&comment.Content,
+			&comment.ModerationStatus,
+			&comment.CreatedAt,
+			&comment.ModifiedAt,
+		); err != nil {
+			return nil, fmt.Errorf("%s: failed to scan approved comment row: %w", commentErr, err)
+		}
+		comments = append(comments, comment)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: failed to read approved comment row: %w", commentErr, err)
+	}
+
+	return comments, nil
 }
 
 // GetByID retrieves a single comment by ID
@@ -275,5 +303,3 @@ func (r *PostgresCommentRepository) GetAllOrcids(ctx context.Context, recordId s
 
 	return commentators, nil
 }
-
-var ErrEmptyComment = sql.ErrNoRows
