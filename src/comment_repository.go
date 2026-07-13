@@ -13,11 +13,10 @@ type CommentRepository interface {
 	GetByID(ctx context.Context, id int64) (*Comment, error)
     CountPending(ctx context.Context) (int, error)
 	GetPending(ctx context.Context, limit int, offset int) ([]Comment, error)
-//	ApproveComment(ctx context.Context, id int64) error
 	MarkAsApproved(ctx context.Context, id int64) error
 	MarkAsRejected(ctx context.Context, id int64) error
 	DeleteComment(ctx context.Context, id int64) error
-	LogModerationAction(ctx context.Context, action CommentModerationAction) error
+	CreateModerationHistory(ctx context.Context, action CommentModerationAction) error
 	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationAction, error)
 	GetCommentatorOrcid(ctx context.Context, id int64) (string, error)
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
@@ -247,16 +246,19 @@ func (r *PostgresCommentRepository) DeleteComment(ctx context.Context, id int64)
 }
 
 // LogModerationAction records an admin action on a comment
-func (r *PostgresCommentRepository) LogModerationAction(ctx context.Context, action CommentModerationAction) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO comment_moderation_actions (comment_id, admin_orcid, action, reason)
-		 VALUES ($1, $2, $3, $4)`,
+func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context, action CommentModerationAction) error {
+	query := `INSERT INTO comment_moderation_actions (comment_id, admin_orcid, action, reason)
+		 VALUES ($1, $2, $3, $4)`
+    _, err := r.db.ExecContext(ctx, query,
 		action.CommentID,
 		action.AdminOrcid,
 		action.Action,
 		action.Reason,
 	)
-	return err
+    if err != nil {
+		return fmt.Errorf("%s: failed to create log for comment: %w", commentErr, err)
+	}
+	return nil
 }
 
 // GetModerationHistory retrieves moderation history for a comment

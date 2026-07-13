@@ -275,7 +275,7 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 		Action:     StatusApproved,
 		Reason:     req.Reason,
 	}
-	h.commentRepo.LogModerationAction(ctx, action)
+	h.commentRepo.CreateModerationHistory(ctx, action)
 
 	if err := h.createApprovedNotification(ctx, commentID); err != nil {
 		errorLogger.Printf("%s: failed to create notification for approved comment: %v", handler, err)
@@ -331,7 +331,7 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 		Action:     StatusRejected,
 		Reason:     req.Reason,
 	}
-	h.commentRepo.LogModerationAction(ctx, action)
+	h.commentRepo.CreateModerationHistory(ctx, action)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "rejected"})
@@ -385,7 +385,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		Action:     StatusDeleted,
 		Reason:     req.Reason,
 	}
-	h.commentRepo.LogModerationAction(ctx, action)
+	h.commentRepo.CreateModerationHistory(ctx, action)
 
 	// Delete comment
 	if err := h.commentRepo.DeleteComment(ctx, commentID); err != nil {
