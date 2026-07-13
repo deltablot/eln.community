@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	//"strings"
 )
 
 type CommentRepository interface {
@@ -12,9 +11,11 @@ type CommentRepository interface {
 	GetByRecordID(ctx context.Context, recordID string) ([]Comment, error)
 	GetApprovedByRecordID(ctx context.Context, recordID string) ([]Comment, error)
 	GetByID(ctx context.Context, id int64) (*Comment, error)
-	GetPendingComments(ctx context.Context, limit, offset int) ([]Comment, int, error)
-	ApproveComment(ctx context.Context, id int64) error
-	RejectComment(ctx context.Context, id int64) error
+    CountPending(ctx context.Context) (int, error)
+	GetPending(ctx context.Context, limit int, offset int) ([]Comment, error)
+//	ApproveComment(ctx context.Context, id int64) error
+	MarkAsApproved(ctx context.Context, id int64) error
+	MarkAsRejected(ctx context.Context, id int64) error
 	DeleteComment(ctx context.Context, id int64) error
 	LogModerationAction(ctx context.Context, action CommentModerationAction) error
 	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationAction, error)
@@ -83,7 +84,7 @@ func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID 
 		comments = append(comments, comment)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s: failed to read comment row: %w", commentErr, err)
+		return nil, fmt.Errorf("%s: failed to read comment rows: %w", commentErr, err)
 	}
 
 	return comments, nil
@@ -120,13 +121,12 @@ func (r *PostgresCommentRepository) GetApprovedByRecordID(ctx context.Context, r
 		comments = append(comments, comment)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s: failed to read approved comment row: %w", commentErr, err)
+		return nil, fmt.Errorf("%s: failed to read approved comment rows: %w", commentErr, err)
 	}
 
 	return comments, nil
 }
 
-// GetByID retrieves a single comment by ID
 func (r *PostgresCommentRepository) GetByID(ctx context.Context, id int64) (*Comment, error) {
 	query := `
 		SELECT id, record_id, commenter_name, commenter_orcid, content,
@@ -134,93 +134,116 @@ func (r *PostgresCommentRepository) GetByID(ctx context.Context, id int64) (*Com
 		FROM comments
 		WHERE id = $1`
 
-	var c Comment
+	var comment Comment
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&c.ID,
-		&c.RecordID,
-		&c.CommenterName,
-		&c.CommenterOrcid,
-		&c.Content,
-		&c.ModerationStatus,
-		&c.CreatedAt,
-		&c.ModifiedAt,
+		&comment.ID,
+		&comment.RecordID,
+		&comment.CommenterName,
+		&comment.CommenterOrcid,
+		&comment.Content,
+		&comment.ModerationStatus,
+		&comment.CreatedAt,
+		&comment.ModifiedAt,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: failed to get comment %d row: %w", commentErr, id, err)
 	}
 
-	return &c, nil
+	return &comment, nil
 }
 
-// GetPendingComments retrieves comments awaiting moderation
-func (r *PostgresCommentRepository) GetPendingComments(ctx context.Context, limit, offset int) ([]Comment, int, error) {
-	// Get total count
-	var total int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM comments WHERE moderation_status = $1`,
-		StatusPending).Scan(&total)
-	if err != nil {
-		return nil, 0, err
-	}
+func (r *PostgresCommentRepository) CountPending(ctx context.Context) (int, error) {
+    var total int
+	err := r.db.QueryRowContext(ctx,`SELECT COUNT(*) FROM comments WHERE moderation_status = $1`, StatusPending).Scan(&total)
+    if err != nil {
+		return 0, fmt.Errorf("%s: failed to count pending comments: %w", commentErr, err)
+    }
+    return total, nil
+}
 
-	// Get paginated results
-	query := `
-		SELECT c.id, c.record_id, c.commenter_name, c.commenter_orcid, c.content,
-		       c.moderation_status, c.created_at, c.modified_at
+func (r *PostgresCommentRepository) GetPending(ctx context.Context, limit int, offset int) ([]Comment, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT c.id, c.record_id, c.commenter_name, c.commenter_orcid, c.content, c.moderation_status, c.created_at, c.modified_at
 		FROM comments c
 		WHERE c.moderation_status = $1
 		ORDER BY c.created_at ASC
-		LIMIT $2 OFFSET $3`
-
-	rows, err := r.db.QueryContext(ctx, query, StatusPending, limit, offset)
+		LIMIT $2 OFFSET $3`, StatusPending, limit, offset)
 	if err != nil {
-		return nil, 0, err
+		return nil, fmt.Errorf("%s: failed to get pending comments: %w", commentErr, err)
 	}
 	defer rows.Close()
 
 	var comments []Comment
 	for rows.Next() {
-		var c Comment
-		err := rows.Scan(
-			&c.ID,
-			&c.RecordID,
-			&c.CommenterName,
-			&c.CommenterOrcid,
-			&c.Content,
-			&c.ModerationStatus,
-			&c.CreatedAt,
-			&c.ModifiedAt,
-		)
-		if err != nil {
-			return nil, 0, err
+		var comment Comment
+		if err := rows.Scan(
+			&comment.ID,
+			&comment.RecordID,
+			&comment.CommenterName,
+			&comment.CommenterOrcid,
+			&comment.Content,
+			&comment.ModerationStatus,
+			&comment.CreatedAt,
+			&comment.ModifiedAt,
+		); err != nil {
+			return nil, fmt.Errorf("%s: failed to scan pending comment row: %w", commentErr, err)
 		}
-		comments = append(comments, c)
+		comments = append(comments, comment)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: failed to read pending comment rows: %w", commentErr, err)
 	}
 
-	return comments, total, rows.Err()
+	return comments, nil
 }
 
-// ApproveComment marks a comment as approved
-func (r *PostgresCommentRepository) ApproveComment(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2`,
-		StatusApproved, id)
-	return err
+func (r *PostgresCommentRepository) MarkAsApproved(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status != $3`, StatusApproved, id, StatusDeleted)
+    if err != nil {
+		return fmt.Errorf("%s: failed to mark comment %d as approved: %w", commentErr, id, err)
+	}
+
+    n, err := res.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("%s: failed to get affected rows for comment %d approval: %w", commentErr, id, err)
+	}
+    if n != 1 {
+		return fmt.Errorf("%s: expected to update 1 row for comment %d, updated %d", commentErr, id, n)
+	}
+	return nil
 }
 
-// RejectComment marks a comment as rejected
-func (r *PostgresCommentRepository) RejectComment(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2`,
-		StatusRejected, id,
-	)
-	return err
+func (r *PostgresCommentRepository) MarkAsRejected(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status != $3`, StatusRejected, id, StatusDeleted)
+    if err != nil {
+		return fmt.Errorf("%s: failed to mark comment %d as rejected: %w", commentErr, id, err)
+	}
+
+    n, err := res.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("%s: failed to get affected rows for comment %d rejection: %w", commentErr, id, err)
+	}
+    if n != 1 {
+		return fmt.Errorf("%s: expected to update 1 row for comment %d, updated %d", commentErr, id, n)
+	}
+	return nil
 }
 
-// DeleteComment removes a comment
+// Hard delete: this permanently removes the comment.
+// TODO: consider reserving hard deletes for maintenance tasks and using StatusDeleted for soft deletes in the moderation workflow.
 func (r *PostgresCommentRepository) DeleteComment(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM comments WHERE id = $1`, id)
-	return err
+	res, err := r.db.ExecContext(ctx, `DELETE FROM comments WHERE id = $1`, id)
+    if err != nil {
+		return fmt.Errorf("%s: failed to delete comment %d: %w", commentErr, id, err)
+	}
+
+    n, err := res.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("%s: failed to get affected rows for comment %d deletion: %w", commentErr, id, err)
+	}
+    if n != 1 {
+		return fmt.Errorf("%s: expected to delete 1 row for comment %d, deleted %d", commentErr, id, n)
+	}
+	return nil
 }
 
 // LogModerationAction records an admin action on a comment

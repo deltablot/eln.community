@@ -163,7 +163,8 @@ func (h *CommentHandler) getPendingComments(w http.ResponseWriter, r *http.Reque
 		offset = 0
 	}
 
-	comments, total, err := h.commentRepo.GetPendingComments(ctx, limit, offset)
+    total, err := h.commentRepo.CountPending(ctx)
+	comments, err := h.commentRepo.GetPending(ctx, limit, offset)
 	if err != nil {
 		errorLogger.Printf("Failed to get pending comments: %v", err)
 		http.Error(w, "Failed to get pending comments", http.StatusInternalServerError)
@@ -258,8 +259,11 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 	json.NewDecoder(r.Body).Decode(&req)
 
 	// Approve comment
-	if err := h.commentRepo.ApproveComment(ctx, commentID); err != nil {
-		errorLogger.Printf("Failed to approve comment: %v", err)
+	err1 := h.commentRepo.MarkAsApproved(ctx, commentID)
+    if err1 == nil {
+		errorLogger.Printf("ICI Failed to approve comment: %v", err1)
+    }
+    if err1 != nil {
 		http.Error(w, "Failed to approve comment", http.StatusInternalServerError)
 		return
 	}
@@ -314,7 +318,7 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	// Reject comment
-	if err := h.commentRepo.RejectComment(ctx, commentID); err != nil {
+	if err := h.commentRepo.MarkAsRejected(ctx, commentID); err != nil {
 		errorLogger.Printf("Failed to reject comment: %v", err)
 		http.Error(w, "Failed to reject comment", http.StatusInternalServerError)
 		return
