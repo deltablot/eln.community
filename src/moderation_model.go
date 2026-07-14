@@ -28,10 +28,10 @@ var moderationStatusName = map[ModerationStatus]string{
 
 // ModerationAction represents an admin action on a record
 type ModerationAction struct {
-	ID         int64
-	RecordID   string
-	AdminOrcid string
-	Action     ModerationStatus
+	ID          int64
+	RecordID    string
+	AdminOrcid  string
+	Action      ModerationStatus
 	Reason      string
 	VersionName string // Name of the version that was moderated
 	CreatedAt   time.Time

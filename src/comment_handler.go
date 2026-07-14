@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
-	"database/sql"
 )
 
 type CommentHandler struct {
@@ -164,7 +164,7 @@ func (h *CommentHandler) getPendingComments(w http.ResponseWriter, r *http.Reque
 		offset = 0
 	}
 
-    total, err := h.commentRepo.CountPending(ctx)
+	total, err := h.commentRepo.CountPending(ctx)
 	comments, err := h.commentRepo.GetPending(ctx, limit, offset)
 	if err != nil {
 		errorLogger.Printf("Failed to get pending comments: %v", err)
@@ -261,10 +261,10 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 
 	// Approve comment
 	err1 := h.commentRepo.MarkAsApproved(ctx, commentID)
-    if err1 == nil {
+	if err1 == nil {
 		errorLogger.Printf("ICI Failed to approve comment: %v", err1)
-    }
-    if err1 != nil {
+	}
+	if err1 != nil {
 		http.Error(w, "Failed to approve comment", http.StatusInternalServerError)
 		return
 	}
@@ -273,11 +273,11 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 	action := CommentModerationHistory{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		NewStatus:     StatusApproved,
-		Reason:     sql.NullString{
-            String: req.Reason,
-            Valid: req.Reason != "",
-        },
+		NewStatus:  StatusApproved,
+		Reason: sql.NullString{
+			String: req.Reason,
+			Valid:  req.Reason != "",
+		},
 	}
 	h.commentRepo.CreateModerationHistory(ctx, action)
 
@@ -332,11 +332,11 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 	action := CommentModerationHistory{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		NewStatus:     StatusRejected,
-		Reason:     sql.NullString{
-            String: req.Reason,
-            Valid: req.Reason != "",
-        },
+		NewStatus:  StatusRejected,
+		Reason: sql.NullString{
+			String: req.Reason,
+			Valid:  req.Reason != "",
+		},
 	}
 	h.commentRepo.CreateModerationHistory(ctx, action)
 
@@ -389,11 +389,11 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	action := CommentModerationHistory{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		NewStatus:     StatusDeleted,
-		Reason:     sql.NullString{
-            String: req.Reason,
-            Valid: req.Reason != "",
-        },
+		NewStatus:  StatusDeleted,
+		Reason: sql.NullString{
+			String: req.Reason,
+			Valid:  req.Reason != "",
+		},
 	}
 	h.commentRepo.CreateModerationHistory(ctx, action)
 
