@@ -17,6 +17,10 @@ type CommentHandler struct {
 	notificationService *NotificationService
 }
 
+type createCommentRequest struct {
+	Content string `json:"content"`
+}
+
 func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService) *CommentHandler {
 	return &CommentHandler{
 		commentRepo:         commentRepo,
@@ -26,77 +30,69 @@ func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepositor
 	}
 }
 
-const handler = "comment handler"
+const handler = "Error: comment handler"
 
-// POST /api/v1/records/{id}/comments - Create a new comment
+func requireJSONBody(w http.ResponseWriter, r *http.Request, source string, dst any) bool {
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+        errorLogger.Printf("%s: invalid request body: %v", source, err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return false
+	}
+    return true
+}
+
 func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Authentication required
-	orcid, ok := sessionManager.Get(ctx, "orcid").(string)
-	if !ok || orcid == "" {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
+    user, ok := requireAuthenticatedUser(w, r, handler)
+    if !ok {
 		return
-	}
+    }
 
-	userName, _ := sessionManager.Get(ctx, "name").(string)
-	user := &User{
-		Name:  userName,
-		Orcid: orcid,
-	}
-
-	// Get record ID from URL
-	recordID := strings.TrimPrefix(r.URL.Path, "/api/v1/records/")
-	recordID = strings.TrimSuffix(recordID, "/comments")
-
-	// Verify record exists
-	record, err := h.recordRepo.GetByID(ctx, recordID)
-	if err != nil {
-		http.Error(w, "Record not found", http.StatusNotFound)
+    recordId, ok := requireRecordIdFromCommentPath(w, r, handler)
+    if !ok {
 		return
-	}
+    }
 
-	// Parse request body
-	var req struct {
-		Content string `json:"content"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+    record, err := h.recordRepo.GetByID(ctx, recordId)
+    if err != nil {
+        errorLogger.Printf("%s: failed to get record %s: %v", handler, recordId, err)
+	    http.Error(w, "record not found", http.StatusNotFound)
+        return
+    }
 
-	// Validate content
-	if len(strings.TrimSpace(req.Content)) == 0 {
-		http.Error(w, "Comment content cannot be empty", http.StatusBadRequest)
-		return
-	}
+    var req createCommentRequest
+    if ok := requireJSONBody(w, r, handler, &req); !ok {
+        return
+    }
 
-	if len(req.Content) > 5000 {
-		http.Error(w, "Comment content too long (max 5000 characters)", http.StatusBadRequest)
-		return
-	}
+    content, ok := requireValidCommentContent(w, r, handler, req.Content)
+    if !ok {
+	    return
+    }
 
-	// Create comment
 	comment := &Comment{
 		RecordID:         record.Id,
 		CommenterName:    user.Name,
 		CommenterOrcid:   user.Orcid,
-		Content:          req.Content,
+		Content:          content,
 		ModerationStatus: StatusPending,
 	}
 
 	if err := h.commentRepo.Create(ctx, comment); err != nil {
-		errorLogger.Printf("Failed to create comment: %v", err)
+        errorLogger.Printf("%s: failed to create comment for record %d: %v", handler, recordId, err)
 		http.Error(w, "Failed to create comment", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(comment)
+    if err := json.NewEncoder(w).Encode(comment); err != nil {
+        errorLogger.Printf("%s: failed to encode response for comment %d: %v", handler, comment.ID, err)
+    }
 
 	if err := h.notificationService.CreateForComment(ctx, comment); err != nil {
-		errorLogger.Printf("%s: failed to create comment notification: %v", handler, err)
+		errorLogger.Printf("%s: failed to create comment notification for comment %d: %v", handler, comment.ID, err)
 	}
 }
 

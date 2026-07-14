@@ -262,7 +262,6 @@ func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context,
 	return nil
 }
 
-// GetModerationHistory retrieves moderation history for a comment
 func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationHistory, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, comment_id, admin_orcid, previous_status, new_status, reason, created_at, modified_at
 		FROM comment_moderation_actions
