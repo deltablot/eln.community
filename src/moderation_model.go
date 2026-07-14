@@ -1,13 +1,11 @@
 package main
 
 import (
-	//	"context"
 	"database/sql"
 	"encoding/json"
 	"time"
 )
 
-// ModerationStatus represents the review state of a record
 type ModerationStatus int
 
 const (
@@ -34,7 +32,6 @@ type ModerationAction struct {
 	RecordID   string
 	AdminOrcid string
 	Action     ModerationStatus
-	//Action      string // "approve", "reject", "flag"
 	Reason      string
 	VersionName string // Name of the version that was moderated
 	CreatedAt   time.Time

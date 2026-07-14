@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -21,12 +22,13 @@ type Comment struct {
 //       * virer action -> new_status
 //       * ajouter previous_status
 //       * ajouter modified_at
-//       * Mettre reason en sql.NullString ou en string mais permettre le NULL
 type CommentModerationAction struct {
 	ID         int64
 	CommentID  int64
 	AdminOrcid string
-	Action     ModerationStatus
-	Reason     string
+	NewStatus     ModerationStatus
+	PreviousStatus     ModerationStatus
+	Reason     sql.NullString
 	CreatedAt  time.Time
+	ModifiedAt  time.Time
 }

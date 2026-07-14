@@ -14,6 +14,7 @@ CREATE TABLE moderation_actions (
     action INTEGER NOT NULL DEFAULT 0 CHECK (action IN (0, 1, 2, 3, 4)),
     reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+--    modified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 CREATE INDEX idx_moderation_actions_record ON moderation_actions(record_id);
 CREATE INDEX idx_moderation_actions_admin ON moderation_actions(admin_orcid);

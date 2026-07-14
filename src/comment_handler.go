@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"database/sql"
 )
 
 type CommentHandler struct {
@@ -272,8 +273,11 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 	action := CommentModerationAction{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		Action:     StatusApproved,
-		Reason:     req.Reason,
+		NewStatus:     StatusApproved,
+		Reason:     sql.NullString{
+            String: req.Reason,
+            Valid: req.Reason != "",
+        },
 	}
 	h.commentRepo.CreateModerationHistory(ctx, action)
 
@@ -328,8 +332,11 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 	action := CommentModerationAction{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		Action:     StatusRejected,
-		Reason:     req.Reason,
+		NewStatus:     StatusRejected,
+		Reason:     sql.NullString{
+            String: req.Reason,
+            Valid: req.Reason != "",
+        },
 	}
 	h.commentRepo.CreateModerationHistory(ctx, action)
 
@@ -382,8 +389,11 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	action := CommentModerationAction{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
-		Action:     StatusDeleted,
-		Reason:     req.Reason,
+		NewStatus:     StatusDeleted,
+		Reason:     sql.NullString{
+            String: req.Reason,
+            Valid: req.Reason != "",
+        },
 	}
 	h.commentRepo.CreateModerationHistory(ctx, action)
 

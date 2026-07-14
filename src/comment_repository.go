@@ -245,15 +245,16 @@ func (r *PostgresCommentRepository) DeleteComment(ctx context.Context, id int64)
 	return nil
 }
 
-// LogModerationAction records an admin action on a comment
-func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context, action CommentModerationAction) error {
-	query := `INSERT INTO comment_moderation_actions (comment_id, admin_orcid, action, reason)
-		 VALUES ($1, $2, $3, $4)`
+func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context, moderation CommentModerationAction) error {
+	query := `INSERT INTO comment_moderation_actions (comment_id, admin_orcid, previous_status, new_status, reason)
+		 VALUES ($1, $2, $3, $4, $5)`
+
     _, err := r.db.ExecContext(ctx, query,
-		action.CommentID,
-		action.AdminOrcid,
-		action.Action,
-		action.Reason,
+		moderation.CommentID,
+		moderation.AdminOrcid,
+		moderation.PreviousStatus,
+		moderation.NewStatus,
+		moderation.Reason,
 	)
     if err != nil {
 		return fmt.Errorf("%s: failed to create log for comment: %w", commentErr, err)
@@ -263,47 +264,51 @@ func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context,
 
 // GetModerationHistory retrieves moderation history for a comment
 func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationAction, error) {
-	query := `
-		SELECT id, comment_id, admin_orcid, action, reason, created_at
+	rows, err := r.db.QueryContext(ctx, `SELECT id, comment_id, admin_orcid, previous_status, new_status, reason, created_at, modified_at
 		FROM comment_moderation_actions
 		WHERE comment_id = $1
-		ORDER BY created_at DESC`
+		ORDER BY created_at DESC`, commentID)
 
-	rows, err := r.db.QueryContext(ctx, query, commentID)
-	if err != nil {
-		return nil, err
+    if err != nil {
+        return nil, fmt.Errorf("%s: failed to get history moderation comment rows: %w", commentErr, err)
 	}
 	defer rows.Close()
 
-	var actions []CommentModerationAction
+	var moderations []CommentModerationAction
 	for rows.Next() {
-		var a CommentModerationAction
-		var reason sql.NullString
-		err := rows.Scan(
-			&a.ID,
-			&a.CommentID,
-			&a.AdminOrcid,
-			&a.Action,
-			&reason,
-			&a.CreatedAt,
-		)
-		if err != nil {
-			return nil, err
+		var moderation CommentModerationAction
+		if err := rows.Scan(
+			&moderation.ID,
+			&moderation.CommentID,
+			&moderation.AdminOrcid,
+			&moderation.PreviousStatus,
+			&moderation.NewStatus,
+            /*
+            &moderation.Reason,
+			sql.NullString{
+                String: (&moderation.Reason).String,
+                Valid: (&moderation.Reason).String != "",
+            },
+            */
+			&moderation.CreatedAt,
+			&moderation.ModifiedAt,
+		); err != nil {
+			return nil, fmt.Errorf("%s: failed to scan history moderation comment row: %w", commentErr, err)
 		}
-		if reason.Valid {
-			a.Reason = reason.String
-		}
-		actions = append(actions, a)
+		moderations = append(moderations, moderation)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: failed to read history moderation comment rows: %w", commentErr, err)
 	}
 
-	return actions, rows.Err()
+	return moderations, rows.Err()
 }
 
 func (r *PostgresCommentRepository) GetCommentatorOrcid(ctx context.Context, id int64) (string, error) {
 	var commenterOrcid string
 	err := r.db.QueryRowContext(ctx, `SELECT commenter_orcid FROM comments WHERE id = $1`, id).Scan(&commenterOrcid)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s: failed to get commentator orcid for comment id %d: %w", commentErr, id,  err)
 	}
 	return commenterOrcid, nil
 }
@@ -311,20 +316,21 @@ func (r *PostgresCommentRepository) GetCommentatorOrcid(ctx context.Context, id 
 func (r *PostgresCommentRepository) GetAllOrcids(ctx context.Context, recordId string) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT commenter_orcid FROM comments WHERE record_id = $1 AND commenter_orcid IS NOT NULL AND commenter_orcid != '' AND moderation_status = $2`, recordId, StatusApproved)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: failed to get all orcids for record id %d: %w", commentErr, recordId,  err)
 	}
 	defer rows.Close()
+
 	var commentators []string
 	for rows.Next() {
 		var commentator string
 		if err := rows.Scan(&commentator); err != nil {
-			return commentators, err
+			return nil, fmt.Errorf("%s: failed to scan orcid row for record %d: %w", commentErr, recordId, err)
 		}
 		commentators = append(commentators, commentator)
 	}
-	if err = rows.Err(); err != nil {
-		return commentators, err
-	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: failed to read orcid rows for record %d: %w", commentErr, recordId,  err)
+	}
 	return commentators, nil
 }

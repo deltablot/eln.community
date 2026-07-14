@@ -28,9 +28,11 @@ CREATE TABLE IF NOT EXISTS comment_moderation_actions (
     id BIGSERIAL PRIMARY KEY,
     comment_id BIGINT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
     admin_orcid orcid_type NOT NULL,
-    action INTEGER NOT NULL DEFAULT 0 CHECK (action IN (0, 1, 2, 3, 4)),
+    previous_status INTEGER NOT NULL DEFAULT 0 CHECK (previous_status IN (0, 1, 2, 3, 4)),
+    new_status INTEGER NOT NULL DEFAULT 0 CHECK (new_status IN (0, 1, 2, 3, 4)),
     reason TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_comment_moderation_actions_comment ON comment_moderation_actions(comment_id);
