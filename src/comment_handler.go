@@ -270,7 +270,7 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Log moderation action
-	action := CommentModerationAction{
+	action := CommentModerationHistory{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
 		NewStatus:     StatusApproved,
@@ -329,7 +329,7 @@ func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log moderation action
-	action := CommentModerationAction{
+	action := CommentModerationHistory{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
 		NewStatus:     StatusRejected,
@@ -386,7 +386,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	// Log moderation action before deletion
-	action := CommentModerationAction{
+	action := CommentModerationHistory{
 		CommentID:  commentID,
 		AdminOrcid: orcid,
 		NewStatus:     StatusDeleted,

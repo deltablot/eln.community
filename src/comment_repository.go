@@ -16,8 +16,8 @@ type CommentRepository interface {
 	MarkAsApproved(ctx context.Context, id int64) error
 	MarkAsRejected(ctx context.Context, id int64) error
 	DeleteComment(ctx context.Context, id int64) error
-	CreateModerationHistory(ctx context.Context, action CommentModerationAction) error
-	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationAction, error)
+	CreateModerationHistory(ctx context.Context, action CommentModerationHistory) error
+	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationHistory, error)
 	GetCommentatorOrcid(ctx context.Context, id int64) (string, error)
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
 }
@@ -245,7 +245,7 @@ func (r *PostgresCommentRepository) DeleteComment(ctx context.Context, id int64)
 	return nil
 }
 
-func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context, moderation CommentModerationAction) error {
+func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context, moderation CommentModerationHistory) error {
 	query := `INSERT INTO comment_moderation_actions (comment_id, admin_orcid, previous_status, new_status, reason)
 		 VALUES ($1, $2, $3, $4, $5)`
 
@@ -263,7 +263,7 @@ func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context,
 }
 
 // GetModerationHistory retrieves moderation history for a comment
-func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationAction, error) {
+func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationHistory, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, comment_id, admin_orcid, previous_status, new_status, reason, created_at, modified_at
 		FROM comment_moderation_actions
 		WHERE comment_id = $1
@@ -274,9 +274,9 @@ func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, co
 	}
 	defer rows.Close()
 
-	var moderations []CommentModerationAction
+	var moderations []CommentModerationHistory
 	for rows.Next() {
-		var moderation CommentModerationAction
+		var moderation CommentModerationHistory
 		if err := rows.Scan(
 			&moderation.ID,
 			&moderation.CommentID,
