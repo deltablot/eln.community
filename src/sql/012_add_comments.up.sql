@@ -24,7 +24,7 @@ CREATE TRIGGER trigger_update_modified_at_comments
     EXECUTE FUNCTION update_modified_at();
 
 -- Comment moderation actions log
-CREATE TABLE IF NOT EXISTS comment_moderation_actions (
+CREATE TABLE IF NOT EXISTS comment_moderation_history (
     id BIGSERIAL PRIMARY KEY,
     comment_id BIGINT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
     admin_orcid orcid_type NOT NULL,
@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS comment_moderation_actions (
     modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_comment_moderation_actions_comment ON comment_moderation_actions(comment_id);
-CREATE INDEX idx_comment_moderation_actions_admin ON comment_moderation_actions(admin_orcid);
+CREATE INDEX idx_comment_moderation_history_comment ON comment_moderation_history(comment_id);
+CREATE INDEX idx_comment_moderation_history_admin ON comment_moderation_history(admin_orcid);
 
 -- Comments
 COMMENT ON TABLE comments IS 'User comments on records with moderation support';

@@ -283,13 +283,7 @@ func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, co
 			&moderation.AdminOrcid,
 			&moderation.PreviousStatus,
 			&moderation.NewStatus,
-            /*
             &moderation.Reason,
-			sql.NullString{
-                String: (&moderation.Reason).String,
-                Valid: (&moderation.Reason).String != "",
-            },
-            */
 			&moderation.CreatedAt,
 			&moderation.ModifiedAt,
 		); err != nil {

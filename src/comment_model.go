@@ -17,12 +17,7 @@ type Comment struct {
 	ModifiedAt       time.Time        `json:"modified_at"`
 }
 
-// TODO:
-//       * Renommer cette table CommentModerationHistory
-//       * virer action -> new_status
-//       * ajouter previous_status
-//       * ajouter modified_at
-type CommentModerationAction struct {
+type CommentModerationHistory struct {
 	ID         int64
 	CommentID  int64
 	AdminOrcid string
