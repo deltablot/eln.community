@@ -69,8 +69,8 @@ BEFORE DELETE ON records
 FOR EACH ROW
 EXECUTE FUNCTION record_delete_audit_trigger();
 
--- Remove version_name column from moderation_actions
-ALTER TABLE moderation_actions DROP COLUMN IF EXISTS version_name;
+-- Remove version_name column from moderation_history
+ALTER TABLE moderation_history DROP COLUMN IF EXISTS version_name;
 
 -- Remove moderation_status column from record_history
 ALTER TABLE record_history DROP COLUMN IF EXISTS moderation_status;

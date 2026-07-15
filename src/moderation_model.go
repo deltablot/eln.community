@@ -26,15 +26,18 @@ var moderationStatusName = map[ModerationStatus]string{
 	StatusFlagged:  "flagged",
 }
 
-// ModerationAction represents an admin action on a record
-type ModerationAction struct {
+// ModerationHistory represents an admin action on a record
+type ModerationHistory struct {
 	ID          int64
 	RecordID    string
 	AdminOrcid  string
-	Action      ModerationStatus
+	// NewStatus      ModerationStatus
+	// PreviousStatus ModerationStatus
+	ModerationStatus      ModerationStatus
 	Reason      string
 	VersionName string // Name of the version that was moderated
 	CreatedAt   time.Time
+//	ModifiedAt   time.Time
 }
 
 // PendingItem represents an item in the moderation queue

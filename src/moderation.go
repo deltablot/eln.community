@@ -14,8 +14,8 @@ type ModerationRepository interface {
 	RejectPendingVersion(ctx context.Context, recordID string) error
 	GetPendingRecords(ctx context.Context, limit, offset int) ([]Record, int, error)
 	GetPendingItems(ctx context.Context, limit, offset int) ([]PendingItem, int, error)
-	LogModerationAction(ctx context.Context, action ModerationAction) error
-	GetModerationHistory(ctx context.Context, recordID string) ([]ModerationAction, error)
+	LogModerationHistory(ctx context.Context, action ModerationHistory) error
+	GetModerationHistory(ctx context.Context, recordID string) ([]ModerationHistory, error)
 }
 
 // PostgresModerationRepository implements ModerationRepository
@@ -416,19 +416,19 @@ func (r *PostgresModerationRepository) getRecordsByStatus(ctx context.Context, s
 	return records, totalCount, rows.Err()
 }
 
-func (r *PostgresModerationRepository) LogModerationAction(ctx context.Context, action ModerationAction) error {
+func (r *PostgresModerationRepository) LogModerationHistory(ctx context.Context, action ModerationHistory) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO moderation_actions (record_id, admin_orcid, action, reason, version_name, created_at)
+		`INSERT INTO moderation_history (record_id, admin_orcid, moderation_status, reason, version_name, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		action.RecordID, action.AdminOrcid, action.Action, action.Reason, action.VersionName, time.Now(),
+		action.RecordID, action.AdminOrcid, action.ModerationStatus, action.Reason, action.VersionName, time.Now(),
 	)
 	return err
 }
 
-func (r *PostgresModerationRepository) GetModerationHistory(ctx context.Context, recordID string) ([]ModerationAction, error) {
+func (r *PostgresModerationRepository) GetModerationHistory(ctx context.Context, recordID string) ([]ModerationHistory, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, record_id, admin_orcid, action, reason, created_at
-		 FROM moderation_actions
+		`SELECT id, record_id, admin_orcid, moderation_status, reason, created_at
+		 FROM moderation_history
 		 WHERE record_id = $1
 		 ORDER BY created_at DESC`,
 		recordID,
@@ -438,14 +438,14 @@ func (r *PostgresModerationRepository) GetModerationHistory(ctx context.Context,
 	}
 	defer rows.Close()
 
-	var actions []ModerationAction
+	var actions []ModerationHistory
 	for rows.Next() {
-		var action ModerationAction
+		var action ModerationHistory
 		err := rows.Scan(
 			&action.ID,
 			&action.RecordID,
 			&action.AdminOrcid,
-			&action.Action,
+			&action.ModerationStatus,
 			&action.Reason,
 			&action.CreatedAt,
 		)
@@ -460,18 +460,18 @@ func (r *PostgresModerationRepository) GetModerationHistory(ctx context.Context,
 
 // ModerationHistoryEntry represents a moderation action with record details
 type ModerationHistoryEntry struct {
-	ModerationAction
+	ModerationHistory
 	RecordName string
 }
 
 // GetRecentModerationHistory returns recent moderation actions with record names
 func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Context, limit int) ([]ModerationHistoryEntry, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT ma.id, ma.record_id, ma.admin_orcid, ma.action, ma.reason, ma.created_at,
-		        COALESCE(NULLIF(ma.version_name, ''), r.name) as display_name
-		 FROM moderation_actions ma
-		 LEFT JOIN records r ON ma.record_id = r.id
-		 ORDER BY ma.created_at DESC
+		`SELECT mh.id, mh.record_id, mh.admin_orcid, mh.moderation_status, mh.reason, mh.created_at,
+		        COALESCE(NULLIF(mh.version_name, ''), r.name) as display_name
+		 FROM moderation_history mh
+		 LEFT JOIN records r ON mh.record_id = r.id
+		 ORDER BY mh.created_at DESC
 		 LIMIT $1`,
 		limit,
 	)
@@ -488,7 +488,7 @@ func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Co
 			&entry.ID,
 			&entry.RecordID,
 			&entry.AdminOrcid,
-			&entry.Action,
+			&entry.ModerationStatus,
 			&reason,
 			&entry.CreatedAt,
 			&entry.RecordName,
