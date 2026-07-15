@@ -45,14 +45,10 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
     user, ok := requireAuthenticatedUser(w, r, handler)
-    if !ok {
-		return
-    }
+    if !ok { return }
 
-    recordId, ok := requireRecordIdFromCommentPath(w, r, handler)
-    if !ok {
-		return
-    }
+    recordId, ok := parsePath(w, r, "/records/", "/comments", "comment", handler)
+    if !ok { return }
 
     record, err := h.recordRepo.GetByID(ctx, recordId)
     if err != nil {
@@ -62,14 +58,10 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
     }
 
     var req createCommentRequest
-    if ok := requireJSONBody(w, r, handler, &req); !ok {
-        return
-    }
+    if ok := requireJSONBody(w, r, handler, &req); !ok { return }
 
     content, ok := requireValidCommentContent(w, r, handler, req.Content)
-    if !ok {
-	    return
-    }
+    if !ok { return }
 
 	comment := &Comment{
 		RecordID:         record.Id,
@@ -88,6 +80,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
     if err := json.NewEncoder(w).Encode(comment); err != nil {
+    if !ok { return }
         errorLogger.Printf("%s: failed to encode response for comment %d: %v", handler, comment.ID, err)
     }
 
@@ -98,15 +91,11 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 
 func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-    recordId, ok := requireRecordIdFromCommentPath(w, r, handler)
-    if !ok {
-		return
-    }
+    recordId, ok := parsePath(w, r, "/records/", "/comments", "comment", handler)
+    if !ok { return }
 
 	isAdmin, ok := currentUserIsAdmin(w, r, handler, h.adminRepo)
-    if !ok {
-        return
-    }
+    if !ok { return }
 
 	var comments []Comment
 	var err error
@@ -134,9 +123,7 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 func (h *CommentHandler) getPendingComments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
     _, ok := requireAdminUser(w, r, handler, h.adminRepo)
-    if !ok {
-        return
-    }
+    if !ok { return }
 
     limit, offset := parsePagination(r)
 
@@ -213,54 +200,60 @@ func (h *CommentHandler) createApprovedNotifications(ctx context.Context, commen
 func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
     admin, ok := requireAdminUser(w, r, handler, h.adminRepo)
-    if !ok {
-        return
-    }
+    if !ok { return }
 
-	// Get comment ID
-	commentIDStr := strings.TrimPrefix(r.URL.Path, "/api/v1/moderation/comments/")
-	commentIDStr = strings.TrimSuffix(commentIDStr, "/approve")
-	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+    commentPath, ok := parsePath(w, r, "/moderation/comments/", "/approve", "comment moderation", handler)
+    if !ok { return }
+
+	commentID, err := strconv.ParseInt(commentPath, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid comment ID", http.StatusBadRequest)
+        errorLogger.Printf("%s: invalid comment id %q: %v", handler, commentPath, err)
+		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
 
-	// Parse optional reason
 	var req struct {
 		Reason string `json:"reason"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+    if ok := requireJSONBody(w, r, handler, &req); !ok { return }
 
-	// Approve comment
-	err1 := h.commentRepo.MarkAsApproved(ctx, commentID)
-	if err1 == nil {
-		errorLogger.Printf("ICI Failed to approve comment: %v", err1)
-	}
-	if err1 != nil {
+    comment, err := h.commentRepo.GetByID(ctx, commentID)
+    if err != nil {
+        errorLogger.Printf("%s: failed to get comment %d before approval: %v", handler, commentID, err)
+		http.Error(w, "failed to approve comment", http.StatusInternalServerError)
+		return
+    }
+    previousStatus := comment.ModerationStatus
+	if err := h.commentRepo.MarkAsApproved(ctx, commentID); err != nil {
 		http.Error(w, "Failed to approve comment", http.StatusInternalServerError)
 		return
-
 	}
 
-	// Log moderation action
-	action := CommentModerationHistory{
+	commentModeration := CommentModerationHistory{
 		CommentID:  commentID,
 		AdminOrcid: admin.Orcid,
+        PreviousStatus: previousStatus,
 		NewStatus:  StatusApproved,
 		Reason: sql.NullString{
 			String: req.Reason,
 			Valid:  req.Reason != "",
 		},
 	}
-	h.commentRepo.CreateModerationHistory(ctx, action)
+    if err := h.commentRepo.CreateModerationHistory(ctx, commentModeration); err != nil {
+        errorLogger.Printf("%s: failed to create moderation history for approved comment %d: %v", handler, commentID, err)
+		http.Error(w, "failed to approve comment", http.StatusInternalServerError)
+		return
+	}
 
 	if err := h.createApprovedNotifications(ctx, commentID); err != nil {
 		errorLogger.Printf("%s: failed to create notification for approved comment: %v", handler, err)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "approved"})
+    if err := json.NewEncoder(w).Encode(map[string]string{"status": "approved"}); err != nil {
+        errorLogger.Printf("%s: failed to encode moderation status approved comment response: %v", handler, err)
+    }
 }
 
 // POST /api/v1/moderation/comments/{id}/reject - Reject a comment (admin only)

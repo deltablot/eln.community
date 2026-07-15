@@ -29,23 +29,17 @@ func userFromSession(ctx context.Context) (*User, bool) {
 }
 
 func requireAuthenticatedUser(w http.ResponseWriter, r *http.Request, source string) (*User, bool) {
-    ctx := r.Context()
-    orcid, ok := sessionManager.Get(ctx, sessionKeyOrcid).(string)
-    if !ok || orcid == "" {
+    user, ok := userFromSession(r.Context())
+    if !ok {
         errorLogger.Printf("%s: authentication required: method %q, path %q", source, r.Method, r.URL.Path)
         http.Error(w, "authentication required", http.StatusUnauthorized)
         return nil, false
     }
-
-    name, _ := sessionManager.Get(ctx, sessionKeyName).(string)
-	return &User{
-		Name:  name,
-		Orcid: orcid,
-	}, true
+    return user, true
 }
 
 func currentUserIsAdmin(w http.ResponseWriter, r *http.Request, source string, adminRepo adminChecker) (bool, bool) {
-	user, ok := requireAuthenticatedUser(w, r, source)
+    user, ok := userFromSession(r.Context())
     if !ok {
         return false, true
     }

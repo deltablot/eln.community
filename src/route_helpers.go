@@ -5,24 +5,23 @@ import (
 	"strings"
 )
 
-func requireRecordIdFromCommentPath(w http.ResponseWriter, r *http.Request, source string) (string, bool) {
-    const prefix = "/api/v1/records/"
-    const suffix = "/comments"
+const api = "/api/v1"
+
+func parsePath(w http.ResponseWriter, r *http.Request, prefix string, suffix string, data string, source string) (string, bool) {
+    prefix = api + prefix
 
     path := r.URL.Path
     if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
-        errorLogger.Printf("%s: invalid comment path: method %q, path %q", source, r.Method, r.URL.Path)
-        http.Error(w, "invalid record path", http.StatusBadRequest)
+        errorLogger.Printf("%s: invalid %s path: method %q, path %q", source, data, r.Method, r.URL.Path)
+        http.Error(w, "invalid path", http.StatusBadRequest)
         return "", false
     }
-
-    recordId := strings.TrimPrefix(path, prefix)
-    recordId = strings.TrimSuffix(recordId, suffix)
-    if recordId == "" {
-        errorLogger.Printf("%s: missing record id in comment path: method %q, path %q", source, r.Method, r.URL.Path)
-        http.Error(w, "missing record id", http.StatusBadRequest)
+    result := strings.TrimPrefix(path, prefix)
+    result = strings.TrimSuffix(result, suffix)
+    if result == "" {
+        errorLogger.Printf("%s: missing %s id in result path: method %q, path %q", source, data, r.Method, r.URL.Path)
+        http.Error(w, "missing id", http.StatusBadRequest)
         return "", false
     }
-
-    return recordId, true
+    return result, true
 }
