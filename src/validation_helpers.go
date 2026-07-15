@@ -17,7 +17,7 @@ func requireValidCommentContent(w http.ResponseWriter, r *http.Request, source s
 	}
 
 	if len(content) > commentMaxLength {
-		errorLogger.Printf("%s: comment content too long: method %q, path %q, length %q ", source, r.Method, r.URL.Path, len(content))
+		errorLogger.Printf("%s: comment content too long: method %q, path %q, length %d ", source, r.Method, r.URL.Path, len(content))
 		http.Error(w, fmt.Sprintf("Comment content too long (max %d characters)", commentMaxLength), http.StatusBadRequest)
 		return "", false
 	}

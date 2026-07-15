@@ -78,7 +78,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.commentRepo.Create(ctx, comment); err != nil {
-		errorLogger.Printf("%s: failed to create comment for record %d: %v", source, recordId, err)
+		errorLogger.Printf("%s: failed to create comment for record %q: %v", source, recordId, err)
 		http.Error(w, "Failed to create comment", http.StatusInternalServerError)
 		return
 	}
@@ -204,13 +204,12 @@ func (h *CommentHandler) createApprovedNotifications(ctx context.Context, commen
 func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request, suffix string, status ModerationStatus) {
 	source := commentHandlerSource("moderateComment")
 	ctx := r.Context()
-	suffix = "/" + suffix
 	admin, ok := requireAdminUser(w, r, source, h.adminRepo)
 	if !ok {
 		return
 	}
 
-	commentPath, ok := parsePath(w, r, "/moderation/comments/", suffix, "comment moderation", source)
+	commentPath, ok := parsePath(w, r, "/moderation/comments/", "/" + suffix, "comment moderation", source)
 	if !ok {
 		return
 	}
@@ -242,7 +241,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 	if status == StatusRejected {
 
 		if err := h.commentRepo.MarkAsRejected(ctx, commentID); err != nil {
-			http.Error(w, "Failed to approve comment", http.StatusInternalServerError)
+			http.Error(w, "Failed to reject comment", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -258,7 +257,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		},
 	}
 	if err := h.commentRepo.CreateModerationHistory(ctx, commentModeration); err != nil {
-		errorLogger.Printf("%s: failed to create moderation history for %s comment %d: %v", source, status, commentID, err)
+		errorLogger.Printf("%s: failed to create moderation history for %d comment %d: %v", source, status, commentID, err)
 		http.Error(w, "failed to approve/reject comment", http.StatusInternalServerError)
 		return
 	}
@@ -340,7 +339,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		errorLogger.Printf("%s: failed to delete comment %d: %v", source, commentID, err)
-		http.Error(w, "failed to get comments", http.StatusInternalServerError)
+		http.Error(w, "failed to delete comments", http.StatusInternalServerError)
 		return
 	}
 
