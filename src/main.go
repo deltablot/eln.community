@@ -543,7 +543,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/records/{id}/comments", commentHandler.getComments)
 	mux.HandleFunc("GET /api/v1/moderation/comments", commentHandler.getPendingComments)
     mux.HandleFunc("POST /api/v1/moderation/comments/{id}/approve", func(w http.ResponseWriter, r *http.Request) {commentHandler.moderateComment(w, r, "approve", StatusApproved)})
-    mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", func(w http.ResponseWriter, r *http.Request) {commentHandler.moderateComment(w, r, "approve", StatusRejected)})
+    mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", func(w http.ResponseWriter, r *http.Request) {commentHandler.moderateComment(w, r, "reject", StatusRejected)})
 	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteComment)
 
 	// HTML pages (with CSP middleware)
