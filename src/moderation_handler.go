@@ -157,7 +157,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	// Parse request body
 	var req struct {
 		ModerationStatus string `json:"action"` // "approve", "reject", "flag"
-		Reason string `json:"reason"`
+		Reason           string `json:"reason"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -230,11 +230,11 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Log moderation action
 	action := ModerationHistory{
-		RecordID:    id,
-		AdminOrcid:  orcid,
-		ModerationStatus:      newStatus,
-		Reason:      req.Reason,
-		VersionName: versionName,
+		RecordID:         id,
+		AdminOrcid:       orcid,
+		ModerationStatus: newStatus,
+		Reason:           req.Reason,
+		VersionName:      versionName,
 	}
 	if err := h.moderationRepo.LogModerationHistory(ctx, action); err != nil {
 		errorLogger.Printf("Error logging moderation action: %v", err)

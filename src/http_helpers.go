@@ -1,8 +1,8 @@
 package main
 
 import (
-	"net/http"
 	"encoding/json"
+	"net/http"
 )
 
 func requireJSONBody(w http.ResponseWriter, r *http.Request, source string, dst any) bool {
