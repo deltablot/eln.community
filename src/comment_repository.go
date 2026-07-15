@@ -16,6 +16,7 @@ type CommentRepository interface {
 	MarkAsApproved(ctx context.Context, id int64) error
 	MarkAsRejected(ctx context.Context, id int64) error
 	DeleteComment(ctx context.Context, id int64) error
+	AuthorDeleteComment(ctx context.Context, id int64, commentatorOrcid string) error
 	CreateModerationHistory(ctx context.Context, action CommentModerationHistory) error
 	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationHistory, error)
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
@@ -205,7 +206,7 @@ func (r *PostgresCommentRepository) MarkAsApproved(ctx context.Context, id int64
 		return fmt.Errorf("%s get affected rows for comment %d approval: %w", commentErr, id, err)
 	}
 	if n != 1 {
-        return fmt.Errorf("%s update: expected 1 row for comment %d, updated %d", commentErr, id, n)
+		return fmt.Errorf("%s update: expected 1 row for comment %d, updated %d", commentErr, id, n)
 	}
 	return nil
 }
@@ -221,7 +222,7 @@ func (r *PostgresCommentRepository) MarkAsRejected(ctx context.Context, id int64
 		return fmt.Errorf("%s get affected rows for comment %d rejection: %w", commentErr, id, err)
 	}
 	if n != 1 {
-        return fmt.Errorf("%s update: expected 1 row for comment %d, updated %d", commentErr, id, n)
+		return fmt.Errorf("%s update: expected 1 row for comment %d, updated %d", commentErr, id, n)
 	}
 	return nil
 }
@@ -239,7 +240,23 @@ func (r *PostgresCommentRepository) DeleteComment(ctx context.Context, id int64)
 		return fmt.Errorf("%s get affected rows for comment %d deletion: %w", commentErr, id, err)
 	}
 	if n != 1 {
-        return fmt.Errorf("%s delete: expected 1 row for comment %d, deleted %d", commentErr, id, n)
+		return fmt.Errorf("%s delete: expected 1 row for comment %d, deleted %d", commentErr, id, n)
+	}
+	return nil
+}
+
+func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id int64, commentatorOrcid string) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM comments WHERE id = $1 AND commenter_orcid = $2`, id, commentatorOrcid)
+	if err != nil {
+		return fmt.Errorf("%s delete comment %d: %w", commentErr, id, err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s get affected rows for comment %d deletion: %w", commentErr, id, err)
+	}
+	if n != 1 {
+		return fmt.Errorf("%s delete: expected 1 row for comment %d, deleted %d", commentErr, id, n)
 	}
 	return nil
 }

@@ -1,13 +1,13 @@
 package main
 
 import (
-	"strconv"
 	"net/http"
+	"strconv"
 )
 
 const (
-	defaultPaginationLimit = 20
-	maxPaginationLimit     = 100
+	defaultPaginationLimit  = 20
+	maxPaginationLimit      = 100
 	defaultPaginationOffset = 0
 )
 
@@ -20,5 +20,5 @@ func parsePagination(r *http.Request) (int, int) {
 	if offset < 0 {
 		offset = defaultPaginationOffset
 	}
-    return limit, offset
+	return limit, offset
 }
