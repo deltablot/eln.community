@@ -281,7 +281,8 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	recordRepo := NewPostgresRecordRepository(db, NewPostgresCategoryRepository(db), NewPostgresRorRepository(db))
 	records, totalCount, err := recordRepo.GetAllByOrcidPaginated(ctx, orcid, 100, 0)
 	if err != nil {
-		http.Error(w, "Error fetching records", http.StatusInternalServerError)
+		log.Printf("Error fetching records: %v", err)
+		http.Error(w, "ICI EN FAIT Error fetching records", http.StatusInternalServerError)
 		return
 	}
 
@@ -541,8 +542,12 @@ func main() {
 	mux.HandleFunc("POST /api/v1/records/{id}/comments", commentHandler.createComment)
 	mux.HandleFunc("GET /api/v1/records/{id}/comments", commentHandler.getComments)
 	mux.HandleFunc("GET /api/v1/moderation/comments", commentHandler.getPendingComments)
-	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/approve", commentHandler.approveComment)
-	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", commentHandler.rejectComment)
+	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/approve", func(w http.ResponseWriter, r *http.Request) {
+		commentHandler.moderateComment(w, r, "approve", StatusApproved)
+	})
+	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", func(w http.ResponseWriter, r *http.Request) {
+		commentHandler.moderateComment(w, r, "reject", StatusRejected)
+	})
 	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteComment)
 
 	// HTML pages (with CSP middleware)

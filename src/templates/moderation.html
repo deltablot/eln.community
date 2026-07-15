@@ -24,7 +24,7 @@
 
 <div class="container py-4">
     <h1 class="mb-4">Moderation Queue</h1>
-    
+
     {{if eq (len .Items) 0}}
         <div class="alert alert-success text-center">
             <p class="mb-0 fs-5">✓ No items pending review</p>
@@ -160,14 +160,14 @@
                             <a href="/record/{{.RecordID}}">{{.RecordName}}</a>
                         </td>
                         <td>
-                            {{if eq .Action "approve"}}
+                            {{if eq .ModerationStatus 1}}
                             <span class="badge bg-success">Approved</span>
-                            {{else if eq .Action "reject"}}
+                            {{else if eq .ModerationStatus 2}}
                             <span class="badge bg-danger">Rejected</span>
-                            {{else if eq .Action "flag"}}
+                            {{else if eq .ModerationStatus 4}}
                             <span class="badge bg-warning text-dark">Flagged</span>
                             {{else}}
-                            <span class="badge bg-secondary">{{.Action}}</span>
+                            <span class="badge bg-secondary">{{.ModerationStatus}}</span>
                             {{end}}
                         </td>
                         <td>

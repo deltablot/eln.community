@@ -39,7 +39,7 @@ func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID str
 	var history []RecordHistory
 	for rows.Next() {
 		var h RecordHistory
-		var moderationStatus string
+		var moderationStatus int
 		if err := rows.Scan(
 			&h.HistoryId, &h.RecordId, &h.Version, &h.S3Key, &h.Name, &h.Sha256, &h.Metadata,
 			&h.UploaderName, &h.UploaderOrcid, &h.DownloadCount,
@@ -57,7 +57,7 @@ func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID str
 // GetVersion retrieves a specific version from history
 func (r *PostgresHistoryRepository) GetVersion(ctx context.Context, recordID string, version int) (*RecordHistory, error) {
 	var h RecordHistory
-	var moderationStatus string
+	var moderationStatus int
 	err := r.db.QueryRowContext(ctx, `
 		SELECT history_id, record_id, version, s3_key, name, sha256, metadata,
 		       uploader_name, uploader_orcid, download_count,

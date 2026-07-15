@@ -14,7 +14,6 @@ BEGIN
        (OLD.sha256 IS DISTINCT FROM NEW.sha256) OR
        (OLD.metadata IS DISTINCT FROM NEW.metadata) OR
        (OLD.s3_key IS DISTINCT FROM NEW.s3_key) THEN
-        
         -- Get next version number for this record
         SELECT COALESCE(MAX(version), 0) + 1 INTO next_version
         FROM record_history

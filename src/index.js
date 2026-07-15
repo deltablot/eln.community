@@ -1,6 +1,14 @@
 // Intentionally high limit to support long user descriptions and multilingual content
 const DESCRIPTION_MAX_LENGTH = 10000;
 
+const ModerationStatus = {
+    Pending: 0,
+    Approved: 1,
+    Rejected: 2,
+    Deleted: 3,
+    Flagged: 4,
+};
+
 /**
  * Render the structured record view using the RecordExtractor module
  * Populates the Common Info, Main Text, Extra Fields, and Other Metadata containers
@@ -2044,11 +2052,11 @@ function initializeVersionHistory() {
 
           // Add moderation status indicator
           let statusText = '';
-          if (version.moderation_status === 'pending') {
+          if (version.moderation_status === ModerationStatus.Pending) {
             statusText = ' [Pending Moderation]';
-          } else if (version.moderation_status === 'rejected') {
+          } else if (version.moderation_status === ModerationStatus.Rejected) {
             statusText = ' [Rejected]';
-          } else if (version.moderation_status === 'flagged') {
+          } else if (version.moderation_status === ModerationStatus.Flagged) {
             statusText = ' [Flagged]';
           }
 

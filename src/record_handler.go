@@ -1074,7 +1074,7 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("Error in GetBrowseAPI: %v", err)
-		http.Error(w, "Error fetching records", http.StatusInternalServerError)
+		http.Error(w, "OK BRO Error fetching records", http.StatusInternalServerError)
 		return
 	}
 
@@ -1365,7 +1365,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		// Get all records
 		records, totalCount, err = h.recordRepo.GetAllPaginated(r.Context(), pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
 		if err != nil {
-			http.Error(w, "Error fetching records", http.StatusInternalServerError)
+			http.Error(w, "C'est là : Error fetching records", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1631,7 +1631,7 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 				record_id, version, s3_key, name, description, sha256, metadata,
 				uploader_name, uploader_orcid, download_count,
 				created_at, modified_at, moderation_status, change_type
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, $10, 'pending', 'PENDING_VERSION')`,
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, $10, 0, 'PENDING_VERSION')`,
 			updatedRecord.Id, nextVersion, newS3Key, updatedRecord.Name, updatedRecord.Description, updatedRecord.Sha256, updatedRecord.Metadata,
 			existingRecord.UploaderName, existingRecord.UploaderOrcid, existingRecord.CreatedAt,
 		)

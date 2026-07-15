@@ -156,8 +156,8 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Parse request body
 	var req struct {
-		Action string `json:"action"` // "approve", "reject", "flag"
-		Reason string `json:"reason"`
+		ModerationStatus string `json:"action"` // "approve", "reject", "flag"
+		Reason           string `json:"reason"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -172,10 +172,9 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	var pendingName string
 	err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
 		`SELECT name FROM record_history
-		 WHERE record_id = $1 AND moderation_status = 'pending' AND change_type = 'PENDING_VERSION'
+		 WHERE record_id = $1 AND moderation_status = $2 AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC LIMIT 1`,
-		id,
-	).Scan(&pendingName)
+		id, StatusPending).Scan(&pendingName)
 	if err == nil {
 		versionName = pendingName
 	} else {
@@ -195,7 +194,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	uploaderOrcid, err := h.recordRepo.GetOwnerOrcid(ctx, id)
 
-	switch req.Action {
+	switch req.ModerationStatus {
 	case "approve":
 		newStatus = StatusApproved
 
@@ -230,21 +229,21 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Log moderation action
-	action := ModerationAction{
-		RecordID:    id,
-		AdminOrcid:  orcid,
-		Action:      req.Action,
-		Reason:      req.Reason,
-		VersionName: versionName,
+	action := ModerationHistory{
+		RecordID:         id,
+		AdminOrcid:       orcid,
+		ModerationStatus: newStatus,
+		Reason:           req.Reason,
+		VersionName:      versionName,
 	}
-	if err := h.moderationRepo.LogModerationAction(ctx, action); err != nil {
+	if err := h.moderationRepo.LogModerationHistory(ctx, action); err != nil {
 		errorLogger.Printf("Error logging moderation action: %v", err)
 		// Don't fail the request if logging fails
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":  string(newStatus),
+	json.NewEncoder(w).Encode(map[string]any{
+		"status":  newStatus,
 		"message": "Record moderation status updated successfully",
 	})
 }

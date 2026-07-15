@@ -2,6 +2,14 @@
  * Comments functionality for record pages
  */
 
+const ModerationStatus = {
+    Pending: 0,
+    Approved: 1,
+    Rejected: 2,
+   // Deleted: 3,
+   // Flagged: 4,
+};
+
 // Sanitize text content to prevent XSS
 function sanitizeText(text) {
   const div = document.createElement('div');
@@ -22,10 +30,10 @@ function formatDate(dateString) {
   if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
   if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-  
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
+
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
@@ -34,9 +42,9 @@ function formatDate(dateString) {
 
 // Render a single comment
 function renderComment(comment) {
-  const statusBadge = comment.moderation_status === 'pending_review' 
+  const statusBadge = comment.moderation_status === ModerationStatus.Pending
     ? '<span class="badge bg-warning text-dark ms-2">Pending Review</span>'
-    : comment.moderation_status === 'rejected'
+    : comment.moderation_status === ModerationStatus.Rejected
     ? '<span class="badge bg-danger ms-2">Rejected</span>'
     : '';
 
@@ -46,9 +54,9 @@ function renderComment(comment) {
         <div class="d-flex justify-content-between align-items-start mb-2">
           <div>
             <strong>
-              <a href="https://orcid.org/${sanitizeText(comment.commenter_orcid)}" 
-                 target="_blank" 
-                 rel="noopener noreferrer" 
+              <a href="https://orcid.org/${sanitizeText(comment.commenter_orcid)}"
+                 target="_blank"
+                 rel="noopener noreferrer"
                  class="text-decoration-none">
                 ${sanitizeText(comment.commenter_name)}
               </a>
@@ -70,7 +78,7 @@ async function loadComments(recordId) {
 
   try {
     const response = await fetch(`/api/v1/records/${recordId}/comments`);
-    
+
     if (!response.ok) {
       // If 404, treat as no comments (endpoint might not exist yet)
       if (response.status === 404) {
@@ -87,9 +95,9 @@ async function loadComments(recordId) {
     }
 
     const comments = await response.json();
-    
+
     // Update count - only count approved comments for public display
-    const approvedComments = comments.filter(c => c.moderation_status === 'approved');
+    const approvedComments = comments.filter(c => c.moderation_status === ModerationStatus.Approved);
     commentCount.textContent = approvedComments.length;
 
     // Render comments
@@ -102,17 +110,17 @@ async function loadComments(recordId) {
       `;
     } else {
       const commentsHtml = comments.map(renderComment).join('');
-      
+
       // Show admin notice if there are pending/rejected comments
-      const pendingCount = comments.filter(c => c.moderation_status === 'pending_review').length;
-      const rejectedCount = comments.filter(c => c.moderation_status === 'rejected').length;
-      
+      const pendingCount = comments.filter(c => c.moderation_status === ModerationStatus.Pending).length;
+      const rejectedCount = comments.filter(c => c.moderation_status === ModerationStatus.Rejected).length;
+
       let adminNotice = '';
       if (pendingCount > 0 || rejectedCount > 0) {
         const notices = [];
         if (pendingCount > 0) notices.push(`${pendingCount} pending review`);
         if (rejectedCount > 0) notices.push(`${rejectedCount} rejected`);
-        
+
         adminNotice = `
           <div class="alert alert-info alert-dismissible fade show" role="alert">
             <i class="bi bi-info-circle me-2"></i>
@@ -121,7 +129,7 @@ async function loadComments(recordId) {
           </div>
         `;
       }
-      
+
       commentsList.innerHTML = adminNotice + commentsHtml;
     }
   } catch (error) {
@@ -129,7 +137,7 @@ async function loadComments(recordId) {
     commentsList.innerHTML = `
       <div class="alert alert-danger">
         <i class="bi bi-exclamation-triangle me-2"></i>
-        Failed to load comments. Please try again later.
+        Failed to load comments. Please try again later, THANKS.
       </div>
     `;
   }
@@ -162,7 +170,7 @@ function initComments() {
   }
 
   const recordId = JSON.parse(recordIdElement.textContent);
-  
+
   // Load comments on page load
   loadComments(recordId);
 
@@ -177,7 +185,7 @@ function initComments() {
     contentTextarea.addEventListener('input', () => {
       const length = contentTextarea.value.length;
       charCount.textContent = length;
-      
+
       if (length > 5000) {
         charCount.classList.add('text-danger');
       } else {
@@ -207,7 +215,6 @@ function initComments() {
 
       try {
         const comment = await postComment(recordId, content);
-        
         // Clear form
         contentTextarea.value = '';
         charCount.textContent = '0';
@@ -217,8 +224,8 @@ function initComments() {
         successAlert.className = 'alert alert-success alert-dismissible fade show';
         successAlert.innerHTML = `
           <i class="bi bi-check-circle me-2"></i>
-          ${comment.moderation_status === 'pending_review' 
-            ? 'Comment submitted and is pending moderation.' 
+          ${comment.moderation_status === ModerationStatus.Pending
+            ? 'Comment submitted and is pending moderation.'
             : 'Comment posted successfully!'}
           <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS comments (
     commenter_name VARCHAR(255) NOT NULL,
     commenter_orcid orcid_type NOT NULL,
     content TEXT NOT NULL,
-    moderation_status VARCHAR(20) NOT NULL DEFAULT 'pending_review',
+    moderation_status INTEGER NOT NULL DEFAULT 0 CHECK (moderation_status IN (0, 1, 2, 3, 4)),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT content_not_empty CHECK (LENGTH(TRIM(content)) > 0)
@@ -24,19 +24,21 @@ CREATE TRIGGER trigger_update_modified_at_comments
     EXECUTE FUNCTION update_modified_at();
 
 -- Comment moderation actions log
-CREATE TABLE IF NOT EXISTS comment_moderation_actions (
+CREATE TABLE IF NOT EXISTS comment_moderation_history (
     id BIGSERIAL PRIMARY KEY,
     comment_id BIGINT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
     admin_orcid orcid_type NOT NULL,
-    action VARCHAR(20) NOT NULL, -- 'approve', 'reject', 'delete'
+    previous_status INTEGER NOT NULL DEFAULT 0 CHECK (previous_status IN (0, 1, 2, 3, 4)),
+    new_status INTEGER NOT NULL DEFAULT 0 CHECK (new_status IN (0, 1, 2, 3, 4)),
     reason TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_comment_moderation_actions_comment ON comment_moderation_actions(comment_id);
-CREATE INDEX idx_comment_moderation_actions_admin ON comment_moderation_actions(admin_orcid);
+CREATE INDEX idx_comment_moderation_history_comment ON comment_moderation_history(comment_id);
+CREATE INDEX idx_comment_moderation_history_admin ON comment_moderation_history(admin_orcid);
 
 -- Comments
 COMMENT ON TABLE comments IS 'User comments on records with moderation support';
 COMMENT ON COLUMN comments.content IS 'Raw text content only, no HTML allowed';
-COMMENT ON COLUMN comments.moderation_status IS 'Moderation status: pending_review, approved, rejected';
+COMMENT ON COLUMN comments.moderation_status IS 'Moderation status: 0 = pending, 1 = approved, 2 = rejected, 3 = deleted';
