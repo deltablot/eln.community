@@ -262,7 +262,7 @@ func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id 
 }
 
 func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context, moderation CommentModerationHistory) error {
-	query := `INSERT INTO comment_moderation_actions (comment_id, admin_orcid, previous_status, new_status, reason)
+	query := `INSERT INTO comment_moderation_history (comment_id, admin_orcid, previous_status, new_status, reason)
 		 VALUES ($1, $2, $3, $4, $5)`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -280,7 +280,7 @@ func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context,
 
 func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationHistory, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, comment_id, admin_orcid, previous_status, new_status, reason, created_at, modified_at
-		FROM comment_moderation_actions
+		FROM comment_moderation_history
 		WHERE comment_id = $1
 		ORDER BY created_at DESC`, commentID)
 
