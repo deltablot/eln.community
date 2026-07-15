@@ -49,14 +49,10 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	user, ok := requireAuthenticatedUser(w, r, handler)
-	if !ok {
-		return
-	}
+	if !ok { return }
 
 	recordId, ok := parsePath(w, r, "/records/", "/comments", "comment", handler)
-	if !ok {
-		return
-	}
+	if !ok { return }
 
 	record, err := h.recordRepo.GetByID(ctx, recordId)
 	if err != nil {
@@ -66,14 +62,10 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req createCommentRequest
-	if ok := requireJSONBody(w, r, handler, &req); !ok {
-		return
-	}
+	if ok := requireJSONBody(w, r, handler, &req); !ok { return }
 
 	content, ok := requireValidCommentContent(w, r, handler, req.Content)
-	if !ok {
-		return
-	}
+	if !ok { return }
 
 	comment := &Comment{
 		RecordID:         record.Id,
@@ -92,9 +84,6 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(comment); err != nil {
-		if !ok {
-			return
-		}
 		errorLogger.Printf("%s: failed to encode response for comment %d: %v", handler, comment.ID, err)
 	}
 
@@ -106,14 +95,10 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	recordId, ok := parsePath(w, r, "/records/", "/comments", "comment", handler)
-	if !ok {
-		return
-	}
+	if !ok { return }
 
 	isAdmin, ok := currentUserIsAdmin(w, r, handler, h.adminRepo)
-	if !ok {
-		return
-	}
+	if !ok { return }
 
 	var comments []Comment
 	var err error
@@ -141,9 +126,7 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 func (h *CommentHandler) getPendingComments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	_, ok := requireAdminUser(w, r, handler, h.adminRepo)
-	if !ok {
-		return
-	}
+	if !ok { return }
 
 	limit, offset := parsePagination(r)
 
@@ -219,14 +202,10 @@ func (h *CommentHandler) createApprovedNotifications(ctx context.Context, commen
 func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	admin, ok := requireAdminUser(w, r, handler, h.adminRepo)
-	if !ok {
-		return
-	}
+	if !ok { return }
 
 	commentPath, ok := parsePath(w, r, "/moderation/comments/", "/approve", "comment moderation", handler)
-	if !ok {
-		return
-	}
+	if !ok { return }
 
 	commentID, err := strconv.ParseInt(commentPath, 10, 64)
 	if err != nil {
@@ -236,9 +215,7 @@ func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req addReasonModeration
-	if ok := requireJSONBody(w, r, handler, &req); !ok {
-		return
-	}
+	if ok := requireJSONBody(w, r, handler, &req); !ok { return }
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
