@@ -18,7 +18,6 @@ type CommentRepository interface {
 	DeleteComment(ctx context.Context, id int64) error
 	CreateModerationHistory(ctx context.Context, action CommentModerationHistory) error
 	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationHistory, error)
-	GetCommentatorOrcid(ctx context.Context, id int64) (string, error)
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
 }
 
@@ -295,15 +294,6 @@ func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, co
 	}
 
 	return moderations, rows.Err()
-}
-
-func (r *PostgresCommentRepository) GetCommentatorOrcid(ctx context.Context, id int64) (string, error) {
-	var commenterOrcid string
-	err := r.db.QueryRowContext(ctx, `SELECT commenter_orcid FROM comments WHERE id = $1`, id).Scan(&commenterOrcid)
-	if err != nil {
-		return "", fmt.Errorf("%s get commentator orcid for comment id %d: %w", commentErr, id, err)
-	}
-	return commenterOrcid, nil
 }
 
 func (r *PostgresCommentRepository) GetAllOrcids(ctx context.Context, recordId string) ([]string, error) {
