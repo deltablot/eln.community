@@ -544,7 +544,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 
 		// Search within a specific category
 		sqlQuery = fmt.Sprintf(`
-			SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+			SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 			FROM records r
 			JOIN records_categories rc ON r.id = rc.record_id
 			LEFT JOIN records_ror rr ON r.id = rr.record_id
@@ -709,7 +709,7 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 		// Search within a specific category
 		if len(rorIDs) > 0 {
 			sqlQuery = fmt.Sprintf(`
-				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 				FROM records r
 				JOIN records_categories rc ON r.id = rc.record_id
 				LEFT JOIN records_ror rr ON r.id = rr.record_id
@@ -729,7 +729,7 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 			args = []interface{}{categoryID, "%" + query + "%", pq.Array(rorIDs), limit, offset}
 		} else {
 			sqlQuery = fmt.Sprintf(`
-				SELECT DISTINCT r.id, r.sha256, r.name, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
 				FROM records r
 				JOIN records_categories rc ON r.id = rc.record_id
 				LEFT JOIN records_ror rr ON r.id = rr.record_id
