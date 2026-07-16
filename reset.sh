@@ -4,7 +4,7 @@ set -e
 docker compose down
 sudo rm -rf data/postgres
 docker compose up -d
-echo "waiting"
+echo "Waiting"
 sleep 5
 ./cli db migrate up
 ./cli db seed
