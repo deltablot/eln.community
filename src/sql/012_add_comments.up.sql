@@ -27,18 +27,17 @@ CREATE TRIGGER trigger_update_modified_at_comments
 CREATE TABLE IF NOT EXISTS comment_moderation_history (
     id BIGSERIAL PRIMARY KEY,
     comment_id BIGINT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
-    admin_orcid orcid_type NOT NULL,
+    reporter_orcid orcid_type NOT NULL,
     previous_status INTEGER NOT NULL DEFAULT 0 CHECK (previous_status IN (0, 1, 2, 3, 4)),
     new_status INTEGER NOT NULL DEFAULT 0 CHECK (new_status IN (0, 1, 2, 3, 4)),
-    reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_comment_moderation_history_comment ON comment_moderation_history(comment_id);
-CREATE INDEX idx_comment_moderation_history_admin ON comment_moderation_history(admin_orcid);
+CREATE INDEX idx_comment_moderation_history_reporter ON comment_moderation_history(reporter_orcid);
 
 -- Comments
 COMMENT ON TABLE comments IS 'User comments on records with moderation support';
 COMMENT ON COLUMN comments.content IS 'Raw text content only, no HTML allowed';
-COMMENT ON COLUMN comments.moderation_status IS 'Moderation status: 0 = pending, 1 = approved, 2 = rejected, 3 = deleted';
+COMMENT ON COLUMN comments.moderation_status IS 'Moderation status: 0 = pending, 1 = approved, 2 = rejected, 3 = deleted, 4 = flag';
