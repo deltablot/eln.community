@@ -52,7 +52,7 @@ func scanAllComments(rows *sql.Rows, fn string) ([]Comment, error) {
 		}
 		comments = append(comments, comment)
 	}
-    if err := rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	return comments, nil
@@ -91,7 +91,7 @@ func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID 
 	}
 	defer rows.Close()
 
-    comments, err := scanAllComments(rows, "GetByRecordID")
+	comments, err := scanAllComments(rows, "GetByRecordID")
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("%s read comment rows: %w", source, err)
 	}
@@ -111,7 +111,7 @@ func (r *PostgresCommentRepository) GetApprovedByRecordID(ctx context.Context, r
 		return nil, fmt.Errorf("%s get approved comments by record id %q: %w", source, recordID, err)
 	}
 	defer rows.Close()
-    comments, err := scanAllComments(rows, "GetApprovedByRecordID")
+	comments, err := scanAllComments(rows, "GetApprovedByRecordID")
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("%s read approved comment rows: %w", source, err)
@@ -168,7 +168,7 @@ func (r *PostgresCommentRepository) GetPending(ctx context.Context, limit int, o
 	}
 	defer rows.Close()
 
-    comments, err := scanAllComments(rows, "GetPending")
+	comments, err := scanAllComments(rows, "GetPending")
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("%s read pending comment rows: %w", source, err)
@@ -178,11 +178,11 @@ func (r *PostgresCommentRepository) GetPending(ctx context.Context, limit int, o
 }
 
 func (r *PostgresCommentRepository) MarkAsApproved(ctx context.Context, id int64) error {
-    return r.setModerationIfNotDeleted(ctx, id, StatusApproved)
+	return r.setModerationIfNotDeleted(ctx, id, StatusApproved)
 }
 
 func (r *PostgresCommentRepository) MarkAsRejected(ctx context.Context, id int64) error {
-    return r.setModerationIfNotDeleted(ctx, id, StatusApproved)
+	return r.setModerationIfNotDeleted(ctx, id, StatusApproved)
 }
 
 func (r *PostgresCommentRepository) setModerationIfNotDeleted(ctx context.Context, id int64, status ModerationStatus) error {
@@ -192,12 +192,7 @@ func (r *PostgresCommentRepository) setModerationIfNotDeleted(ctx context.Contex
 		return fmt.Errorf("%s mark comment %d as approved: %w", source, id, err)
 	}
 	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("%s get affected rows for comment %d approval: %w", source, id, err)
-	}
-	if n != 1 {
-		return fmt.Errorf("%s update: expected 1 row for comment %d, updated %d", source, id, n)
-	}
+    errorUpdateRow(source, "comment", id, err, n)
 
 	return nil
 }
@@ -209,18 +204,11 @@ func (r *PostgresCommentRepository) MarkAsFlagged(ctx context.Context, id int64)
 		return fmt.Errorf("%s mark comment %d as flagged: %w", source, id, err)
 	}
 	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("%s get affected rows for comment %d flagged: %w", source, id, err)
-	}
-	if n != 1 {
-		return fmt.Errorf("%s update: expected 1 row for comment %d, updated %d", source, id, n)
-	}
+    errorUpdateRow(source, "comment", id, err, n)
 
 	return nil
 }
 
-// Hard delete: this permanently removes the comment.
-// TODO: consider reserving hard deletes for maintenance tasks and using StatusDeleted for soft deletes in the moderation workflow.
 func (r *PostgresCommentRepository) DeleteComment(ctx context.Context, id int64) error {
 	source := errorSource("DeleteComment", commentErr)
 	res, err := r.db.ExecContext(ctx, `DELETE FROM comments WHERE id = $1`, id)
@@ -228,12 +216,7 @@ func (r *PostgresCommentRepository) DeleteComment(ctx context.Context, id int64)
 		return fmt.Errorf("%s delete comment %d: %w", source, id, err)
 	}
 	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("%s get affected rows for comment %d deletion: %w", source, id, err)
-	}
-	if n != 1 {
-		return fmt.Errorf("%s delete: expected 1 row for comment %d, deleted %d", source, id, n)
-	}
+    errorUpdateRow(source, "comment", id, err, n)
 
 	return nil
 }
@@ -245,12 +228,7 @@ func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id 
 		return fmt.Errorf("%s delete comment %d: %w", source, id, err)
 	}
 	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("%s get affected rows for comment %d deletion: %w", source, id, err)
-	}
-	if n != 1 {
-		return fmt.Errorf("%s delete: expected 1 row for comment %d, deleted %d", source, id, n)
-	}
+    errorUpdateRow(source, "comment", id, err, n)
 
 	return nil
 }

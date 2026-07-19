@@ -111,13 +111,13 @@ func (h *CommentHandler) getPendingComments(w http.ResponseWriter, r *http.Reque
 	limit, offset := parsePagination(r)
 	total, err := h.commentRepo.CountPending(ctx)
 	if err != nil {
-        errorLogger.Printf("%s failed to count pending comments: %v", source, err)
+		errorLogger.Printf("%s failed to count pending comments: %v", source, err)
 		http.Error(w, "failed to get pending comments count", http.StatusInternalServerError)
-        return
+		return
 	}
 	pendingComments, err := h.commentRepo.GetPending(ctx, limit, offset)
 	if err != nil {
-        errorLogger.Printf("%s failed to get pending comments: %v", source, err)
+		errorLogger.Printf("%s failed to get pending comments: %v", source, err)
 		http.Error(w, "failed to get pending comments", http.StatusInternalServerError)
 		return
 	}
@@ -179,7 +179,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 	if !ok {
 		return
 	}
-	commentPath, ok := parsePath(w, r, "/moderation/comments/", "/" + suffix, "comment moderation", source)
+	commentPath, ok := parsePath(w, r, "/moderation/comments/", "/"+suffix, "comment moderation", source)
 	if !ok {
 		return
 	}
@@ -210,7 +210,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 	}
 	commentModeration := CommentModerationHistory{
 		CommentID:      commentID,
-		ReporterOrcid:     admin.Orcid,
+		ReporterOrcid:  admin.Orcid,
 		PreviousStatus: comment.ModerationStatus,
 		NewStatus:      status,
 	}
@@ -238,13 +238,11 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	commentPath, ok := parsePath(w, r, "/comments/", "flag", "comment flag", source)
-	if !ok {
-		return
-	}
-	commentID, err := strconv.ParseInt(commentPath, 10, 64)
+	recordID := r.PathValue("recordID")
+	commentIDStr := r.PathValue("commentID")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
 	if err != nil {
-		errorLogger.Printf("%s invalid comment id %q: %v", source, commentPath, err)
+		errorLogger.Printf("%s invalid comment id %q: %v", source, commentIDStr, err)
 		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
@@ -252,17 +250,22 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
 		errorLogger.Printf("%s failed to get comment %d before flagging: %v", source, commentID, err)
-        http.Error(w, "failed to flag comment", http.StatusInternalServerError)
+		http.Error(w, "failed to flag comment", http.StatusInternalServerError)
 		return
 	}
-    if err := h.commentRepo.MarkAsFlagged(ctx, commentID); err != nil {
+	if comment.RecordID != recordID {
+		errorLogger.Printf("%s comment %s does not belong to record %q: %v", source, commentID, recordID, err)
+		http.Error(w, "comment does not belong to record", http.StatusInternalServerError)
+		return
+	}
+	if err := h.commentRepo.MarkAsFlagged(ctx, commentID); err != nil {
 		errorLogger.Printf("%s failed to flag comment %d: %v", source, commentID, err)
 		http.Error(w, "failed to flag comments", http.StatusInternalServerError)
 		return
 	}
 	commentModeration := CommentModerationHistory{
 		CommentID:      commentID,
-		ReporterOrcid:     user.Orcid,
+		ReporterOrcid:  user.Orcid,
 		PreviousStatus: comment.ModerationStatus,
 		NewStatus:      StatusFlagged,
 	}
@@ -282,13 +285,11 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	commentPath, ok := parsePath(w, r, "/moderation/comments/", "", "comment deletion", source)
-	if !ok {
-		return
-	}
-	commentID, err := strconv.ParseInt(commentPath, 10, 64)
+	recordID := r.PathValue("recordID")
+	commentIDStr := r.PathValue("commentID")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
 	if err != nil {
-		errorLogger.Printf("%s invalid comment id %q: %v", source, commentPath, err)
+		errorLogger.Printf("%s invalid comment id %q: %v", source, commentIDStr, err)
 		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
@@ -296,7 +297,12 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
 		errorLogger.Printf("%s failed to get comment %d before deletion: %v", source, commentID, err)
-        http.Error(w, "failed to delete comment", http.StatusInternalServerError)
+		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
+		return
+	}
+	if comment.RecordID != recordID {
+		errorLogger.Printf("%s comment %s does not belong to record %q: %v", source, commentID, recordID, err)
+		http.Error(w, "comment does not belong to record", http.StatusInternalServerError)
 		return
 	}
 	isAdmin, ok := currentUserIsAdmin(w, r, source, h.adminRepo)
@@ -310,7 +316,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 	commentModeration := CommentModerationHistory{
 		CommentID:      commentID,
-		ReporterOrcid:     user.Orcid,
+		ReporterOrcid:  user.Orcid,
 		PreviousStatus: comment.ModerationStatus,
 		NewStatus:      StatusDeleted,
 	}

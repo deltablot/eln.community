@@ -147,7 +147,7 @@
   <div class="card-body">
     <h5 class="card-title">License</h5>
     <p class="card-text mb-2">
-      This entry is licensed under 
+      This entry is licensed under
       {{ if eq .Record.License "CC-BY-4.0" }}
       <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">
         <strong>Creative Commons Attribution 4.0 International (CC BY 4.0)</strong>
@@ -166,58 +166,129 @@
   </div>
 </div>
 
-<hr class="section-divider mt-4">
+<!--
+  exposer clairement recordId
+  currentUserOrcid
+  isAdmin
+
+  Le js doit savoir :
+  est-ce que je suis co ?
+  est-ce que je suis admoin ?
+  est-ce que je suis l'auteur du commentaire ?
+
+  Il faut :
+  data-record-id
+  data-current-user-orcid
+  data-is-admin
+
+  un container pour la liste
+  un template pour les commentaires
+     dans ce template :
+       - nom de l'auteur
+       - orcid link
+       - date
+       - contenu
+       - badge status
+       - zone action
+       - boutons approve/reject/delete/report cachés par défaut
+-->
 
 <!-- Comments Section -->
-<div class="mt-4" id="comments-section">
+<hr class="section-divider mt-4">
+<section class="mt-4" id="comments-section" data-record-id="{{ .Record.Id }}" data-current-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}" data-current-user-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}">
   <h4 class="mb-3">
     <i class="bi bi-chat-left-text me-2"></i>Comments
     <span class="badge bg-secondary" id="comment-count">0</span>
   </h4>
 
+  <div id="comments-admin-notice" class="alert alert-info alert-dismissible fade show d-none" role="alert">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>Adminiii View:</strong>
+    <span id="comments-admin-notice-text"></span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+
+  <div id="comments-list">
+    <div class="text-center p-4" id="comments-loading">
+      <div class="spinner-border spinner-border-sm" role="status">
+        <span class="visually-hidden">Loading comments</span>
+      </div>
+      <p class="mt-2 text-muted">Loading comments</p>
+    </div>
+  </div>
+
+  <template id="comment-template">
+    <div class="card mb-3 comment-item" data-comment-id="">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <strong>
+              <a class="comment-author-link text-decoration-none" target="_blank" href=""></a>
+          <!-- c'est quoi ce rel="noopener noreferrer" ? -->
+            </strong>
+            <span class="comment-status-badge bagde ms-2 d-none"></span>
+          </div>
+          <div>
+            <small class="comment-created-at text-muted"></small>
+          </div>
+          <p class="comment-content card-text" style="white-space: pre-wrap;"></p>
+          <div class="comment-actions d-flex gap-2 mt-2">
+            <button type="button" class="btn btn-outline-success btn-sm comment-approve-btn d-none">
+            <i class="bi bi-check-lg"></i> Approve
+          </button>
+          <button type="button" class="btn btn-outline-warning btn-sm comment-flag-btn d-none">
+            <i class="bi bi-flag"></i> Report
+          </button>
+          <button type="button" class="btn btn-outline-warning btn-sm comment-reject-btn d-none">
+            <i class="bi bi-x-lg"></i> Reject
+          </button>
+          <button type="button" class="btn btn-outline-danger btn-sm comment-delete-btn d-none">
+            <i class="bi bi-trash"></i> Delete
+          </button>
+       </div>
+     </div>
+   </div>
+  </template>
+
+  <template id="comments-empty-template">
+    <div class="text-center p-4 text-muted">
+      <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
+      <p class="mt-2">No comments yet. Be the first to comment!</p>
+    </div>
+  </template>
+
+  <template id="comments-error-template">
+    <div class="alert alert-danger">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      <span class="comments-error-message">Failed to load comments. Please try again later.</span>
+    </div>
+  </template>
+
   {{ if .User }}
-  <!-- Comment Form -->
   <div class="card mb-4">
     <div class="card-body">
       <h5 class="card-title">Add a Comment</h5>
       <form id="comment-form">
         <div class="mb-3">
-          <label for="comment-content" class="form-label">Your comment (plain text only)</label>
-          <textarea 
-            class="form-control" 
-            id="comment-content" 
-            rows="4" 
-            maxlength="5000" 
-            placeholder="Share your thoughts about this entry..."
-            required></textarea>
+          <label for="comment-input" class="form-label">Your comment</label>
+          <textarea class="form-control" id="comment-input" rows="4" maxlength="5000" placeholder="Comment this entry." required></textarea>
           <div class="form-text">
             <span id="char-count">0</span> / 5000 characters
           </div>
         </div>
         <button type="submit" class="btn btn-primary" id="submit-comment-btn">
-          <i class="bi bi-send me-1"></i>Post Comment
+          <i class="bi bi-send me-1"></i>Post
         </button>
       </form>
     </div>
   </div>
   {{ else }}
-  <!-- Login prompt -->
   <div class="alert alert-info">
     <i class="bi bi-info-circle me-2"></i>
     <a href="/auth/login" class="alert-link">Sign in</a> to post a comment.
   </div>
   {{ end }}
-
-  <!-- Comments List -->
-  <div id="comments-list">
-    <div class="text-center p-4">
-      <div class="spinner-border spinner-border-sm" role="status">
-        <span class="visually-hidden">Loading comments...</span>
-      </div>
-      <p class="mt-2 text-muted">Loading comments...</p>
-    </div>
-  </div>
-</div>
+</section>
 
 <!-- Pass JSON data safely to JavaScript -->
 <script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>

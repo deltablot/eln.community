@@ -22,7 +22,7 @@ func NewPostgresEmailQueueRepository(db *sql.DB) *PostgresEmailQueueRepository {
 	return &PostgresEmailQueueRepository{db: db}
 }
 
-const repo = "Error: email queue repository"
+const repo = "email queue repository"
 const processingTimeout = "15 minutes"
 
 // https://pkg.go.dev/database/sql#DB.QueryRowContext
@@ -74,15 +74,15 @@ func (r *PostgresEmailQueueRepository) GetPending(ctx context.Context, limit int
 }
 
 func (r *PostgresEmailQueueRepository) MarkAsSent(ctx context.Context, id int64) error {
+	source := errorSource("MarkAsSent", repo)
 	res, err := r.db.ExecContext(ctx, `UPDATE email_queue SET status = $1, last_error = NULL, sent_at = NOW() WHERE id = $2 AND status = $3`, SentStatus, id, ProcessingStatus)
 
 	if err != nil {
 		return fmt.Errorf("%s: failed to mark email queue item %d as sent: %w", repo, id, err)
 	}
 	n, err := res.RowsAffected()
-	if err != nil || n != 1 {
-		return fmt.Errorf("%s: expected to update 1 row for queue item %d, updated %d", repo, id, n)
-	}
+    errorUpdateRow(source, "queue item", id, err, n)
+
 	return nil
 }
 

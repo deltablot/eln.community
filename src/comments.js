@@ -1,15 +1,243 @@
-/**
- * Comments functionality for record pages
- */
+import { formatDateTime } from './record-extractor.js';
 
 const ModerationStatus = {
-    Pending: 0,
-    Approved: 1,
-    Rejected: 2,
-   // Deleted: 3,
-   // Flagged: 4,
+  Pending: 0,
+  Approved: 1,
+  Rejected: 2,
+  Deleted: 3,
+  Flagged: 4,
 };
 
+const ModerationStatusLabel = {
+  [ModerationStatus.Pending]: 'Pending',
+  [ModerationStatus.Approved]: '',
+  [ModerationStatus.Rejected]: 'Rejected',
+  [ModerationStatus.Deleted]: 'Deleted',
+  [ModerationStatus.Flagged]: 'Flagged',
+};
+
+const state = {
+  recordId: null,
+  currentUserOrcid: null,
+  isAdmin: false,
+  comments: [],
+};
+
+function readInitialState() {
+    const commentsSection = document.getElementById('comments-section');
+
+    state.recordId = commentsSection.dataset.recordId;
+    state.currentUserOrcid = commentsSection.dataset.currentUserOrcid || null;
+    state.isAdmin = commentsSection.dataset.currentUserIsAdmin === 'true';
+}
+
+function isAuthenticated() {
+  return state.currentUserOrcid ? true : false;
+}
+
+function isCommentAuthor(comment) {
+    return comment.commenter_orcid === state.currentUserOrcid;
+}
+
+function canApproveComment(comment) {
+  return state.isAdmin
+    && comment.moderation_status != ModerationStatus.Approved;
+}
+
+function canRejectComment(comment) {
+  return state.isAdmin
+    && comment.moderation_status != ModerationStatus.Rejected;
+}
+
+function canDeleteComment(comment) {
+  return isAuthenticated() && (state.isAdmin || isCommentAuthor(comment));
+}
+
+function canFlagComment(comment) {
+  return isAuthenticated()
+    && !isCommentAuthor(comment)
+    && comment.moderation_status === ModerationStatus.Approved;
+}
+
+async function fetchComments() {
+  const res = await fetch(`/api/v1/records/${state.recordId}/comments`);
+  if (!res.ok)
+    throw new Error('failed to fetch comments');
+  return res.json();
+}
+
+async function createComment(content) {
+  const req = await fetch(`/api/v1/records/${state.recordId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+  });
+  if (!req.ok)
+    throw new Error('failed to create comment');
+  return req.json();
+}
+
+async function deleteComment(commentId) {
+  const req = await fetch(`/api/v1/records/${state.recordId}/comments/${commentId}`, {
+      method: 'DELETE',
+  });
+  if (!req.ok)
+    throw new Error('failed to create comment');
+  return req.json();
+}
+
+async function handleSubmit(event) {
+  event.preventDefault();
+  const commentInput = document.getElementById('comment-input');
+  const content = commentInput.value.trim();
+  const submitCommentBtn = document.getElementById('submit-comment-btn');
+
+  if (!content) {
+      alert('Please enter a comment');
+      return;
+  }
+
+  submitCommentBtn.disabled = true;
+  try {
+    const newComment = await createComment(content);
+    state.comments.push(newComment);
+    renderAllComments(state.comments);
+  } catch (err) {
+    console.log('failed to create comment:', err);
+  } finally {
+    submitCommentBtn.disabled = false;
+  }
+}
+
+function bindCommentForm() {
+  const commentForm = document.getElementById('comment-form');
+  if (!commentForm)
+    return;
+  commentForm.addEventListener('submit', handleSubmit);
+}
+
+async function handleStatus(event) {
+  const commentItem = event.target.closest('.comment-item');
+  if (!commentItem)
+    return;
+  const commentId = commentItem.dataset.commentId;
+  const approveBtn = event.target.closest('.comment-approve-btn');
+  const rejectBtn = event.target.closest('.comment-reject-btn');
+  const deleteBtn = event.target.closest('.comment-delete-btn');
+  const flagBtn = event.target.closest('.comment-flag-btn');
+
+  if (approveBtn) {
+    console.log('approve comment', commentId);
+    return;
+  }
+
+  if (rejectBtn) {
+    console.log('reject comment', commentId);
+    return;
+  }
+
+  if (deleteBtn) {
+    await deleteComment(commentId);
+    state.comments = state.comments.filter((comment) => String(comment.id) !== commentId);
+    renderAllComments(state.comments);
+    console.log('delete comment', commentId);
+    return;
+  }
+
+  if (flagBtn) {
+    console.log('flag comment', commentId);
+    return;
+  }
+}
+
+function bindStatus() {
+  const commentsList = document.getElementById('comments-list');
+  if (!commentsList)
+    return;
+ commentsList.addEventListener('click', handleStatus);
+}
+
+function displayCommentActions(commentItem, comment) {
+  const approveBtn = commentItem.querySelector('.comment-approve-btn');
+  if (approveBtn)
+    approveBtn.classList.toggle('d-none', !canApproveComment(comment));
+  const rejectBtn = commentItem.querySelector('.comment-reject-btn');
+  if (rejectBtn)
+    rejectBtn.classList.toggle('d-none', !canRejectComment(comment));
+  const deleteBtn = commentItem.querySelector('.comment-delete-btn');
+  if (deleteBtn)
+    deleteBtn.classList.toggle('d-none', !canDeleteComment(comment));
+  const flagBtn = commentItem.querySelector('.comment-flag-btn');
+  if (flagBtn)
+    flagBtn.classList.toggle('d-none', !canFlagComment(comment));
+}
+
+function renderComment(comment) {
+  const commentTemplate = document.getElementById('comment-template');
+  const clone = document.importNode(commentTemplate.content, true);
+  const commentItem = clone.querySelector('.comment-item');
+  const commentAuthor = commentItem.querySelector('.comment-author-link');
+  const commentStatus = commentItem.querySelector('.comment-status-badge');
+  const commentDate = commentItem.querySelector('.comment-created-at');
+  const commentContent = commentItem.querySelector('.comment-content');
+  commentItem.dataset.commentId = comment.id;
+  displayCommentActions(commentItem, comment);
+
+  commentAuthor.textContent = comment.commenter_name;
+  commentAuthor.href = "https://orcid.org/" + comment.commenter_orcid;
+  commentStatus.textContent = comment.moderation_status;
+  commentDate.textContent = formatDateTime(comment.created_at);
+  commentContent.textContent = comment.content;
+
+  return commentItem;
+}
+
+function renderAllComments(comments) {
+  const commentsList = document.getElementById('comments-list');
+  commentsList.replaceChildren();
+  comments.forEach((comment) => {
+    const commentEl = renderComment(comment);
+    commentsList.appendChild(commentEl);
+  });
+}
+
+async function loadComments() {
+  try {
+    const comments = await fetchComments();
+    state.comments = comments;
+    renderAllComments(state.comments);
+  } catch (err) {
+    console.error('Error loading comments:', err);
+  }
+}
+
+function initComments() {
+  readInitialState();
+  bindCommentForm();
+  loadComments();
+  bindStatus();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initComments);
+} else {
+  initComments();
+}
+
+//export { loadComments, };
+
+// export { loadComments, postComment, sanitizeText, };
+
+// charger les commentaires
+// créer un commentaire
+// supprimer un commentaire
+// flag un commentaire
+// approve / reject côté admin
+// afficher les commentaires
+// décider quels boutons afficher
+// gérer les erreurs
+
+/*
 // Sanitize text content to prevent XSS
 function sanitizeText(text) {
   const div = document.createElement('div');
@@ -17,33 +245,10 @@ function sanitizeText(text) {
   return div.innerHTML;
 }
 
-// Format date for display
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
 // Render a single comment
 function renderComment(comment) {
   const statusBadge = comment.moderation_status === ModerationStatus.Pending
-    ? '<span class="badge bg-warning text-dark ms-2">Pending Review</span>'
+    ? '<span class="badge bg-warning text-dark ms-2">Pending</span>'
     : comment.moderation_status === ModerationStatus.Rejected
     ? '<span class="badge bg-danger ms-2">Rejected</span>'
     : '';
@@ -63,9 +268,21 @@ function renderComment(comment) {
             </strong>
             ${statusBadge}
           </div>
-          <small class="text-muted">${formatDate(comment.created_at)}</small>
+          <small class="text-muted">${formatDateTime(comment.created_at)}</small>
         </div>
+        ${ if comment.orcid }
         <p class="card-text" style="white-space: pre-wrap;">${sanitizeText(comment.content)}</p>
+          <button class="btn btn-outline-danger btn-sm delete-comment-btn"
+             data-comment-id="${comment.id}">
+            <span class="spinner-border spinner-border-sm d-none"></span>
+            <i class="bi bi-trash"></i>Delete
+          </button>
+          <!-- si tu n'es pas l'auteur, flag btn -->
+          <button class="btn btn-outline-danger btn-sm delete-comment-btn"
+             data-comment-id="${comment.id}">
+            <span class="spinner-border spinner-border-sm d-none"></span>
+            <i class="bi bi-trash"></i>Report
+          </button>
       </div>
     </div>
   `;
@@ -114,12 +331,14 @@ async function loadComments(recordId) {
       // Show admin notice if there are pending/rejected comments
       const pendingCount = comments.filter(c => c.moderation_status === ModerationStatus.Pending).length;
       const rejectedCount = comments.filter(c => c.moderation_status === ModerationStatus.Rejected).length;
+      const flaggedCount = comments.filter(c => c.moderation_status === ModerationStatus.Flagged).length;
 
       let adminNotice = '';
-      if (pendingCount > 0 || rejectedCount > 0) {
+      if (pendingCount > 0 || rejectedCount > 0 || flaggedCount > 0) {
         const notices = [];
-        if (pendingCount > 0) notices.push(`${pendingCount} pending review`);
+        if (pendingCount > 0) notices.push(`${pendingCount} pending`);
         if (rejectedCount > 0) notices.push(`${rejectedCount} rejected`);
+        if (flaggedCount > 0) notices.push(`${flaggedCount} flagged`);
 
         adminNotice = `
           <div class="alert alert-info alert-dismissible fade show" role="alert">
@@ -198,7 +417,6 @@ function initComments() {
       e.preventDefault();
 
       const content = contentTextarea.value.trim();
-      
       if (!content) {
         alert('Please enter a comment');
         return;
@@ -259,4 +477,5 @@ if (document.readyState === 'loading') {
 }
 
 // Export for use in other modules
-export { loadComments, postComment, sanitizeText, formatDate };
+export { loadComments, postComment, sanitizeText, };
+*/

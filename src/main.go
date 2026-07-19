@@ -548,7 +548,8 @@ func main() {
 	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", func(w http.ResponseWriter, r *http.Request) {
 		commentHandler.moderateComment(w, r, "reject", StatusRejected)
 	})
-	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteComment)
+	mux.HandleFunc("POST /api/v1/records/{recordID}/comments/{commentID}/flag", commentHandler.flagComment)
+	mux.HandleFunc("DELETE /api/v1/records/{recordID}/comments/{commentID}", commentHandler.deleteComment)
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))

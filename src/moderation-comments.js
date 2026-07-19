@@ -2,23 +2,13 @@
  * Comment moderation functionality for admin moderation page
  */
 
+import { formatDateTime } from './record-extractor.js';
+
 // Sanitize text content to prevent XSS
 function sanitizeText(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
-}
-
-// Format date for display
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
 }
 
 // Render a pending comment card
@@ -43,7 +33,7 @@ function renderPendingComment(comment) {
               (${sanitizeText(comment.commenter_orcid)})
             </div>
             <div class="text-muted small mb-2">
-              <strong>Posted:</strong> ${formatDate(comment.created_at)}
+          <small class="text-muted">Posted: ${formatDateTime(comment.created_at)}</small>
             </div>
           </div>
         </div>

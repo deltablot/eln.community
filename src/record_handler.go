@@ -33,6 +33,8 @@ const (
 	descriptionMaxLength = 10000
 )
 
+const recordHandlerErr = "record handler:"
+
 type RecordHandler struct {
 	recordRepo          RecordRepository
 	categoryRepo        CategoryRepository
@@ -740,6 +742,7 @@ func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
 
 // GetRecordPage handles HTML page rendering for individual records
 func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
+	source := errorSource("GetRecordPage", commentHandlerErr)
 	funcMap := template.FuncMap{
 		"toJson": func(v interface{}) template.JS {
 			b, _ := json.Marshal(v)
@@ -867,6 +870,11 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 
 	isArchived := record.IsArchived()
 
+	isAdmin, ok := currentUserIsAdmin(w, r, source, h.adminRepo)
+	if !ok {
+		return
+	}
+
 	data := RecordPageData{
 		App:            app,
 		Record:         *record,
@@ -874,6 +882,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		CanArchive:     canEdit,                                 // Same permission as edit (owner or admin)
 		IsArchived:     isArchived,
 		User:           user,
+        IsAdmin: isAdmin,
 		CurrentPage:    "",
 		IsHistorical:   isHistorical,
 		HistoryVersion: historyVersion,
