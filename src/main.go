@@ -1,4 +1,4 @@
-/**
+/*
  * eln.community
  * © 2025 - Nicolas CARPi, Deltablot
  * License: AGPLv3
@@ -549,6 +549,7 @@ func main() {
 		commentHandler.moderateComment(w, r, "reject", StatusRejected)
 	})
 	mux.HandleFunc("POST /api/v1/records/{recordID}/comments/{commentID}/flag", commentHandler.flagComment)
+    //TODO: remettre aussi l'ancienne route pour que l'admin puisse supprimer les commentaires depuis la page de moderation
 	mux.HandleFunc("DELETE /api/v1/records/{recordID}/comments/{commentID}", commentHandler.deleteComment)
 
 	// HTML pages (with CSP middleware)

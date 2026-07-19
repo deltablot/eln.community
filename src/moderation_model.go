@@ -26,7 +26,7 @@ var moderationStatusName = map[ModerationStatus]string{
 	StatusFlagged:  "flagged",
 }
 
-// ModerationHistory represents an admin action on a record
+// TODO: add NewStatus, PreviousStatus, ModifiedAt
 type ModerationHistory struct {
 	ID         int64
 	RecordID   string
