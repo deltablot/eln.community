@@ -80,7 +80,7 @@ type RecordPageData struct {
 	CanArchive     bool
 	IsArchived     bool
 	User           *User
-    IsAdmin bool
+	IsAdmin        bool
 	CurrentPage    string
 	IsHistorical   bool
 	HistoryVersion int

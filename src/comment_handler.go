@@ -79,15 +79,20 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	user, isAuthenticated := userFromSession(ctx)
+
 	isAdmin, ok := currentUserIsAdmin(w, r, source, h.adminRepo)
 	if !ok {
 		return
 	}
 	var comments []Comment
 	var err error
-	if isAdmin {
+	switch {
+	case isAdmin:
 		comments, err = h.commentRepo.GetByRecordID(ctx, recordId)
-	} else {
+	case isAuthenticated:
+		comments, err = h.commentRepo.GetVisibleByRecordID(ctx, recordId, user.Orcid)
+	default:
 		comments, err = h.commentRepo.GetApprovedByRecordID(ctx, recordId)
 	}
 	if err != nil {

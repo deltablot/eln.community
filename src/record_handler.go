@@ -882,7 +882,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		CanArchive:     canEdit,                                 // Same permission as edit (owner or admin)
 		IsArchived:     isArchived,
 		User:           user,
-        IsAdmin: isAdmin,
+		IsAdmin:        isAdmin,
 		CurrentPage:    "",
 		IsHistorical:   isHistorical,
 		HistoryVersion: historyVersion,
