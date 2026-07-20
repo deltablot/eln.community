@@ -292,19 +292,18 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 	recordID := r.PathValue("recordID")
 	commentIDStr := r.PathValue("commentID")
+    isModerationRoute := false
+    if commentIDStr == "" {
+	  commentIDStr = r.PathValue("id")
+      isModerationRoute = true
+    }
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
 	if err != nil {
 		errorLogger.Printf("%s invalid comment id %q: %v", source, commentIDStr, err)
 		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
-/*
-	commentPath, ok := parsePath(w, r, "/moderation/comments/", "", "comment moderation", source)
-	if !ok {
-		return
-	}
-	commentModerationID, err := strconv.ParseInt(commentPath, 10, 64)
-*/
+    fmt.Printf("commentID %d", commentID);
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
@@ -312,7 +311,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
 		return
 	}
-	if comment.RecordID != recordID {
+	if recordID != "" && comment.RecordID != recordID {
 		errorLogger.Printf("%s comment %s does not belong to record %q: %v", source, commentID, recordID, err)
 		http.Error(w, "comment does not belong to record", http.StatusInternalServerError)
 		return
@@ -321,6 +320,10 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+    if isModerationRoute && !isAdmin {
+		http.Error(w, "forbidden", http.StatusForbidden)
+        return
+    }
 	if !isAdmin && comment.CommenterOrcid != user.Orcid {
 		errorLogger.Printf("%s user %q tried to delete comment %d owned by %q", source, user.Orcid, commentID, comment.CommenterOrcid)
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -338,7 +341,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if isAdmin {
-		err = h.commentRepo.DeleteComment(ctx, commentID)// || h.commentRepo.DeleteComment(ctx, commentModerationID)
+		err = h.commentRepo.DeleteComment(ctx, commentID)
 	} else {
 		err = h.commentRepo.AuthorDeleteComment(ctx, commentID, user.Orcid)
 	}
