@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const commentMaxLength = 500
+const commentMaxLength = 5000
 
 func requireValidCommentContent(w http.ResponseWriter, r *http.Request, source string, content string) (string, bool) {
 	content = strings.TrimSpace(content)

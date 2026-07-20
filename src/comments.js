@@ -130,14 +130,12 @@ async function handleStatus(event) {
   if (approveBtn) {
     await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/approve`, 'POST', 'approve');
     await loadComments();
-    console.log('approve comment', commentId);
     return;
   }
 
   if (rejectBtn) {
     await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/reject`, 'POST', 'reject');
     await loadComments();
-    console.log('reject comment', commentId);
     return;
   }
 
@@ -145,7 +143,6 @@ async function handleStatus(event) {
     await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}`, 'DELETE', 'delete');
     state.comments = state.comments.filter((comment) => String(comment.id) !== commentId);
     renderAllComments(state.comments);
-    console.log('delete comment', commentId);
     return;
   }
 
@@ -170,17 +167,20 @@ function displayCommentStatus(commentItem, comment) {
   if (!label)
     return;
 
-  commentStatus.classList.remove('bg-warning', 'bg-danger', 'text-dark');
+  commentStatus.classList.remove('bg-warning', 'bg-danger');
   commentStatus.textContent = label;
   commentStatus.classList.remove('d-none');
 
+  if (comment.moderation_status === ModerationStatus.Flagged) {
+    commentStatus.classList.add('reported-flag');
+    return;
+  }
   if (comment.moderation_status === ModerationStatus.Rejected) {
-    commentStatus.classList.add('bg-danger');
+    commentStatus.classList.add('rejected-flag');
     return;
   }
 
-  commentStatus.classList.add('bg-warning', 'text-dark');
-    console.log(label);
+  commentStatus.classList.add('pending-flag');
 }
 
 function displayCommentActions(commentItem, comment) {
@@ -191,20 +191,6 @@ function displayCommentActions(commentItem, comment) {
   const rejectBtn = commentItem.querySelector('.comment-reject-btn');
   const deleteBtn = commentItem.querySelector('.comment-delete-btn');
   const flagBtn = commentItem.querySelector('.comment-flag-btn');
-
-    /*
-  if (approveBtn)
-    approveBtn.classList.toggle('d-none', !canApproveComment(comment));
-  const rejectBtn = commentItem.querySelector('.comment-reject-btn');
-  if (rejectBtn)
-    rejectBtn.classList.toggle('d-none', !canRejectComment(comment));
-  const deleteBtn = commentItem.querySelector('.comment-delete-btn');
-  if (deleteBtn)
-    deleteBtn.classList.toggle('d-none', !canDeleteComment(comment));
-  const flagBtn = commentItem.querySelector('.comment-flag-btn');
-  if (flagBtn)
-    flagBtn.classList.toggle('d-none', !canFlagComment(comment));
-    */
 
   const showApprove = canApproveComment(comment);
   const showReject = canRejectComment(comment);

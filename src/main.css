@@ -1,13 +1,35 @@
 :root {
-    --black: #000004;
+    --black: #111315;
     --black-highlight: #4a2c63;
-    --light-gray: #949494;
+    --gray-light: #949494;
     --medium: #634c76;
     --white: #fbfef9;
     --highlight: #f1e4f1;
-    --blue: #0c6291;
+    --blue1: #0c6291;
     --red: #a63446;
     --dangerred: #e6614c;
+
+    --yellow-dark: #875D12;
+    --yellow-soft: #FFF7EB;
+    --yellow-border: #EBD9B3;
+
+    --red-dark:#8B4960;
+    --red-soft:#FFF4F6;
+    --red-border: #E7CBD6;
+
+    --green-dark:#2F6B63;
+    --green-soft:#EEF7F4;
+    --green-border:#CFE2DC;
+
+    --blue-dark:#355975;
+    --blue-soft:#F3F6FB;
+    --blue-border:#ABC3E1;
+
+
+    --gray-soft:#E5E7EB;
+    --gray-medium:#4B5563;
+    --blue-soft: #c9ddf1;
+    --blue-medium: #24476B;
 }
 
 .container-fluid {
@@ -97,6 +119,7 @@ textarea {
     border-radius: 5px;
     padding: 5px;
     width: 70%;
+
     margin: auto;
 }
 
@@ -745,7 +768,7 @@ footer {
 }
 
 .category-multiselect-placeholder {
-    color: var(--light-gray);
+    color: var(--gray-light);
     font-weight: 300;
     flex: 1;
 }
@@ -1105,7 +1128,7 @@ footer {
 }
 
 .smallgray {
-   color: var(--light-gray);
+   color: var(--gray-light);
    font-size: 80%;
 }
 
@@ -1133,16 +1156,97 @@ footer {
 }
 
 .form-placeholder::placeholder {
-  color: var(--light-gray);
+  color: var(--gray-light);
   font-weight: 300;
   opacity: 1;
 }
 
 #elnFile {
-  color: var(--light-gray);
+  color: var(--gray-light);
   font-weight: 300;
 }
 
 #elnFile:valid {
   color: #000;
+}
+
+.eln-bg-secondary {
+  color: var(--gray-medium);
+  background-color: var(--blue-soft);
+}
+
+.reported-flag, .rejected-flag, .pending-flag {
+  padding: 0.5rem;
+  border-radius: 8px;
+  font-size: small;
+  border: 1px solid;
+}
+
+.comment-approve-btn {
+  color: var(--green-dark);
+  background-color: var(--green-soft);
+  border-color: var(--green-border);
+}
+
+.pending-flag {
+  color: var(--yellow-dark);
+  background-color: var(--yellow-soft);
+  border-color: var(--yellow-border);
+}
+
+.rejected-flag, .comment-reject-btn {
+  color: var(--red-dark);
+  background-color: var(--red-soft);
+  border-color: var(--red-border);
+}
+
+.reported-flag, .comment-flag-btn {
+  color: var(--blue-dark);
+  background-color: var(--blue-soft);
+  border-color: var(--blue-border);
+}
+
+.reported-flag {
+  border-color: var(--blue-border);
+}
+
+.comment-approve-btn, .comment-flag-btn, .comment-reject-btn, .comment-delete-btn {
+  font-weight: 700;
+  font-size: medium;
+}
+
+.comment-approve-btn:hover, .comment-flag-btn:hover, .comment-reject-btn:hover, .comment-delete-btn:hover {
+    border: none;
+}
+
+.comment-approve-btn:hover {
+  background-color: var(--green-dark);
+}
+
+.comment-flag-btn:hover {
+  background-color: var(--blue-dark);
+}
+
+.comment-reject-btn:hover {
+  color: var(--red-soft);
+  background-color: var(--red-dark);
+  border-color: var(--red-border);
+}
+
+.comment-item {
+  color: var(--gray-dark);
+  border-radius: 8px;
+}
+.comment-created-at {
+  color: var(--gray-light);
+}
+
+.comment-content {
+  color: var(--dark);
+  font-weight: 500;
+}
+
+.comment-author-link {
+  color: #5380c2;
+  font-size: larger;
 }

@@ -198,7 +198,7 @@
 <section class="mt-4" id="comments-section" data-record-id="{{ .Record.Id }}" data-current-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}" data-current-user-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}">
   <h4 class="mb-3">
     <i class="bi bi-chat-left-text me-2"></i>Comments
-    <span class="badge bg-secondary" id="comment-count">0</span>
+    <span class="badge eln-bg-secondary" id="comment-count">0</span>
   </h4>
 
   <div id="comments-list">
@@ -222,20 +222,21 @@
             <small class="comment-created-at text-muted"></small>
           </div>
           <p class="comment-content card-text gap-2 mt-2" style="white-space: pre-wrap;"></p>
-          <details class="comment-actions mt-2 d-none">
+          <details class="comment-actions gap-2 mt-2 d-none">
             <summary>Modify status<i class="bi bi-chevron-down chevron"></i></summary>
             <div class="d-flex gap-2 flex-wrap mt-2">
               <button type="button" class="btn btn-outline-success btn-sm comment-approve-btn" data-action="approve">
                 <i class="bi bi-check-lg"></i> Approve
               </button>
-              <button type="button" class="btn btn-outline-warning btn-sm comment-reject-btn" data-action="reject">
+              <button type="button" class="btn btn-outline-danger btn-sm comment-reject-btn" data-action="reject">
                 <i class="bi bi-x-lg"></i> Reject
               </button>
-              <button type="button" class="btn btn-outline-warning btn-sm comment-flag-btn" data-action="flag">
+              <button type="button" class="btn btn-outline-primary btn-sm comment-flag-btn" data-action="flag">
                 <i class="bi bi-flag"></i> Report
               </button>
-              <button type="button" class="btn btn-outline-danger btn-sm comment-delete-btn" data-action="delete">
-                <i class="bi bi-trash"></i> Delete
+              <button type="button" class="btn btn-outline-secondary btn-sm comment-delete-btn" data-action="delete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false"> <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/> <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                </svg> Delete
               </button>
             </div>
           </details>
