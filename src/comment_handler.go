@@ -298,6 +298,13 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
+/*
+	commentPath, ok := parsePath(w, r, "/moderation/comments/", "", "comment moderation", source)
+	if !ok {
+		return
+	}
+	commentModerationID, err := strconv.ParseInt(commentPath, 10, 64)
+*/
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
@@ -331,7 +338,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if isAdmin {
-		err = h.commentRepo.DeleteComment(ctx, commentID)
+		err = h.commentRepo.DeleteComment(ctx, commentID)// || h.commentRepo.DeleteComment(ctx, commentModerationID)
 	} else {
 		err = h.commentRepo.AuthorDeleteComment(ctx, commentID, user.Orcid)
 	}

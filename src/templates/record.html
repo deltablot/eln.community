@@ -201,13 +201,6 @@
     <span class="badge bg-secondary" id="comment-count">0</span>
   </h4>
 
-  <div id="comments-admin-notice" class="alert alert-info alert-dismissible fade show d-none" role="alert">
-    <i class="bi bi-info-circle me-2"></i>
-    <strong>Adminiii View:</strong>
-    <span id="comments-admin-notice-text"></span>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-  </div>
-
   <div id="comments-list">
     <div class="text-center p-4" id="comments-loading">
       <div class="spinner-border spinner-border-sm" role="status">
@@ -222,31 +215,33 @@
       <div class="card-body">
         <div class="flex-column justify-content-between align-items-start mb-2">
           <div class="d-flex justify-content-between">
-            <strong>
-              <a class="comment-author-link text-decoration-none" target="_blank"></a>
-            </strong>
+            <strong><a class="comment-author-link text-decoration-none" target="_blank"></a></strong>
             <span class="comment-status-badge bagde ms-2 d-none"></span>
           </div>
           <div>
             <small class="comment-created-at text-muted"></small>
           </div>
           <p class="comment-content card-text gap-2 mt-2" style="white-space: pre-wrap;"></p>
-          <div class="comment-actions d-flex gap-2 mt-2">
-            <button type="button" class="btn btn-outline-success btn-sm comment-approve-btn d-none">
-            <i class="bi bi-check-lg"></i> Approve
-          </button>
-          <button type="button" class="btn btn-outline-warning btn-sm comment-flag-btn d-none">
-            <i class="bi bi-flag"></i> Report
-          </button>
-          <button type="button" class="btn btn-outline-warning btn-sm comment-reject-btn d-none">
-            <i class="bi bi-x-lg"></i> Reject
-          </button>
-          <button type="button" class="btn btn-outline-danger btn-sm comment-delete-btn d-none">
-            <i class="bi bi-trash"></i> Delete
-          </button>
-       </div>
-     </div>
-   </div>
+          <details class="comment-actions mt-2 d-none">
+            <summary>Modify status<i class="bi bi-chevron-down chevron"></i></summary>
+            <div class="d-flex gap-2 flex-wrap mt-2">
+              <button type="button" class="btn btn-outline-success btn-sm comment-approve-btn" data-action="approve">
+                <i class="bi bi-check-lg"></i> Approve
+              </button>
+              <button type="button" class="btn btn-outline-warning btn-sm comment-reject-btn" data-action="reject">
+                <i class="bi bi-x-lg"></i> Reject
+              </button>
+              <button type="button" class="btn btn-outline-warning btn-sm comment-flag-btn" data-action="flag">
+                <i class="bi bi-flag"></i> Report
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm comment-delete-btn" data-action="delete">
+                <i class="bi bi-trash"></i> Delete
+              </button>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
   </template>
 
   <template id="comments-empty-template">

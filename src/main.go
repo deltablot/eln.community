@@ -551,6 +551,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/records/{recordID}/comments/{commentID}/flag", commentHandler.flagComment)
     //TODO: remettre aussi l'ancienne route pour que l'admin puisse supprimer les commentaires depuis la page de moderation
 	mux.HandleFunc("DELETE /api/v1/records/{recordID}/comments/{commentID}", commentHandler.deleteComment)
+	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteComment)
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))

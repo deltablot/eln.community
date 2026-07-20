@@ -184,7 +184,15 @@ function displayCommentStatus(commentItem, comment) {
 }
 
 function displayCommentActions(commentItem, comment) {
+  const actions = commentItem.querySelector('.comment-actions');
+  const summary = actions.querySelector('summary');
+
   const approveBtn = commentItem.querySelector('.comment-approve-btn');
+  const rejectBtn = commentItem.querySelector('.comment-reject-btn');
+  const deleteBtn = commentItem.querySelector('.comment-delete-btn');
+  const flagBtn = commentItem.querySelector('.comment-flag-btn');
+
+    /*
   if (approveBtn)
     approveBtn.classList.toggle('d-none', !canApproveComment(comment));
   const rejectBtn = commentItem.querySelector('.comment-reject-btn');
@@ -196,6 +204,28 @@ function displayCommentActions(commentItem, comment) {
   const flagBtn = commentItem.querySelector('.comment-flag-btn');
   if (flagBtn)
     flagBtn.classList.toggle('d-none', !canFlagComment(comment));
+    */
+
+  const showApprove = canApproveComment(comment);
+  const showReject = canRejectComment(comment);
+  const showFlag = canFlagComment(comment);
+  const showDelete = canDeleteComment(comment);
+
+  approveBtn.classList.toggle('d-none', !showApprove);
+  rejectBtn.classList.toggle('d-none', !showReject);
+  flagBtn.classList.toggle('d-none', !showFlag);
+  deleteBtn.classList.toggle('d-none', !showDelete);
+
+  const hasActions = showApprove || showReject || showFlag || showDelete;
+  actions.classList.toggle('d-none', !hasActions);
+
+  if (!hasActions)
+    return;
+
+  const showActions = state.isAdmin && comment.moderation_status != ModerationStatus.Pending;
+
+  actions.open = !showActions;
+  summary.classList.toggle('d-none', !showActions);
 }
 
 function renderComment(comment) {
