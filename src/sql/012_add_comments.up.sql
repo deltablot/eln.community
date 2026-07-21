@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS comments (
     commenter_name VARCHAR(255) NOT NULL,
     commenter_orcid orcid_type NOT NULL,
     content TEXT NOT NULL,
-    moderation_status INTEGER NOT NULL DEFAULT 0 CHECK (moderation_status IN (0, 1, 2, 3, 4)),
+    moderation_status VARCHAR(20) NOT NULL DEFAULT 'pending_review',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT content_not_empty CHECK (LENGTH(TRIM(content)) > 0)
@@ -24,18 +24,16 @@ CREATE TRIGGER trigger_update_modified_at_comments
     EXECUTE FUNCTION update_modified_at();
 
 -- Comment moderation actions log
-CREATE TABLE IF NOT EXISTS comment_moderation_history (
+CREATE TABLE IF NOT EXISTS comment_moderation_actions (
     id BIGSERIAL PRIMARY KEY,
     comment_id BIGINT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
-    reporter_orcid orcid_type NOT NULL,
-    previous_status INTEGER NOT NULL DEFAULT 0 CHECK (previous_status IN (0, 1, 2, 3, 4)),
-    new_status INTEGER NOT NULL DEFAULT 0 CHECK (new_status IN (0, 1, 2, 3, 4)),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    admin_orcid orcid_type NOT NULL,
+    action VARCHAR(20) NOT NULL, -- 'approve', 'reject', 'delete'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_comment_moderation_history_comment ON comment_moderation_history(comment_id);
-CREATE INDEX idx_comment_moderation_history_reporter ON comment_moderation_history(reporter_orcid);
+CREATE INDEX idx_comment_moderation_actions_comment ON comment_moderation_actions(comment_id);
+CREATE INDEX idx_comment_moderation_actions_admin ON comment_moderation_actions(admin_orcid);
 
 -- Comments
 COMMENT ON TABLE comments IS 'User comments on records with moderation support';

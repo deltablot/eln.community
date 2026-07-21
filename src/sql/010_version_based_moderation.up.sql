@@ -3,21 +3,20 @@
 -- 1. Add moderation_status to record_history
 -- 2. Update trigger to only fire on content changes (not status-only)
 -- 3. Add skip flag to prevent duplicate entries when approving pending versions
--- 4. Add version_name to moderation_history for history display
+-- 4. Add version_name to moderation_actions for history display
 
 -- Step 1: Add moderation_status to record_history table
-ALTER TABLE record_history ADD COLUMN IF NOT EXISTS moderation_status INTEGER NOT NULL DEFAULT 1 CHECK (moderation_status IN (0, 1, 2, 3, 4));
-
+ALTER TABLE record_history ADD COLUMN IF NOT EXISTS moderation_status VARCHAR(20) DEFAULT 'approved';
 
 -- Update existing history records to have approved status (backward compatibility)
-UPDATE record_history SET moderation_status = 1 WHERE moderation_status IS NULL;
+UPDATE record_history SET moderation_status = 'approved' WHERE moderation_status IS NULL;
 
--- Step 2: Add version_name to moderation_history table
-ALTER TABLE moderation_history ADD COLUMN IF NOT EXISTS version_name VARCHAR(255);
+-- Step 2: Add version_name to moderation_actions table
+ALTER TABLE moderation_actions ADD COLUMN IF NOT EXISTS version_name VARCHAR(255);
 
 -- Add comments
 COMMENT ON COLUMN record_history.moderation_status IS 'Moderation status of this version when it was archived';
-COMMENT ON COLUMN moderation_history.version_name IS 'Name of the version that was moderated (for history display)';
+COMMENT ON COLUMN moderation_actions.version_name IS 'Name of the version that was moderated (for history display)';
 
 -- Step 3: Drop and recreate triggers with all improvements
 DROP TRIGGER IF EXISTS trigger_record_audit ON records;

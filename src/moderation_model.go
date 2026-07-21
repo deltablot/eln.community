@@ -26,18 +26,18 @@ var moderationStatusName = map[ModerationStatus]string{
 	StatusFlagged:  "flagged",
 }
 
-// TODO: add NewStatus, PreviousStatus, ModifiedAt
+// TODO: Use NewStatus, PreviousStatus, ModifiedAt when refactoring ModerationHistory
 type ModerationHistory struct {
 	ID         int64
 	RecordID   string
 	AdminOrcid string
-	// NewStatus      ModerationStatus
-	// PreviousStatus ModerationStatus
+	NewStatus      ModerationStatus
+	PreviousStatus ModerationStatus
 	ModerationStatus ModerationStatus
 	Reason           string
 	VersionName      string // Name of the version that was moderated
 	CreatedAt        time.Time
-	// ModifiedAt   time.Time
+	ModifiedAt   time.Time
 }
 
 // PendingItem represents an item in the moderation queue
