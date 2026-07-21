@@ -67,7 +67,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJson(w, source, http.StatusCreated, comment)
-	if err := h.notificationService.CreateForComment(ctx, comment); err != nil {
+	if err := h.notificationService.CreateForComment(ctx, comment, StatusPending); err != nil {
 		errorLogger.Printf("%s failed to create comment notification for comment %d: %v", source, comment.ID, err)
 	}
 }
@@ -281,6 +281,9 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJson(w, source, http.StatusOK, map[string]any{"status": StatusFlagged})
+	if err := h.notificationService.CreateForComment(ctx, comment, StatusFlagged); err != nil {
+		errorLogger.Printf("%s failed to create comment notification for comment %d: %v", source, comment.ID, err)
+	}
 }
 
 func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
@@ -292,18 +295,17 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 	recordID := r.PathValue("recordID")
 	commentIDStr := r.PathValue("commentID")
-    isModerationRoute := false
-    if commentIDStr == "" {
-	  commentIDStr = r.PathValue("id")
-      isModerationRoute = true
-    }
+	isModerationRoute := false
+	if commentIDStr == "" {
+		commentIDStr = r.PathValue("id")
+		isModerationRoute = true
+	}
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
 	if err != nil {
 		errorLogger.Printf("%s invalid comment id %q: %v", source, commentIDStr, err)
 		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
-    fmt.Printf("commentID %d", commentID);
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
@@ -320,10 +322,10 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-    if isModerationRoute && !isAdmin {
+	if isModerationRoute && !isAdmin {
 		http.Error(w, "forbidden", http.StatusForbidden)
-        return
-    }
+		return
+	}
 	if !isAdmin && comment.CommenterOrcid != user.Orcid {
 		errorLogger.Printf("%s user %q tried to delete comment %d owned by %q", source, user.Orcid, commentID, comment.CommenterOrcid)
 		http.Error(w, "forbidden", http.StatusForbidden)

@@ -9,27 +9,27 @@
     --red: #a63446;
     --dangerred: #e6614c;
 
-    --yellow-dark: #875D12;
+    --yellow-dark: #764C05;
     --yellow-soft: #FFF7EB;
     --yellow-border: #EBD9B3;
 
-    --red-dark:#8B4960;
+    --red-dark:#7D4055;
     --red-soft:#FFF4F6;
     --red-border: #E7CBD6;
 
-    --green-dark:#2F6B63;
+    --green-dark:#235850;
     --green-soft:#EEF7F4;
     --green-border:#CFE2DC;
 
-    --blue-dark:#355975;
+    --blue-dark:#324F67;
     --blue-soft:#F3F6FB;
     --blue-border:#ABC3E1;
 
-
+    --gray-dark:#4B5563;
     --gray-soft:#E5E7EB;
     --gray-medium:#4B5563;
-    --blue-soft: #c9ddf1;
-    --blue-medium: #24476B;
+    --gray-border:#E5E7EB;
+
 }
 
 .container-fluid {
@@ -1188,6 +1188,11 @@ footer {
   border-color: var(--green-border);
 }
 
+.comment-delete-btn {
+  color: var(--gray-dark);
+  border-color: var(--gray-border);
+}
+
 .pending-flag {
   color: var(--yellow-dark);
   background-color: var(--yellow-soft);
@@ -1233,10 +1238,15 @@ footer {
   border-color: var(--red-border);
 }
 
+.comment-delete-btn:hover {
+  border-color: var(--gray-border);
+  }
+
 .comment-item {
   color: var(--gray-dark);
   border-radius: 8px;
 }
+
 .comment-created-at {
   color: var(--gray-light);
 }

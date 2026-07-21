@@ -1,4 +1,7 @@
 import { formatDateTime } from './record-extractor.js';
+import { updateCount } from './index.js';
+
+const COMMENT_MAX_LENGTH = 5000;
 
 const ModerationStatus = {
   Pending: 0,
@@ -22,11 +25,11 @@ const state = {
 };
 
 function readInitialState() {
-    const commentsSection = document.getElementById('comments-section');
+  const commentsSection = document.getElementById('comments-section');
 
-    state.recordId = commentsSection.dataset.recordId;
-    state.currentUserOrcid = commentsSection.dataset.currentUserOrcid || null;
-    state.isAdmin = commentsSection.dataset.currentUserIsAdmin === 'true';
+  state.recordId = commentsSection.dataset.recordId;
+  state.currentUserOrcid = commentsSection.dataset.currentUserOrcid || null;
+  state.isAdmin = commentsSection.dataset.currentUserIsAdmin === 'true';
 }
 
 function isAuthenticated() {
@@ -34,7 +37,7 @@ function isAuthenticated() {
 }
 
 function isCommentAuthor(comment) {
-    return comment.commenter_orcid === state.currentUserOrcid;
+  return comment.commenter_orcid === state.currentUserOrcid;
 }
 
 function canApproveComment(comment) {
@@ -82,6 +85,7 @@ async function handleSubmit(event) {
   const commentInput = document.getElementById('comment-input');
   const content = commentInput.value.trim();
   const submitCommentBtn = document.getElementById('submit-comment-btn');
+  const charCount = document.getElementById('char-count');
 
   if (!content) {
       alert('Please enter a comment');
@@ -93,6 +97,8 @@ async function handleSubmit(event) {
     const newComment = await createComment(content);
     state.comments.push(newComment);
     commentInput.value = '';
+    charCount.textContent = '0';
+    commentInput.required = false;
     renderAllComments(state.comments);
   } catch (err) {
     console.log('failed to create comment:', err);
@@ -102,6 +108,7 @@ async function handleSubmit(event) {
 }
 
 function bindCommentForm() {
+  updateCount('comment-input', 'char-count', 'comment-max', COMMENT_MAX_LENGTH);
   const commentForm = document.getElementById('comment-form');
   if (!commentForm)
     return;
@@ -233,6 +240,13 @@ function renderComment(comment) {
   return commentItem;
 }
 
+function updateCommentTotal() {
+  const commentCount = document.getElementById('comment-count');
+  if (!commentCount)
+      return;
+  commentCount.textContent = state.comments.length;
+}
+
 function renderAllComments(comments) {
   const commentsList = document.getElementById('comments-list');
   commentsList.replaceChildren();
@@ -240,6 +254,7 @@ function renderAllComments(comments) {
     const commentEl = renderComment(comment);
     commentsList.appendChild(commentEl);
   });
+  updateCommentTotal();
 }
 
 async function loadComments() {
@@ -247,6 +262,7 @@ async function loadComments() {
     const comments = await fetchComments();
     state.comments = comments;
     renderAllComments(state.comments);
+
   } catch (err) {
     console.error('Error loading comments:', err);
   }
@@ -265,6 +281,7 @@ if (document.readyState === 'loading') {
   initComments();
 }
 
+// export { ModerationStatus };
 // charger les commentaires
 // créer un commentaire
 // supprimer un commentaire

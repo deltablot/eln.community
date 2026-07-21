@@ -51,13 +51,22 @@ func textToHTML(body string) string {
 	return fmt.Sprintf(`<!doctype html><html><body style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #222;">%s</body></html>`, escapedText)
 }
 
-func buildAdminModerationRequestBodyText(item string, action string, owner string, content string) EmailBody {
+func buildAdminModerationRequestBodyText(item string, action string, owner string, content string, status ModerationStatus) EmailBody {
+	var actionRequired string
 	var commentContent string
 	if len(content) > 0 {
 		commentContent = fmt.Sprintf("See the comment below:\n\"%s\"\n", content)
 	}
-	body := fmt.Sprintf("Hello,\n\nA new %s has been %s by %s to ELN Community and is awaiting moderation.\n%s\nAs an administrator, please review the %s and approve it if it can be shared with the community. If you are unsure or if the %s does not meet the platform requirements, you can reject it.\nOpen ELN Community: https://eln.community\n\nThank you.", item, action, owner, commentContent, item, item)
+	var introduction = fmt.Sprintf("Hello,\n\nA new %s has been %s by %s to ELN Community and is awaiting moderation.\n%s\nAs an administrator, please review the %s and", item, action, owner, commentContent, item)
 
+	var closing = fmt.Sprintf("If you are unsure or if the %s does not meet the platform requirements, you can reject or delete it.\nOpen ELN Community: https://eln.community\n\nThank you.", item)
+	switch status {
+	case StatusPending:
+		actionRequired = fmt.Sprintf("approve it if it can be shared with the community.")
+	case StatusFlagged:
+		actionRequired = fmt.Sprintf("decide whether any moderation action is needed.")
+	}
+	body := fmt.Sprintf("%s %s %s", introduction, actionRequired, closing)
 	return buildEmailBody(body)
 }
 
@@ -132,7 +141,7 @@ func (s *NotificationService) CreateForRecord(ctx context.Context, record *Recor
 	if record == nil {
 		return fmt.Errorf("%s: record is nil", service)
 	}
-	body := buildAdminModerationRequestBodyText("record", "uploaded", record.UploaderName, "")
+	body := buildAdminModerationRequestBodyText("record", "uploaded", record.UploaderName, "", record.ModerationStatus)
 	bodyText := body.Text
 	bodyHTML := body.HTML
 
@@ -142,11 +151,15 @@ func (s *NotificationService) CreateForRecord(ctx context.Context, record *Recor
 	return nil
 }
 
-func (s *NotificationService) CreateForComment(ctx context.Context, comment *Comment) error {
+func (s *NotificationService) CreateForComment(ctx context.Context, comment *Comment, status ModerationStatus) error {
 	if comment == nil {
 		return fmt.Errorf("%s: comment is nil", service)
 	}
-	body := buildAdminModerationRequestBodyText("comment", "posted", comment.CommenterName, comment.Content)
+    action := "posted"
+    if status == StatusFlagged {
+       action = "reported"
+    }
+	body := buildAdminModerationRequestBodyText("comment", action, comment.CommenterName, comment.Content, status)
 	bodyText := body.Text
 	bodyHTML := body.HTML
 

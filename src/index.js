@@ -1,12 +1,14 @@
+//import { ModerationStatus } from './comments.js';
+
 // Intentionally high limit to support long user descriptions and multilingual content
 const DESCRIPTION_MAX_LENGTH = 10000;
 
 const ModerationStatus = {
-    Pending: 0,
-    Approved: 1,
-    Rejected: 2,
-    Deleted: 3,
-    Flagged: 4,
+  Pending: 0,
+  Approved: 1,
+  Rejected: 2,
+  Deleted: 3,
+  Flagged: 4,
 };
 
 /**
@@ -15,6 +17,24 @@ const ModerationStatus = {
  *
  * @param {Object} roCrateData - The parsed RO-Crate JSON data
  */
+
+function updateCount(data, data_count, data_max, max_length) {
+  const Textarea = document.getElementById(data);
+  const Count = document.getElementById(data_count);
+  const Max = document.getElementById(data_max);
+
+  if (!Textarea || !Count || !Max) return;
+
+  Textarea.maxLength = max_length;
+  Max.textContent = max_length;
+
+  const update = () => {
+      Count.textContent = Array.from(Textarea.value).length;
+  };
+
+  Textarea.addEventListener('input', update);
+}
+
 function renderStructuredRecordView(roCrateData) {
   // Check if RecordExtractor is available
   if (typeof window.RecordExtractor === 'undefined') {
@@ -169,21 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Format relative timestamps
   formatRelativeTimes();
 
-  const descriptionTextarea = document.getElementById('description');
-  const descriptionCount = document.getElementById('description-count');
-  const descriptionMax = document.getElementById('description-max');
-
-  if (!descriptionTextarea || !descriptionCount || !descriptionMax) return;
-
-  descriptionTextarea.maxLength = DESCRIPTION_MAX_LENGTH;
-  descriptionMax.textContent = DESCRIPTION_MAX_LENGTH;
-
-  const updateDescriptionCount = () => {
-      descriptionCount.textContent = Array.from(descriptionTextarea.value).length;
-  };
-
-  descriptionTextarea.addEventListener('input', updateDescriptionCount);
-  updateDescriptionCount();
+  updateCount('description', 'description-count', 'description-max', DESCRIPTION_MAX_LENGTH);
 });
 
 // RO-Crate viewer functionality
@@ -2540,3 +2546,5 @@ async function moderateRecord(recordId, action, buttonElement) {
 document.addEventListener('DOMContentLoaded', function () {
   initializeModerationButtons();
 });
+
+export { updateCount };

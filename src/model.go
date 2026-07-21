@@ -84,4 +84,7 @@ type RecordPageData struct {
 	CurrentPage    string
 	IsHistorical   bool
 	HistoryVersion int
+    StatusPending  ModerationStatus
+    StatusApproved  ModerationStatus
+    StatusRejected  ModerationStatus
 }

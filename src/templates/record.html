@@ -166,39 +166,12 @@
   </div>
 </div>
 
-<!--
-  exposer clairement recordId
-  currentUserOrcid
-  isAdmin
-
-  Le js doit savoir :
-  est-ce que je suis co ?
-  est-ce que je suis admoin ?
-  est-ce que je suis l'auteur du commentaire ?
-
-  Il faut :
-  data-record-id
-  data-current-user-orcid
-  data-is-admin
-
-  un container pour la liste
-  un template pour les commentaires
-     dans ce template :
-       - nom de l'auteur
-       - orcid link
-       - date
-       - contenu
-       - badge status
-       - zone action
-       - boutons approve/reject/delete/report cachés par défaut
--->
-
 <!-- Comments Section -->
 <hr class="section-divider mt-4">
 <section class="mt-4" id="comments-section" data-record-id="{{ .Record.Id }}" data-current-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}" data-current-user-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}">
   <h4 class="mb-3">
     <i class="bi bi-chat-left-text me-2"></i>Comments
-    <span class="badge eln-bg-secondary" id="comment-count">0</span>
+    <span class="badge eln-bg-secondary" id="comment-count"></span>
   </h4>
 
   <div id="comments-list">
@@ -262,13 +235,13 @@
   {{ if .User }}
   <div class="card mb-4">
     <div class="card-body">
-      <h5 class="card-title">Add a Comment</h5>
+      <h5 class="card-title mb-3">Add a Comment</h5>
       <form id="comment-form">
         <div class="mb-3">
           <label for="comment-input" class="form-label">Your comment</label>
           <textarea class="form-control" id="comment-input" rows="4" maxlength="5000" placeholder="Comment this entry." required></textarea>
           <div class="form-text">
-            <span id="char-count">0</span> / 5000 characters
+            <span id="char-count">0</span> / <span id='comment-max'></span> characters
           </div>
         </div>
         <button type="submit" class="btn btn-primary" id="submit-comment-btn">

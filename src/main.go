@@ -282,7 +282,7 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	records, totalCount, err := recordRepo.GetAllByOrcidPaginated(ctx, orcid, 100, 0)
 	if err != nil {
 		log.Printf("Error fetching records: %v", err)
-		http.Error(w, "ICI EN FAIT Error fetching records", http.StatusInternalServerError)
+		http.Error(w, "Error fetching records", http.StatusInternalServerError)
 		return
 	}
 
@@ -549,7 +549,6 @@ func main() {
 		commentHandler.moderateComment(w, r, "reject", StatusRejected)
 	})
 	mux.HandleFunc("POST /api/v1/records/{recordID}/comments/{commentID}/flag", commentHandler.flagComment)
-    //TODO: remettre aussi l'ancienne route pour que l'admin puisse supprimer les commentaires depuis la page de moderation
 	mux.HandleFunc("DELETE /api/v1/records/{recordID}/comments/{commentID}", commentHandler.deleteComment)
 	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteComment)
 
