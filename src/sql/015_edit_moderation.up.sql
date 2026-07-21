@@ -25,6 +25,7 @@ ALTER INDEX idx_moderation_actions_admin RENAME TO idx_moderation_history_admin;
 
 -- Edit table comment_moderation_actions
 ALTER TABLE comment_moderation_actions RENAME TO comment_moderation_history;
+ALTER TABLE comment_moderation_actions DROP COLUMN reason;
 ALTER TABLE comment_moderation_history RENAME COLUMN admin_orcid TO reporter_orcid;
 ALTER TABLE comment_moderation_history RENAME COLUMN action TO previous_status;
 
@@ -45,6 +46,7 @@ ALTER TABLE comment_moderation_history ADD modified_at TIMESTAMP WITH TIME ZONE 
 ALTER TABLE comment_moderation_history ADD new_status INTEGER NOT NULL DEFAULT 0 CHECK (new_status IN (0, 1, 2, 3, 4));
 ALTER INDEX idx_comment_moderation_actions_comment RENAME TO idx_comment_moderation_history_comment;
 ALTER INDEX idx_comment_moderation_actions_admin RENAME TO idx_comment_moderation_history_reporter;
+COMMENT ON COLUMN comments.moderation_status IS 'Moderation status: 0 = pending, 1 = approved, 2 = rejected, 3 = deleted, 4 = flagged';
 
 -- Edit table records
 ALTER TABLE records ALTER COLUMN moderation_status DROP DEFAULT;

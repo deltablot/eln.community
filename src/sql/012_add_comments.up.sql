@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS comment_moderation_actions (
     comment_id BIGINT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
     admin_orcid orcid_type NOT NULL,
     action VARCHAR(20) NOT NULL, -- 'approve', 'reject', 'delete'
+    reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -38,4 +39,4 @@ CREATE INDEX idx_comment_moderation_actions_admin ON comment_moderation_actions(
 -- Comments
 COMMENT ON TABLE comments IS 'User comments on records with moderation support';
 COMMENT ON COLUMN comments.content IS 'Raw text content only, no HTML allowed';
-COMMENT ON COLUMN comments.moderation_status IS 'Moderation status: 0 = pending, 1 = approved, 2 = rejected, 3 = deleted, 4 = flagged';
+COMMENT ON COLUMN comments.moderation_status IS 'Moderation status: pending_review, approved, rejected';
