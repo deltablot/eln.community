@@ -39,4 +39,3 @@ CREATE INDEX idx_comment_moderation_actions_admin ON comment_moderation_actions(
 -- Comments
 COMMENT ON TABLE comments IS 'User comments on records with moderation support';
 COMMENT ON COLUMN comments.content IS 'Raw text content only, no HTML allowed';
-COMMENT ON COLUMN comments.moderation_status IS 'Moderation status: pending_review, approved, rejected';
