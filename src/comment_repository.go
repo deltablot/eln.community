@@ -309,19 +309,19 @@ func (r *PostgresCommentRepository) GetAllOrcids(ctx context.Context, recordId s
 	source := errorSource("GetAllOrcids", commentErr)
 	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT commenter_orcid FROM comments WHERE record_id = $1 AND commenter_orcid IS NOT NULL AND commenter_orcid != '' AND moderation_status = $2`, recordId, StatusApproved)
 	if err != nil {
-		return nil, fmt.Errorf("%s get all orcids for record id %d: %w", source, recordId, err)
+		return nil, fmt.Errorf("%s get all orcids for record id %q: %w", source, recordId, err)
 	}
 	defer rows.Close()
 	var commentators []string
 	for rows.Next() {
 		var commentator string
 		if err := rows.Scan(&commentator); err != nil {
-			return nil, fmt.Errorf("%s scan orcid row for record %d: %w", source, recordId, err)
+			return nil, fmt.Errorf("%s scan orcid row for record %q: %w", source, recordId, err)
 		}
 		commentators = append(commentators, commentator)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s read orcid rows for record %d: %w", source, recordId, err)
+		return nil, fmt.Errorf("%s read orcid rows for record %q: %w", source, recordId, err)
 	}
 
 	return commentators, nil

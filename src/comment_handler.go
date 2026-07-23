@@ -231,7 +231,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		err = h.notificationService.CreateForCommentModeration(ctx, comment, StatusRejected)
 	}
 	if err != nil {
-		errorLogger.Printf("%s failed to create notification for %s comment: %v", source, status, err)
+		errorLogger.Printf("%s failed to create notification for %d comment: %v", source, status, err)
 	}
 	writeJson(w, source, http.StatusOK, map[string]string{"status": suffix})
 }
@@ -259,7 +259,7 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if comment.RecordID != recordID {
-		errorLogger.Printf("%s comment %s does not belong to record %q: %v", source, commentID, recordID, err)
+		errorLogger.Printf("%s comment %d does not belong to record %q: %v", source, commentID, recordID, err)
 		http.Error(w, "comment does not belong to record", http.StatusInternalServerError)
 		return
 	}
@@ -314,7 +314,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if recordID != "" && comment.RecordID != recordID {
-		errorLogger.Printf("%s comment %s does not belong to record %q: %v", source, commentID, recordID, err)
+		errorLogger.Printf("%s comment %d does not belong to record %q: %v", source, commentID, recordID, err)
 		http.Error(w, "comment does not belong to record", http.StatusInternalServerError)
 		return
 	}
