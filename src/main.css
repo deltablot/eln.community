@@ -12,7 +12,7 @@
     --yellow-soft: #FFF7EB;
     --yellow-border: #EBD9B3;
 
-    --red-dark:#7D4055;
+    --red-dark:#9E2A2B;
     --red-soft:#FFF4F6;
     --red-border: #E7CBD6;
 
@@ -1223,9 +1223,10 @@ footer {
     border: none;
 }
 
-.comment-approve-btn:hover {
+.comment-approve-btn:hover, #submit-comment-btn {
   color: var(--green-soft);
   background-color: var(--green-dark);
+  border: var(--green-dark);
 }
 
 .comment-flag-btn:hover {
@@ -1233,10 +1234,17 @@ footer {
   background-color: var(--blue-dark);
 }
 
-.comment-reject-btn:hover, #logout-btn:hover {
+.comment-reject-btn:hover {
   color: var(--red-soft);
   background-color: var(--red-dark);
   border-color: var(--red-border);
+}
+
+#logout-btn:hover {
+  background-color: #D00000;
+  background-color: var(--red-dark);
+  border-color: #ec7389;
+  color: #ffffff;
 }
 
 .comment-delete-btn:hover {
@@ -1258,6 +1266,6 @@ footer {
 }
 
 .comment-author-link {
-  color: #5380c2;
+  color: var(--black);
   font-size: larger;
 }

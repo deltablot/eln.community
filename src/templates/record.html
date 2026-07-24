@@ -238,15 +238,25 @@
       <h5 class="card-title mb-3">Add a Comment</h5>
       <form id="comment-form">
         <div class="mb-3">
-          <label for="comment-input" class="form-label">Your comment</label>
-          <textarea class="form-control" id="comment-input" rows="4" maxlength="5000" placeholder="Comment this entry." required></textarea>
+          <label for="comment-input" class="form-label fw-bold required-label mt-3 mb-1">
+            Your comment <span class="smallgray">(required)</span>
+          </label>
+          <textarea class="form-control" id="comment-input" rows="4" maxlength="5000" placeholder="Comment this entry."></textarea>
           <div class="form-text">
             <span id="char-count">0</span> / <span id='comment-max'></span> characters
           </div>
         </div>
         <button type="submit" class="btn btn-primary" id="submit-comment-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124L5.638 10.36.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.592 6.602l4.339 2.76 7.492-7.493Z"/>
+          </svg>
+          Post
+        </button>
+        <!--
+        <button type="submit" class="btn btn-primary" id="submit-comment-btn">
           <i class="bi bi-send me-1"></i>Post
         </button>
+        -->
       </form>
     </div>
   </div>
