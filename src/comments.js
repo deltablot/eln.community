@@ -279,13 +279,3 @@ if (document.readyState === 'loading') {
 } else {
   initComments();
 }
-
-// export { ModerationStatus };
-// charger les commentaires
-// créer un commentaire
-// supprimer un commentaire
-// flag un commentaire
-// approve / reject côté admin
-// afficher les commentaires
-// décider quels boutons afficher
-// gérer les erreurs
