@@ -154,9 +154,8 @@ async function handleStatus(event) {
   }
 
   if (flagBtn) {
-    await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}/flag`, 'POST', 'dflag');
+    await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}/flag`, 'POST', 'flag');
     await loadComments();
-    console.log('flag comment', commentId);
     return;
   }
 }

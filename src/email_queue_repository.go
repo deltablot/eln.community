@@ -81,9 +81,7 @@ func (r *PostgresEmailQueueRepository) MarkAsSent(ctx context.Context, id int64)
 		return fmt.Errorf("%s: failed to mark email queue item %d as sent: %w", repo, id, err)
 	}
 	n, err := res.RowsAffected()
-	errorUpdateRow(source, "queue item", id, err, n)
-
-	return nil
+	return errorUpdateRow(source, "queue item", id, err, n)
 }
 
 func (r *PostgresEmailQueueRepository) MarkAsFailed(ctx context.Context, id int64, errMsg string) error {

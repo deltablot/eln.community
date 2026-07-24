@@ -33,6 +33,7 @@ function updateCount(data, data_count, data_max, max_length) {
   };
 
   Textarea.addEventListener('input', update);
+  update();
 }
 
 function renderStructuredRecordView(roCrateData) {

@@ -742,7 +742,7 @@ func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
 
 // GetRecordPage handles HTML page rendering for individual records
 func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
-	source := errorSource("GetRecordPage", commentHandlerErr)
+	source := errorSource("GetRecordPage", recordHandlerErr)
 	funcMap := template.FuncMap{
 		"toJson": func(v interface{}) template.JS {
 			b, _ := json.Marshal(v)

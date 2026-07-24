@@ -5,7 +5,6 @@
     --medium: #634c76;
     --white: #fbfef9;
     --highlight: #f1e4f1;
-    --blue1: #0c6291;
     --red: #a63446;
     --dangerred: #e6614c;
 
@@ -1199,7 +1198,7 @@ footer {
   border-color: var(--yellow-border);
 }
 
-.rejected-flag, .comment-reject-btn {
+.rejected-flag, .comment-reject-btn, #logout-btn {
   color: var(--red-dark);
   background-color: var(--red-soft);
   border-color: var(--red-border);
@@ -1225,14 +1224,16 @@ footer {
 }
 
 .comment-approve-btn:hover {
+  color: var(--green-soft);
   background-color: var(--green-dark);
 }
 
 .comment-flag-btn:hover {
+  color: var(--blue-soft);
   background-color: var(--blue-dark);
 }
 
-.comment-reject-btn:hover {
+.comment-reject-btn:hover, #logout-btn:hover {
   color: var(--red-soft);
   background-color: var(--red-dark);
   border-color: var(--red-border);
@@ -1252,7 +1253,7 @@ footer {
 }
 
 .comment-content {
-  color: var(--dark);
+  color: var(--black);
   font-weight: 500;
 }
 

@@ -260,7 +260,7 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	}
 	if comment.RecordID != recordID {
 		errorLogger.Printf("%s comment %d does not belong to record %q: %v", source, commentID, recordID, err)
-		http.Error(w, "comment does not belong to record", http.StatusInternalServerError)
+		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
 	if err := h.commentRepo.MarkAsFlagged(ctx, commentID); err != nil {
@@ -315,7 +315,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 	if recordID != "" && comment.RecordID != recordID {
 		errorLogger.Printf("%s comment %d does not belong to record %q: %v", source, commentID, recordID, err)
-		http.Error(w, "comment does not belong to record", http.StatusInternalServerError)
+		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
 	isAdmin, ok := currentUserIsAdmin(w, r, source, h.adminRepo)

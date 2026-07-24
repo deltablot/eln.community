@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+    "unicode/utf8"
 )
 
 const commentMaxLength = 5000
@@ -16,7 +17,7 @@ func requireValidCommentContent(w http.ResponseWriter, r *http.Request, source s
 		return "", false
 	}
 
-	if len(content) > commentMaxLength {
+	if utf8.RuneCountInString(content) > commentMaxLength {
 		errorLogger.Printf("%s: comment content too long: method %q, path %q, length %d ", source, r.Method, r.URL.Path, len(content))
 		http.Error(w, fmt.Sprintf("Comment content too long (max %d characters)", commentMaxLength), http.StatusBadRequest)
 		return "", false
