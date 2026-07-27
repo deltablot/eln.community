@@ -234,7 +234,7 @@ func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id 
 
 func (r *PostgresCommentRepository) CreateRecordsModerationLogs(ctx context.Context, moderation CommentsModerationLogs) error {
 	source := errorSource("CreateRecordsModerationLogs", commentErr)
-	query := `INSERT INTO comment_moderation_history (comment_id, reporter_orcid, previous_status, new_status)
+	query := `INSERT INTO comments_moderation_logs (comment_id, reporter_orcid, previous_status, new_status)
 		 VALUES ($1, $2, $3, $4)`
 	_, err := r.db.ExecContext(ctx, query,
 		moderation.CommentID,
@@ -252,7 +252,7 @@ func (r *PostgresCommentRepository) CreateRecordsModerationLogs(ctx context.Cont
 func (r *PostgresCommentRepository) GetRecordsModerationLogs(ctx context.Context, commentID int64) ([]CommentsModerationLogs, error) {
 	source := errorSource("GetRecordsModerationLogs", commentErr)
 	rows, err := r.db.QueryContext(ctx, `SELECT id, comment_id, reporter_orcid, previous_status, new_status, created_at, modified_at
-		FROM comment_moderation_history
+		FROM comments_moderation_logs
 		WHERE comment_id = $1
 		ORDER BY created_at DESC`, commentID)
 	if err != nil {

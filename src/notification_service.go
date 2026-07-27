@@ -14,7 +14,7 @@ type NotificationService struct {
 	commentRepo    CommentRepository
 }
 
-type EmailBody struct {
+type EmailContent struct {
 	Text string
 	HTML string
 }
@@ -27,8 +27,8 @@ func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueue
 	}
 }
 
-func buildEmailBody(body string) EmailBody {
-	return EmailBody{
+func buildEmailBody(body string) EmailContent {
+	return EmailContent{
 		Text: body,
 		HTML: textToHTML(body),
 	}
@@ -51,7 +51,7 @@ func textToHTML(body string) string {
 	return fmt.Sprintf(`<!doctype html><html><body style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #222;">%s</body></html>`, escapedText)
 }
 
-func buildAdminModerationRequestBodyText(item string, action string, owner string, content string, status ModerationStatus) EmailBody {
+func buildAdminModerationRequestBodyText(item string, action string, owner string, content string, status ModerationStatus) EmailContent {
 	var actionRequired string
 	var commentContent string
 	if len(content) > 0 {
@@ -70,7 +70,7 @@ func buildAdminModerationRequestBodyText(item string, action string, owner strin
 	return buildEmailBody(body)
 }
 
-func buildApprovedCommentBody(action string, owner string, content string) EmailBody {
+func buildApprovedCommentBody(action string, owner string, content string) EmailContent {
 	var commentContent string
 	if len(content) > 0 {
 		commentContent = fmt.Sprintf("See the comment below:\n\"%s\"\n", content)
@@ -80,7 +80,7 @@ func buildApprovedCommentBody(action string, owner string, content string) Email
 	return buildEmailBody(body)
 }
 
-func buildModerationBody(item string, status ModerationStatus) EmailBody {
+func buildModerationBody(item string, status ModerationStatus) EmailContent {
 	var body string
 	var link string
 
@@ -96,7 +96,7 @@ func buildModerationBody(item string, status ModerationStatus) EmailBody {
 	return buildEmailBody(fmt.Sprintf("Hello,\n\n%s%s\n\nThank you for contributing to open science.", body, link))
 }
 
-func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string, commentId sql.NullInt64, recipientOrcid string, subject string, bodyText string, bodyHTML string) error {
+func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string, commentId sql.NullInt64, recipientOrcid string, subject string, body EmailContent) error {
 	if s.emailQueueRepo == nil {
 		return fmt.Errorf("%s: emailQueueRepo is nil", service)
 	}
@@ -110,8 +110,8 @@ func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string,
 		CommentID:      commentId,
 		RecipientOrcid: recipientOrcid,
 		Subject:        fmt.Sprintf("ELN Community: %s", subject),
-		BodyText:       bodyText,
-		BodyHTML:       bodyHTML,
+		BodyText:       body.Text,
+		BodyHTML:       body.HTML,
 	}
 	if _, err := s.emailQueueRepo.Enqueue(ctx, item); err != nil {
 		return fmt.Errorf("%s: failed to enqueue notification: %w", service, err)
@@ -119,7 +119,7 @@ func (s *NotificationService) enqueueEmail(ctx context.Context, recordId string,
 	return nil
 }
 
-func (s *NotificationService) enqueueForAdmins(ctx context.Context, recordId string, commentId sql.NullInt64, item string, bodyText string, bodyHTML string) error {
+func (s *NotificationService) enqueueForAdmins(ctx context.Context, recordId string, commentId sql.NullInt64, item string, body EmailContent) error {
 	if s.adminRepo == nil {
 		return fmt.Errorf("%s: adminRepo is nil", service)
 	}
@@ -130,7 +130,7 @@ func (s *NotificationService) enqueueForAdmins(ctx context.Context, recordId str
 
 	subject := fmt.Sprintf("new %s awaiting moderation", item)
 	for _, admin := range notifiableAdmins {
-		if err := s.enqueueEmail(ctx, recordId, commentId, admin.Orcid, subject, bodyText, bodyHTML); err != nil {
+		if err := s.enqueueEmail(ctx, recordId, commentId, admin.Orcid, subject, body); err != nil {
 			return notificationErr("admins", err)
 		}
 	}
@@ -142,10 +142,8 @@ func (s *NotificationService) CreateForRecord(ctx context.Context, record *Recor
 		return fmt.Errorf("%s: record is nil", service)
 	}
 	body := buildAdminModerationRequestBodyText("record", "uploaded", record.UploaderName, "", record.ModerationStatus)
-	bodyText := body.Text
-	bodyHTML := body.HTML
 
-	if err := s.enqueueForAdmins(ctx, record.Id, sql.NullInt64{Valid: false}, "record", bodyText, bodyHTML); err != nil {
+	if err := s.enqueueForAdmins(ctx, record.Id, sql.NullInt64{Valid: false}, "record", body); err != nil {
 		return notificationErr("record uploaded", err)
 	}
 	return nil
@@ -160,10 +158,8 @@ func (s *NotificationService) CreateForComment(ctx context.Context, comment *Com
        action = "reported"
     }
 	body := buildAdminModerationRequestBodyText("comment", action, comment.CommenterName, comment.Content, status)
-	bodyText := body.Text
-	bodyHTML := body.HTML
 
-	if err := s.enqueueForAdmins(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, "comment", bodyText, bodyHTML); err != nil {
+	if err := s.enqueueForAdmins(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, "comment", body); err != nil {
 		return notificationErr("comment posted", err)
 	}
 	return nil
@@ -171,10 +167,8 @@ func (s *NotificationService) CreateForComment(ctx context.Context, comment *Com
 
 func (s *NotificationService) CreateForRecordModeration(ctx context.Context, id string, uploaderOrcid string, status ModerationStatus) error {
 	body := buildModerationBody("record", status)
-	bodyText := body.Text
-	bodyHTML := body.HTML
 
-	if err := s.enqueueEmail(ctx, id, sql.NullInt64{Valid: false}, uploaderOrcid, "update on your record submission", bodyText, bodyHTML); err != nil {
+	if err := s.enqueueEmail(ctx, id, sql.NullInt64{Valid: false}, uploaderOrcid, "update on your record submission", body); err != nil {
 		return notificationErr("record moderation", err)
 	}
 
@@ -186,10 +180,8 @@ func (s *NotificationService) CreateForCommentModeration(ctx context.Context, co
 		return fmt.Errorf("%s: comment is nil", service)
 	}
 	body := buildModerationBody("comment", status)
-	bodyText := body.Text
-	bodyHTML := body.HTML
 
-	if err := s.enqueueEmail(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, comment.CommenterOrcid, "update on your comment submission", bodyText, bodyHTML); err != nil {
+	if err := s.enqueueEmail(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, comment.CommenterOrcid, "update on your comment submission", body); err != nil {
 		return notificationErr("comment moderation", err)
 	}
 
@@ -201,10 +193,8 @@ func (s *NotificationService) CreateForApprovedComment(ctx context.Context, reci
 		return fmt.Errorf("%s: comment is nil", service)
 	}
 	body := buildApprovedCommentBody(action, comment.CommenterName, comment.Content)
-	bodyText := body.Text
-	bodyHTML := body.HTML
 
-	if err := s.enqueueEmail(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, recipientOrcid, subject, bodyText, bodyHTML); err != nil {
+	if err := s.enqueueEmail(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, recipientOrcid, subject, body); err != nil {
 		return notificationErr("comment approved", err)
 	}
 

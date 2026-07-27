@@ -418,7 +418,7 @@ func (r *PostgresModerationRepository) getRecordsByStatus(ctx context.Context, s
 
 func (r *PostgresModerationRepository) LogRecordsModerationLogs(ctx context.Context, action RecordsModerationLogs) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO moderation_history (record_id, admin_orcid, moderation_status, reason, version_name, created_at)
+		`INSERT INTO records_moderation_logs (record_id, admin_orcid, moderation_status, reason, version_name, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		action.RecordID, action.AdminOrcid, action.ModerationStatus, action.Reason, action.VersionName, time.Now(),
 	)
@@ -428,7 +428,7 @@ func (r *PostgresModerationRepository) LogRecordsModerationLogs(ctx context.Cont
 func (r *PostgresModerationRepository) GetRecordsModerationLogs(ctx context.Context, recordID string) ([]RecordsModerationLogs, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, record_id, admin_orcid, moderation_status, reason, created_at
-		 FROM moderation_history
+		 FROM records_moderation_logs
 		 WHERE record_id = $1
 		 ORDER BY created_at DESC`,
 		recordID,
@@ -469,7 +469,7 @@ func (r *PostgresModerationRepository) GetRecentRecordsModerationLogs(ctx contex
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT mh.id, mh.record_id, mh.admin_orcid, mh.moderation_status, mh.reason, mh.created_at,
 		        COALESCE(NULLIF(mh.version_name, ''), r.name) as display_name
-		 FROM moderation_history mh
+		 FROM records_moderation_logs mh
 		 LEFT JOIN records r ON mh.record_id = r.id
 		 ORDER BY mh.created_at DESC
 		 LIMIT $1`,
