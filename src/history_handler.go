@@ -90,7 +90,7 @@ func (h *HistoryHandler) GetVersionsList(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Filter versions based on user permissions
-	var filteredHistory []RecordHistory
+	var filteredHistory []RecordsLogs
 	for _, h := range history {
 		// Show all versions to admin/owner, only approved to others
 		if isAdmin || isOwner || h.ModerationStatus == StatusApproved {

@@ -19,8 +19,8 @@ type CommentRepository interface {
 	MarkAsFlagged(ctx context.Context, id int64) error
 	DeleteComment(ctx context.Context, id int64) error
 	AuthorDeleteComment(ctx context.Context, id int64, commentatorOrcid string) error
-	CreateModerationHistory(ctx context.Context, action CommentModerationHistory) error
-	GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationHistory, error)
+	CreateRecordsModerationLogs(ctx context.Context, action CommentsModerationLogs) error
+	GetRecordsModerationLogs(ctx context.Context, commentID int64) ([]CommentsModerationLogs, error)
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
 }
 
@@ -232,8 +232,8 @@ func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id 
 	return nil
 }
 
-func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context, moderation CommentModerationHistory) error {
-	source := errorSource("CreateModerationHistory", commentErr)
+func (r *PostgresCommentRepository) CreateRecordsModerationLogs(ctx context.Context, moderation CommentsModerationLogs) error {
+	source := errorSource("CreateRecordsModerationLogs", commentErr)
 	query := `INSERT INTO comment_moderation_history (comment_id, reporter_orcid, previous_status, new_status)
 		 VALUES ($1, $2, $3, $4)`
 	_, err := r.db.ExecContext(ctx, query,
@@ -249,8 +249,8 @@ func (r *PostgresCommentRepository) CreateModerationHistory(ctx context.Context,
 	return nil
 }
 
-func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, commentID int64) ([]CommentModerationHistory, error) {
-	source := errorSource("GetModerationHistory", commentErr)
+func (r *PostgresCommentRepository) GetRecordsModerationLogs(ctx context.Context, commentID int64) ([]CommentsModerationLogs, error) {
+	source := errorSource("GetRecordsModerationLogs", commentErr)
 	rows, err := r.db.QueryContext(ctx, `SELECT id, comment_id, reporter_orcid, previous_status, new_status, created_at, modified_at
 		FROM comment_moderation_history
 		WHERE comment_id = $1
@@ -259,9 +259,9 @@ func (r *PostgresCommentRepository) GetModerationHistory(ctx context.Context, co
 		return nil, fmt.Errorf("%s get history moderation comment rows: %w", source, err)
 	}
 	defer rows.Close()
-	var moderations []CommentModerationHistory
+	var moderations []CommentsModerationLogs
 	for rows.Next() {
-		var moderation CommentModerationHistory
+		var moderation CommentsModerationLogs
 		if err := rows.Scan(
 			&moderation.ID,
 			&moderation.CommentID,

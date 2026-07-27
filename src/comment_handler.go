@@ -213,13 +213,13 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 			return
 		}
 	}
-	commentModeration := CommentModerationHistory{
+	commentModeration := CommentsModerationLogs{
 		CommentID:      commentID,
 		ReporterOrcid:  admin.Orcid,
 		PreviousStatus: comment.ModerationStatus,
 		NewStatus:      status,
 	}
-	if err := h.commentRepo.CreateModerationHistory(ctx, commentModeration); err != nil {
+	if err := h.commentRepo.CreateRecordsModerationLogs(ctx, commentModeration); err != nil {
 		errorLogger.Printf("%s failed to create moderation history for %d comment %d: %v", source, status, commentID, err)
 		http.Error(w, "failed to approve/reject comment", http.StatusInternalServerError)
 		return
@@ -268,13 +268,13 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to flag comments", http.StatusInternalServerError)
 		return
 	}
-	commentModeration := CommentModerationHistory{
+	commentModeration := CommentsModerationLogs{
 		CommentID:      commentID,
 		ReporterOrcid:  user.Orcid,
 		PreviousStatus: comment.ModerationStatus,
 		NewStatus:      StatusFlagged,
 	}
-	if err := h.commentRepo.CreateModerationHistory(ctx, commentModeration); err != nil {
+	if err := h.commentRepo.CreateRecordsModerationLogs(ctx, commentModeration); err != nil {
 		errorLogger.Printf("%s failed to create moderation history for flagged comment %d: %v", source, commentID, err)
 		http.Error(w, "failed to flag comment", http.StatusInternalServerError)
 		return
@@ -331,13 +331,13 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	commentModeration := CommentModerationHistory{
+	commentModeration := CommentsModerationLogs{
 		CommentID:      commentID,
 		ReporterOrcid:  user.Orcid,
 		PreviousStatus: comment.ModerationStatus,
 		NewStatus:      StatusDeleted,
 	}
-	if err := h.commentRepo.CreateModerationHistory(ctx, commentModeration); err != nil {
+	if err := h.commentRepo.CreateRecordsModerationLogs(ctx, commentModeration); err != nil {
 		errorLogger.Printf("%s failed to create moderation history for deleted comment %d: %v", source, commentID, err)
 		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
 		return

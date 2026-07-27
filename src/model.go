@@ -32,8 +32,8 @@ func (r *Record) IsArchived() bool {
 	return r.ArchivedAt != nil
 }
 
-// RecordHistory represents a historical version of a record
-type RecordHistory struct {
+// RecordsLogs represents a historical version of a record
+type RecordsLogs struct {
 	HistoryId        int64            `json:"history_id"`
 	RecordId         string           `json:"record_id"`
 	Version          int              `json:"version"`

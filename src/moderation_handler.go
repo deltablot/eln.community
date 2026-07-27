@@ -57,6 +57,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 	items, totalCount, err := h.moderationRepo.GetPendingItems(ctx, pageSize, offset)
 
 	if err != nil {
+        errorLogger.Printf("Error: %s", err)
 		http.Error(w, "Error fetching pending items", http.StatusInternalServerError)
 		return
 	}
@@ -67,9 +68,9 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 	}
 
 	// Get recent moderation history
-	var history []ModerationHistoryEntry
+	var history []RecordsModerationLogsEntry
 	if repo, ok := h.moderationRepo.(*PostgresModerationRepository); ok {
-		history, err = repo.GetRecentModerationHistory(ctx, 50)
+		history, err = repo.GetRecentRecordsModerationLogs(ctx, 50)
 		if err != nil {
 			errorLogger.Printf("Error fetching moderation history: %v", err)
 			// Don't fail the request, just show empty history
@@ -101,7 +102,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 		App         App
 		User        *User
 		Items       []PendingItem
-		History     []ModerationHistoryEntry
+		History     []RecordsModerationLogsEntry
 		CurrentPage string
 		Page        int
 		TotalPages  int
@@ -171,7 +172,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	// Try to get pending version name first
 	var pendingName string
 	err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
-		`SELECT name FROM record_history
+		`SELECT name FROM records_logs
 		 WHERE record_id = $1 AND moderation_status = $2 AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC LIMIT 1`,
 		id, StatusPending).Scan(&pendingName)
@@ -229,14 +230,14 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Log moderation action
-	action := ModerationHistory{
+	action := RecordsModerationLogs{
 		RecordID:         id,
 		AdminOrcid:       orcid,
 		ModerationStatus: newStatus,
 		Reason:           req.Reason,
 		VersionName:      versionName,
 	}
-	if err := h.moderationRepo.LogModerationHistory(ctx, action); err != nil {
+	if err := h.moderationRepo.LogRecordsModerationLogs(ctx, action); err != nil {
 		errorLogger.Printf("Error logging moderation action: %v", err)
 		// Don't fail the request if logging fails
 	}

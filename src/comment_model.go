@@ -15,7 +15,7 @@ type Comment struct {
 	ModifiedAt       time.Time        `json:"modified_at"`
 }
 
-type CommentModerationHistory struct {
+type CommentsModerationLogs struct {
 	ID             int64
 	CommentID      int64
 	ReporterOrcid  string

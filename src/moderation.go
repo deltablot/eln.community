@@ -14,8 +14,8 @@ type ModerationRepository interface {
 	RejectPendingVersion(ctx context.Context, recordID string) error
 	GetPendingRecords(ctx context.Context, limit, offset int) ([]Record, int, error)
 	GetPendingItems(ctx context.Context, limit, offset int) ([]PendingItem, int, error)
-	LogModerationHistory(ctx context.Context, action ModerationHistory) error
-	GetModerationHistory(ctx context.Context, recordID string) ([]ModerationHistory, error)
+	LogRecordsModerationLogs(ctx context.Context, action RecordsModerationLogs) error
+	GetRecordsModerationLogs(ctx context.Context, recordID string) ([]RecordsModerationLogs, error)
 }
 
 // PostgresModerationRepository implements ModerationRepository
@@ -67,7 +67,7 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 	var metadata []byte
 	err = tx.QueryRowContext(ctx,
 		`SELECT history_id, s3_key, name, sha256, metadata, description
-		 FROM record_history
+		 FROM records_logs
 		 WHERE record_id = $1 AND moderation_status = $2 AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC
 		 LIMIT 1`,
@@ -101,7 +101,7 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 
 	// Mark the pending version as approved in history
 	_, err = tx.ExecContext(ctx,
-		`UPDATE record_history
+		`UPDATE records_logs
 		 SET moderation_status = $1, change_type = 'UPDATE'
 		 WHERE history_id = $2`,
 		StatusApproved, historyID,
@@ -117,11 +117,11 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 func (r *PostgresModerationRepository) RejectPendingVersion(ctx context.Context, recordID string) error {
 	// Update only the latest pending version in history to rejected
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE record_history
+		`UPDATE records_logs
 		 SET moderation_status = $1
 		 WHERE history_id = (
 			SELECT history_id
-			FROM record_history
+			FROM records_logs
 			WHERE record_id = $2
 			AND moderation_status = $3
 			AND change_type = 'PENDING_VERSION'
@@ -155,7 +155,7 @@ func (r *PostgresModerationRepository) GetPendingRecords(ctx context.Context, li
 		`SELECT COUNT(*) FROM (
 			SELECT id FROM records WHERE moderation_status = $1
 			UNION
-			SELECT DISTINCT record_id as id FROM record_history WHERE moderation_status = $1 AND change_type = 'PENDING_VERSION'
+			SELECT DISTINCT record_id as id FROM records_logs WHERE moderation_status = $1 AND change_type = 'PENDING_VERSION'
 		) AS pending_items`,
 		StatusPending,
 	).Scan(&totalCount)
@@ -167,7 +167,7 @@ func (r *PostgresModerationRepository) GetPendingRecords(ctx context.Context, li
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT DISTINCT r.id, r.name, r.description, r.sha256, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count, r.moderation_status
 		 FROM records r
-		 LEFT JOIN record_history rh ON r.id = rh.record_id AND rh.moderation_status = $1 AND rh.change_type = 'PENDING_VERSION'
+		 LEFT JOIN records_logs rh ON r.id = rh.record_id AND rh.moderation_status = $1 AND rh.change_type = 'PENDING_VERSION'
 		 WHERE r.moderation_status = $1 OR rh.record_id IS NOT NULL
 		 ORDER BY r.created_at DESC
 		 LIMIT $2 OFFSET $3`,
@@ -227,12 +227,12 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 			SELECT id FROM records WHERE moderation_status = $1
 			UNION ALL
 			SELECT DISTINCT record_id as id
-			FROM record_history rh
+			FROM records_logs rh
 			WHERE rh.moderation_status = $1
 			AND rh.change_type = 'PENDING_VERSION'
 			AND rh.version = (
 				SELECT MAX(version)
-				FROM record_history rh2
+				FROM records_logs rh2
 				WHERE rh2.record_id = rh.record_id
 				AND rh2.moderation_status = $1
 				AND rh2.change_type = 'PENDING_VERSION'
@@ -283,13 +283,13 @@ func (r *PostgresModerationRepository) GetPendingItems(ctx context.Context, limi
 				false as is_new_entry,
 				rh.version,
 				r.name as current_version
-			FROM record_history rh
+			FROM records_logs rh
 			JOIN records r ON rh.record_id = r.id
 			WHERE rh.moderation_status = $1
 			AND rh.change_type = 'PENDING_VERSION'
 			AND rh.version = (
 				SELECT MAX(version)
-				FROM record_history rh2
+				FROM records_logs rh2
 				WHERE rh2.record_id = rh.record_id
 				AND rh2.moderation_status = $1
 				AND rh2.change_type = 'PENDING_VERSION'
@@ -416,7 +416,7 @@ func (r *PostgresModerationRepository) getRecordsByStatus(ctx context.Context, s
 	return records, totalCount, rows.Err()
 }
 
-func (r *PostgresModerationRepository) LogModerationHistory(ctx context.Context, action ModerationHistory) error {
+func (r *PostgresModerationRepository) LogRecordsModerationLogs(ctx context.Context, action RecordsModerationLogs) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO moderation_history (record_id, admin_orcid, moderation_status, reason, version_name, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -425,7 +425,7 @@ func (r *PostgresModerationRepository) LogModerationHistory(ctx context.Context,
 	return err
 }
 
-func (r *PostgresModerationRepository) GetModerationHistory(ctx context.Context, recordID string) ([]ModerationHistory, error) {
+func (r *PostgresModerationRepository) GetRecordsModerationLogs(ctx context.Context, recordID string) ([]RecordsModerationLogs, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, record_id, admin_orcid, moderation_status, reason, created_at
 		 FROM moderation_history
@@ -438,9 +438,9 @@ func (r *PostgresModerationRepository) GetModerationHistory(ctx context.Context,
 	}
 	defer rows.Close()
 
-	var actions []ModerationHistory
+	var actions []RecordsModerationLogs
 	for rows.Next() {
-		var action ModerationHistory
+		var action RecordsModerationLogs
 		err := rows.Scan(
 			&action.ID,
 			&action.RecordID,
@@ -458,14 +458,14 @@ func (r *PostgresModerationRepository) GetModerationHistory(ctx context.Context,
 	return actions, rows.Err()
 }
 
-// ModerationHistoryEntry represents a moderation action with record details
-type ModerationHistoryEntry struct {
-	ModerationHistory
+// RecordsModerationLogsEntry represents a moderation action with record details
+type RecordsModerationLogsEntry struct {
+	RecordsModerationLogs
 	RecordName string
 }
 
-// GetRecentModerationHistory returns recent moderation actions with record names
-func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Context, limit int) ([]ModerationHistoryEntry, error) {
+// GetRecentRecordsModerationLogs returns recent moderation actions with record names
+func (r *PostgresModerationRepository) GetRecentRecordsModerationLogs(ctx context.Context, limit int) ([]RecordsModerationLogsEntry, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT mh.id, mh.record_id, mh.admin_orcid, mh.moderation_status, mh.reason, mh.created_at,
 		        COALESCE(NULLIF(mh.version_name, ''), r.name) as display_name
@@ -480,9 +480,9 @@ func (r *PostgresModerationRepository) GetRecentModerationHistory(ctx context.Co
 	}
 	defer rows.Close()
 
-	var entries []ModerationHistoryEntry
+	var entries []RecordsModerationLogsEntry
 	for rows.Next() {
-		var entry ModerationHistoryEntry
+		var entry RecordsModerationLogsEntry
 		var reason sql.NullString
 		err := rows.Scan(
 			&entry.ID,

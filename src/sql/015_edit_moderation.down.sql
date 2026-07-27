@@ -1,2 +1,154 @@
-DROP TABLE IF EXISTS moderation_history;
-DROP TABLE IF EXISTS comment_moderation_history;
+BEGIN;
+
+-- Revert table records_logs
+ALTER TABLE records_logs
+    DROP CONSTRAINT records_logs_moderation_status_check;
+
+ALTER TABLE records_logs
+    ALTER COLUMN moderation_status DROP DEFAULT;
+
+ALTER TABLE records_logs
+    ALTER COLUMN moderation_status TYPE TEXT
+    USING CASE moderation_status
+        WHEN 0 THEN 'pending'
+        WHEN 1 THEN 'approved'
+        WHEN 2 THEN 'reject'
+        WHEN 3 THEN 'delete'
+        WHEN 4 THEN 'flag'
+    END;
+
+ALTER TABLE records_logs
+    ALTER COLUMN moderation_status SET NOT NULL;
+
+ALTER TABLE records_logs
+    ALTER COLUMN moderation_status SET DEFAULT 'pending';
+
+ALTER TABLE records_logs
+    RENAME TO record_history;
+
+
+-- Revert table records
+ALTER TABLE records
+    DROP CONSTRAINT records_moderation_status_check;
+
+ALTER TABLE records
+    ALTER COLUMN moderation_status DROP DEFAULT;
+
+ALTER TABLE records
+    ALTER COLUMN moderation_status TYPE TEXT
+    USING CASE moderation_status
+        WHEN 0 THEN 'pending'
+        WHEN 1 THEN 'approved'
+        WHEN 2 THEN 'reject'
+        WHEN 3 THEN 'delete'
+        WHEN 4 THEN 'flag'
+    END;
+
+ALTER TABLE records
+    ALTER COLUMN moderation_status SET NOT NULL;
+
+ALTER TABLE records
+    ALTER COLUMN moderation_status SET DEFAULT 'pending';
+
+
+-- Revert table comments_moderation_logs
+ALTER SEQUENCE comments_moderation_logs_id_seq
+    RENAME TO comment_moderation_actions_id_seq;
+
+ALTER INDEX idx_comments_moderation_logs_comment
+    RENAME TO idx_comment_moderation_actions_comment;
+
+ALTER INDEX idx_comments_moderation_logs_reporter
+    RENAME TO idx_comment_moderation_actions_admin;
+
+COMMENT ON COLUMN comments.moderation_status IS NULL;
+
+ALTER TABLE comments_moderation_logs
+    DROP COLUMN new_status;
+
+ALTER TABLE comments_moderation_logs
+    DROP COLUMN modified_at;
+
+ALTER TABLE comments_moderation_logs
+    DROP CONSTRAINT comments_moderation_logs_previous_status_check;
+
+ALTER TABLE comments_moderation_logs
+    ALTER COLUMN previous_status DROP DEFAULT;
+
+ALTER TABLE comments_moderation_logs
+    ALTER COLUMN previous_status TYPE TEXT
+    USING CASE previous_status
+        WHEN 0 THEN 'pending'
+        WHEN 1 THEN 'approve'
+        WHEN 2 THEN 'reject'
+        WHEN 3 THEN 'delete'
+        WHEN 4 THEN 'flag'
+    END;
+
+ALTER TABLE comments_moderation_logs
+    ALTER COLUMN previous_status SET NOT NULL;
+
+ALTER TABLE comments_moderation_logs
+    ALTER COLUMN previous_status SET DEFAULT 'pending';
+
+ALTER TABLE comments_moderation_logs
+    RENAME COLUMN previous_status TO action;
+
+ALTER TABLE comments_moderation_logs
+    RENAME COLUMN reporter_orcid TO admin_orcid;
+
+ALTER TABLE comments_moderation_logs
+    ADD COLUMN reason TEXT;
+
+ALTER TABLE comments_moderation_logs
+    RENAME TO comment_moderation_actions;
+
+
+-- Revert table records_moderation_logs
+ALTER SEQUENCE records_moderation_logs_id_seq
+    RENAME TO moderation_actions_id_seq;
+
+ALTER INDEX idx_records_moderation_logs_record
+    RENAME TO idx_moderation_actions_record;
+
+ALTER INDEX idx_records_moderation_logs_admin
+    RENAME TO idx_moderation_actions_admin;
+
+ALTER TABLE records_moderation_logs
+    DROP COLUMN new_status;
+
+ALTER TABLE records_moderation_logs
+    DROP COLUMN previous_status;
+
+ALTER TABLE records_moderation_logs
+    DROP COLUMN modified_at;
+
+ALTER TABLE records_moderation_logs
+    DROP CONSTRAINT records_moderation_logs_moderation_status_check;
+
+ALTER TABLE records_moderation_logs
+    ALTER COLUMN moderation_status DROP DEFAULT;
+
+ALTER TABLE records_moderation_logs
+    ALTER COLUMN moderation_status TYPE TEXT
+    USING CASE moderation_status
+        WHEN 0 THEN 'pending'
+        WHEN 1 THEN 'approve'
+        WHEN 2 THEN 'reject'
+        WHEN 3 THEN 'delete'
+        WHEN 4 THEN 'flag'
+    END;
+
+ALTER TABLE records_moderation_logs
+    ALTER COLUMN moderation_status SET NOT NULL;
+
+ALTER TABLE records_moderation_logs
+    ALTER COLUMN moderation_status SET DEFAULT 'pending';
+
+ALTER TABLE records_moderation_logs
+    RENAME COLUMN moderation_status TO action;
+
+ALTER TABLE records_moderation_logs
+    RENAME TO moderation_actions;
+
+COMMIT;

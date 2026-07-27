@@ -164,7 +164,7 @@ function bindStatus() {
   const commentsList = document.getElementById('comments-list');
   if (!commentsList)
     return;
- commentsList.addEventListener('click', handleStatus);
+  commentsList.addEventListener('click', handleStatus);
 }
 
 function displayCommentStatus(commentItem, comment) {
@@ -173,7 +173,6 @@ function displayCommentStatus(commentItem, comment) {
   if (!label)
     return;
 
-  commentStatus.classList.remove('bg-warning', 'bg-danger');
   commentStatus.textContent = label;
   commentStatus.classList.remove('d-none');
 
@@ -242,7 +241,7 @@ function renderComment(comment) {
 function updateCommentTotal() {
   const commentCount = document.getElementById('comment-count');
   if (!commentCount)
-      return;
+    return;
   commentCount.textContent = state.comments.length;
 }
 
