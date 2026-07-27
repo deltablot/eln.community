@@ -27,7 +27,7 @@ func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepositor
 	}
 }
 
-const commentHandlerErr = "comment handler:"
+const commentHandlerErr = "Error: comment handler:"
 
 func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	source := errorSource("CreateComment", commentHandlerErr)
@@ -50,8 +50,12 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	if ok := requireJSONBody(w, r, source, &req); !ok {
 		return
 	}
-	content, ok := requireValidCommentContent(w, r, source, req.Content)
-	if !ok {
+	content, err := enforceLength(req.Content)
+	if err != nil {
+		errorLogger.Printf("%s %v", commentHandlerErr, err)
+		fmt.Println(err)
+        fmt.Errorf("test: %v", err)
+        http.Error(w, "Error: ", http.StatusBadRequest)
 		return
 	}
 	comment := &Comment{

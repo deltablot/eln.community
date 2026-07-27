@@ -1,7 +1,7 @@
 import { formatDateTime } from './record-extractor.js';
 import { updateCount } from './index.js';
 
-const COMMENT_MAX_LENGTH = 5000;
+const COMMENT_MAX_LENGTH = 15000;
 
 const ModerationStatus = {
   Pending: 0,
