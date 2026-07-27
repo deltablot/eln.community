@@ -1005,7 +1005,7 @@ func (r *PostgresRecordRepository) GetAllByOrcidPaginated(ctx context.Context, o
 			r.uploader_name, r.uploader_orcid, r.download_count, r.moderation_status,
 			CASE
 				WHEN EXISTS (
-					SELECT 1 FROM records_logs rh
+					SELECT 1 FROM records_revisions rh
 					WHERE rh.record_id = r.id
 					AND rh.moderation_status = $1
 					AND rh.change_type = 'PENDING_VERSION'

@@ -65,9 +65,9 @@ ALTER TABLE records ALTER COLUMN moderation_status SET DEFAULT 0;
 ALTER TABLE records ADD CONSTRAINT records_moderation_status_check CHECK (moderation_status IN (0, 1, 2, 3, 4));
 
 -- Edit table record_history
-ALTER TABLE record_history RENAME TO records_logs;
-ALTER TABLE records_logs ALTER COLUMN moderation_status DROP DEFAULT;
-ALTER TABLE records_logs ALTER COLUMN moderation_status TYPE INTEGER
+ALTER TABLE record_history RENAME TO records_revisions;
+ALTER TABLE records_revisions ALTER COLUMN moderation_status DROP DEFAULT;
+ALTER TABLE records_revisions ALTER COLUMN moderation_status TYPE INTEGER
 USING CASE moderation_status
    WHEN 'pending' THEN 0
    WHEN 'approved' THEN 1
@@ -76,6 +76,6 @@ USING CASE moderation_status
    WHEN 'flag' THEN 4
    ELSE NULL
 END;
-ALTER TABLE records_logs ALTER COLUMN moderation_status SET NOT NULL;
-ALTER TABLE records_logs ALTER COLUMN moderation_status SET DEFAULT 0;
-ALTER TABLE records_logs ADD CONSTRAINT records_logs_moderation_status_check CHECK (moderation_status IN (0, 1, 2, 3, 4));
+ALTER TABLE records_revisions ALTER COLUMN moderation_status SET NOT NULL;
+ALTER TABLE records_revisions ALTER COLUMN moderation_status SET DEFAULT 0;
+ALTER TABLE records_revisions ADD CONSTRAINT records_revisions_moderation_status_check CHECK (moderation_status IN (0, 1, 2, 3, 4));

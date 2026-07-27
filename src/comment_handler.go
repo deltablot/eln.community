@@ -53,8 +53,6 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	content, err := enforceLength(req.Content)
 	if err != nil {
 		errorLogger.Printf("%s %v", commentHandlerErr, err)
-		fmt.Println(err)
-        fmt.Errorf("test: %v", err)
         http.Error(w, "Error: ", http.StatusBadRequest)
 		return
 	}

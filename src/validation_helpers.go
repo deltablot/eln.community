@@ -34,7 +34,7 @@ func enforceLength(content string) (string, error) {
 	}
 
 	if utf8.RuneCountInString(content) > commentMaxLength {
-        return "", errors.New(fmt.Sprintf("Comment content too long (max %d characters)", commentMaxLength))
+        return "", errors.New(fmt.Sprintf("comment content too long, got %d characters, but max is %d characters.", utf8.RuneCountInString(content), commentMaxLength))
 	}
 	return content, nil
 }

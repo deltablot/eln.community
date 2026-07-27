@@ -172,7 +172,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	// Try to get pending version name first
 	var pendingName string
 	err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
-		`SELECT name FROM records_logs
+		`SELECT name FROM records_revisions
 		 WHERE record_id = $1 AND moderation_status = $2 AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC LIMIT 1`,
 		id, StatusPending).Scan(&pendingName)
@@ -201,6 +201,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 		// Check if there's a pending version to approve
 		if err := h.moderationRepo.ApprovePendingVersion(ctx, id); err != nil {
+			errorLogger.Printf("handler: failed to moderate: %v", err)
 			http.Error(w, "Error approving record/version", http.StatusInternalServerError)
 			return
 		}

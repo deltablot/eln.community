@@ -1,13 +1,13 @@
 BEGIN;
 
 -- Revert table records_logs
-ALTER TABLE records_logs
-    DROP CONSTRAINT records_logs_moderation_status_check;
+ALTER TABLE records_versions
+    DROP CONSTRAINT records_versions_moderation_status_check;
 
-ALTER TABLE records_logs
+ALTER TABLE records_versions
     ALTER COLUMN moderation_status DROP DEFAULT;
 
-ALTER TABLE records_logs
+ALTER TABLE records_revisions
     ALTER COLUMN moderation_status TYPE TEXT
     USING CASE moderation_status
         WHEN 0 THEN 'pending'
@@ -17,13 +17,13 @@ ALTER TABLE records_logs
         WHEN 4 THEN 'flag'
     END;
 
-ALTER TABLE records_logs
+ALTER TABLE records_revisions
     ALTER COLUMN moderation_status SET NOT NULL;
 
-ALTER TABLE records_logs
+ALTER TABLE records_revisions
     ALTER COLUMN moderation_status SET DEFAULT 'pending';
 
-ALTER TABLE records_logs
+ALTER TABLE records_revisions
     RENAME TO record_history;
 
 

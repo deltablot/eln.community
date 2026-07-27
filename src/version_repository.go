@@ -7,8 +7,8 @@ import (
 
 // HistoryRepository defines the interface for record history operations
 type HistoryRepository interface {
-	GetHistory(ctx context.Context, recordID string) ([]RecordsLogs, error)
-	GetVersion(ctx context.Context, recordID string, version int) (*RecordsLogs, error)
+	GetHistory(ctx context.Context, recordID string) ([]RecordsRevisions, error)
+	GetVersion(ctx context.Context, recordID string, version int) (*RecordsRevisions, error)
 }
 
 // PostgresHistoryRepository implements HistoryRepository using PostgreSQL
@@ -22,12 +22,12 @@ func NewPostgresHistoryRepository(db *sql.DB) *PostgresHistoryRepository {
 }
 
 // GetHistory retrieves all historical versions of a record
-func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID string) ([]RecordsLogs, error) {
+func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID string) ([]RecordsRevisions, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT history_id, record_id, version, s3_key, name, sha256, metadata,
 		       uploader_name, uploader_orcid, download_count,
 		       created_at, modified_at, archived_at, change_type, moderation_status, license
-		FROM records_logs
+		FROM records_revisions
 		WHERE record_id = $1
 		ORDER BY version DESC
 	`, recordID)
@@ -36,9 +36,9 @@ func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID str
 	}
 	defer rows.Close()
 
-	var history []RecordsLogs
+	var history []RecordsRevisions
 	for rows.Next() {
-		var h RecordsLogs
+		var h RecordsRevisions
 		var moderationStatus int
 		if err := rows.Scan(
 			&h.HistoryId, &h.RecordId, &h.Version, &h.S3Key, &h.Name, &h.Sha256, &h.Metadata,
@@ -55,14 +55,14 @@ func (r *PostgresHistoryRepository) GetHistory(ctx context.Context, recordID str
 }
 
 // GetVersion retrieves a specific version from history
-func (r *PostgresHistoryRepository) GetVersion(ctx context.Context, recordID string, version int) (*RecordsLogs, error) {
-	var h RecordsLogs
+func (r *PostgresHistoryRepository) GetVersion(ctx context.Context, recordID string, version int) (*RecordsRevisions, error) {
+	var h RecordsRevisions
 	var moderationStatus int
 	err := r.db.QueryRowContext(ctx, `
 		SELECT history_id, record_id, version, s3_key, name, sha256, metadata,
 		       uploader_name, uploader_orcid, download_count,
 		       created_at, modified_at, archived_at, change_type, moderation_status, license
-		FROM records_logs
+		FROM records_revisions
 		WHERE record_id = $1 AND version = $2
 	`, recordID, version).Scan(
 		&h.HistoryId, &h.RecordId, &h.Version, &h.S3Key, &h.Name, &h.Sha256, &h.Metadata,

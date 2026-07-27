@@ -815,7 +815,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Convert RecordsLogs to Record for display
+		// Convert RecordsRevisions to Record for display
 		record = &Record{
 			Id:               historyRecord.RecordId,
 			Name:             historyRecord.Name,
@@ -1626,7 +1626,7 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		// Get next version number
 		var nextVersion int
 		err = tx.QueryRowContext(ctx,
-			`SELECT COALESCE(MAX(version), 0) + 1 FROM records_logs WHERE record_id = $1`,
+			`SELECT COALESCE(MAX(version), 0) + 1 FROM records_revisions WHERE record_id = $1`,
 			updatedRecord.Id,
 		).Scan(&nextVersion)
 		if err != nil {
@@ -1636,7 +1636,7 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 
 		// Insert new version into history with pending status
 		_, err = tx.ExecContext(ctx,
-			`INSERT INTO records_logs (
+			`INSERT INTO records_revisions (
 				record_id, version, s3_key, name, description, sha256, metadata,
 				uploader_name, uploader_orcid, download_count,
 				created_at, modified_at, moderation_status, change_type
