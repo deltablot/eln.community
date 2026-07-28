@@ -29,6 +29,12 @@ func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepositor
 
 const commentHandlerErr = "Error: comment handler:"
 
+var commentsPath = pathConfig {
+    prefix: "/records/",
+    suffix: "/comments",
+    resource: "comment",
+}
+
 func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	source := errorSource("CreateComment", commentHandlerErr)
 	ctx := r.Context()
@@ -36,8 +42,9 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	recordId, ok := parsePath(w, r, "/records/", "/comments", "comment", source)
-	if !ok {
+
+	recordId, err := parsePath(w, r, commentsPath)
+	if err != nil {
 		return
 	}
 	record, err := h.recordRepo.GetByID(ctx, recordId)
@@ -77,8 +84,8 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 	source := errorSource("getComments", commentHandlerErr)
 	ctx := r.Context()
-	recordId, ok := parsePath(w, r, "/records/", "/comments", "comment", source)
-	if !ok {
+	recordId, err := parsePath(w, r, commentsPath)
+	if err != nil {
 		return
 	}
 	user, isAuthenticated := userFromSession(ctx)
@@ -88,7 +95,6 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var comments []Comment
-//	var err error
 	switch {
 	case isAdmin:
 		comments, err = h.commentRepo.GetByRecordID(ctx, recordId)
@@ -179,27 +185,32 @@ func (h *CommentHandler) createApprovedNotifications(ctx context.Context, commen
 	return nil
 }
 
-func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request, suffix string, status ModerationStatus) {
-	source := errorSource("moderateComment", commentHandlerErr)
+func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) {
+    h.moderateComment(w, r, StatusApproved)
+}
+
+func (h *CommentHandler) rejectComment(w http.ResponseWriter, r *http.Request) {
+    h.moderateComment(w, r, StatusRejected)
+}
+
+func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request, status ModerationStatus) {
 	ctx := r.Context()
 	admin, err := requireAdminUser(w, r, h.adminRepo)
 	if err != nil {
 		return
 	}
-	commentPath, ok := parsePath(w, r, "/moderation/comments/", "/"+suffix, "comment moderation", source)
-	if !ok {
-		return
-	}
-	commentID, err := strconv.ParseInt(commentPath, 10, 64)
+
+	commentIDStr := r.PathValue("id")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
 	if err != nil {
-		errorLogger.Printf("%s invalid comment id %q: %v", source, commentPath, err)
+		errorLogger.Printf("%s invalid comment id %q: %v", commentHandlerErr, commentIDStr, err)
 		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
-		errorLogger.Printf("%s failed to get comment %d before approval/rejection: %v", source, commentID, err)
+		errorLogger.Printf("%s failed to get comment %d before approval/rejection: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to moderate comment", http.StatusInternalServerError)
 		return
 	}
@@ -222,7 +233,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		NewStatus:      status,
 	}
 	if err := h.commentRepo.CreateRecordsModerationLogs(ctx, commentModeration); err != nil {
-		errorLogger.Printf("%s failed to create moderation history for %d comment %d: %v", source, status, commentID, err)
+		errorLogger.Printf("%s failed to create moderation history for %d comment %d: %v", commentHandlerErr, status, commentID, err)
 		http.Error(w, "failed to approve/reject comment", http.StatusInternalServerError)
 		return
 	}
@@ -233,9 +244,9 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		err = h.notificationService.CreateForCommentModeration(ctx, comment, StatusRejected)
 	}
 	if err != nil {
-		errorLogger.Printf("%s failed to create notification for %d comment: %v", source, status, err)
+		errorLogger.Printf("%s failed to create notification for %d comment: %v", commentHandlerErr, status, err)
 	}
-	writeJson(w, source, http.StatusOK, map[string]string{"status": suffix})
+	writeJson(w, commentHandlerErr, http.StatusOK, map[string]any{"status": status})
 }
 
 func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {

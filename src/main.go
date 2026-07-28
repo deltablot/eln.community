@@ -542,12 +542,9 @@ func main() {
 	mux.HandleFunc("POST /api/v1/records/{id}/comments", commentHandler.createComment)
 	mux.HandleFunc("GET /api/v1/records/{id}/comments", commentHandler.getComments)
 	mux.HandleFunc("GET /api/v1/moderation/comments", commentHandler.getPendingComments)
-	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/approve", func(w http.ResponseWriter, r *http.Request) {
-		commentHandler.moderateComment(w, r, "approve", StatusApproved)
-	})
-	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", func(w http.ResponseWriter, r *http.Request) {
-		commentHandler.moderateComment(w, r, "reject", StatusRejected)
-	})
+	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/approve", commentHandler.approveComment)
+	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", commentHandler.rejectComment)
+
 	mux.HandleFunc("POST /api/v1/records/{recordID}/comments/{commentID}/flag", commentHandler.flagComment)
 	mux.HandleFunc("DELETE /api/v1/records/{recordID}/comments/{commentID}", commentHandler.deleteComment)
 	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteComment)
