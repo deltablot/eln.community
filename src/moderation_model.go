@@ -28,16 +28,16 @@ var moderationStatusName = map[ModerationStatus]string{
 
 // TODO: Use NewStatus, PreviousStatus, ModifiedAt when refactoring RecordsModerationLogs
 type RecordsModerationLogs struct {
-	ID         int64
-	RecordID   string
-	AdminOrcid string
-	NewStatus      ModerationStatus
-	PreviousStatus ModerationStatus
+	ID               int64
+	RecordID         string
+	AdminOrcid       string
+	NewStatus        ModerationStatus
+	PreviousStatus   ModerationStatus
 	ModerationStatus ModerationStatus
 	Reason           string
 	VersionName      string // Name of the version that was moderated
 	CreatedAt        time.Time
-	ModifiedAt   time.Time
+	ModifiedAt       time.Time
 }
 
 // PendingItem represents an item in the moderation queue

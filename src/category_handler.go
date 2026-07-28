@@ -103,8 +103,7 @@ func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request)
 		ParentId *int64 `json:"parent_id,omitempty"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	if err := requireJSONBody(w, r, &req); err != nil {
 		return
 	}
 
@@ -123,11 +122,7 @@ func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(category); err != nil {
-		errorLogger.Printf("failed to write response: %v", err)
-	}
+	writeJson(w, http.StatusCreated, category)
 }
 
 // UpdateCategory handles PUT /api/v1/categories/{id} - Update a category
@@ -145,9 +140,7 @@ func (h *CategoryHandler) UpdateCategory(w http.ResponseWriter, r *http.Request)
 		Name     string `json:"name"`
 		ParentId *int64 `json:"parent_id,omitempty"`
 	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	if err := requireJSONBody(w, r, &req); err != nil {
 		return
 	}
 

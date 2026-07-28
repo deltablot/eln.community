@@ -15,9 +15,9 @@ type NotificationService struct {
 }
 
 type EmailContent struct {
-	Text string
-	HTML string
-    Subject string
+	Text    string
+	HTML    string
+	Subject string
 }
 
 func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueueRepository, commentRepo CommentRepository) *NotificationService {
@@ -30,9 +30,9 @@ func NewNotificationService(adminRepo AdminRepository, emailQueueRepo EmailQueue
 
 func buildEmailContent(content string) EmailContent {
 	return EmailContent{
-		Text: content,
-		HTML: textToHTML(content),
-        Subject: content,
+		Text:    content,
+		HTML:    textToHTML(content),
+		Subject: content,
 	}
 }
 
@@ -178,10 +178,10 @@ func (s *NotificationService) CreateForComment(ctx context.Context, comment *Com
 	if comment == nil {
 		return fmt.Errorf("%s: comment is nil", service)
 	}
-    action := "posted"
-    if status == StatusFlagged {
-       action = "reported"
-    }
+	action := "posted"
+	if status == StatusFlagged {
+		action = "reported"
+	}
 	body := buildAdminModerationRequestBodyText("comment", action, comment.CommenterName, comment.Content, status)
 
 	if err := s.enqueueForAdmins(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, "comment", body); err != nil {
@@ -221,7 +221,7 @@ func (s *NotificationService) CreateForApprovedComment(ctx context.Context, reci
 	}
 	body := buildApprovedCommentBody(action, comment.CommenterName, comment.Content)
 
-    body.Subject = subject
+	body.Subject = subject
 	if err := s.enqueueEmail(ctx, comment.RecordID, sql.NullInt64{Int64: comment.ID, Valid: true}, recipientOrcid, body); err != nil {
 		return notificationErr("comment approved", err)
 	}

@@ -1,26 +1,26 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"strings"
-    "errors"
 )
 
 const api = "/api/v1"
 
 var (
-    ErrInvalidPath = errors.New("invalid path")
-    ErrMissingId = errors.New("missing id")
+	ErrInvalidPath = errors.New("invalid path")
+	ErrMissingId   = errors.New("missing id")
 )
 
 type pathConfig struct {
-    prefix string
-    suffix string
-    resource string
+	prefix   string
+	suffix   string
+	resource string
 }
 
 func parsePath(w http.ResponseWriter, r *http.Request, config pathConfig) (string, error) {
-    prefix := api + config.prefix
+	prefix := api + config.prefix
 
 	path := r.URL.Path
 	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, config.suffix) {

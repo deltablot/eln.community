@@ -64,7 +64,7 @@ func (r *PostgresModerationRepository) ApprovePendingVersion(ctx context.Context
 	// Get the pending version from history
 	var historyID int64
 	var s3Key, name, sha256 string
-    var description sql.NullString
+	var description sql.NullString
 	var metadata []byte
 	err = tx.QueryRowContext(ctx,
 		`SELECT history_id, s3_key, name, sha256, metadata, description

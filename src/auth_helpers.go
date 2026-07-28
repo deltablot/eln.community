@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
-    "errors"
 )
 
 const (
@@ -16,9 +16,9 @@ type adminChecker interface {
 }
 
 var (
-    ErrAuthRequired = errors.New("authentication required")
-ErrAdminPermissions = errors.New("failed to check admin permissions")
-ErrAdminRequired = errors.New("admin access required")
+	ErrAuthRequired     = errors.New("authentication required")
+	ErrAdminPermissions = errors.New("failed to check admin permissions")
+	ErrAdminRequired    = errors.New("admin access required")
 )
 
 // https://pkg.go.dev/github.com/alexedwards/scs/v2#SessionManager
@@ -39,7 +39,7 @@ func requireAuthenticatedUser(w http.ResponseWriter, r *http.Request) (*User, er
 	user, ok := userFromSession(r.Context())
 	if !ok {
 		errorLogger.Printf("%s: method %q, path %q", ErrAuthRequired, r.Method, r.URL.Path)
-		http.Error(w, ErrAuthRequired.Error() , http.StatusUnauthorized)
+		http.Error(w, ErrAuthRequired.Error(), http.StatusUnauthorized)
 		return nil, ErrAuthRequired
 	}
 	return user, nil
@@ -63,7 +63,7 @@ func currentUserIsAdmin(w http.ResponseWriter, r *http.Request, adminRepo adminC
 func requireAdminUser(w http.ResponseWriter, r *http.Request, adminRepo adminChecker) (*User, error) {
 	user, err := requireAuthenticatedUser(w, r)
 	if err != nil {
-        return nil, err
+		return nil, err
 	}
 
 	isAdmin, err := adminRepo.IsAdmin(r.Context(), user.Orcid)

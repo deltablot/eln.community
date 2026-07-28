@@ -28,16 +28,8 @@ func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRe
 func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Check if user is authenticated and is admin
-	orcid, ok := sessionManager.Get(ctx, "orcid").(string)
-	if !ok {
-		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
-		return
-	}
-
-	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
-	if err != nil || !isAdmin {
-		http.Error(w, "Admin access required", http.StatusForbidden)
+	admin, err := requireAdminUser(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 
@@ -57,7 +49,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 	items, totalCount, err := h.moderationRepo.GetPendingItems(ctx, pageSize, offset)
 
 	if err != nil {
-        errorLogger.Printf("Error: %s", err)
+		errorLogger.Printf("Error: %s", err)
 		http.Error(w, "Error fetching pending items", http.StatusInternalServerError)
 		return
 	}
@@ -75,12 +67,6 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 			errorLogger.Printf("Error fetching moderation history: %v", err)
 			// Don't fail the request, just show empty history
 		}
-	}
-
-	name, _ := sessionManager.Get(ctx, "name").(string)
-	user := &User{
-		Name:  name,
-		Orcid: orcid,
 	}
 
 	funcMap := template.FuncMap{
@@ -109,7 +95,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 		TotalCount  int
 	}{
 		App:         app,
-		User:        user,
+		User:        admin,
 		Items:       items,
 		History:     history,
 		CurrentPage: "moderation",
@@ -161,8 +147,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 		Reason           string `json:"reason"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := requireJSONBody(w, r, &req); err != nil {
 		return
 	}
 
