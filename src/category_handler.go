@@ -22,24 +22,10 @@ func NewCategoryHandler(categoryRepo CategoryRepository, adminRepo AdminReposito
 
 func (h *CategoryHandler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		orcid, ok := sessionManager.Get(ctx, "orcid").(string)
-		if !ok || orcid == "" {
-			http.Error(w, "Unauthorized: login required", http.StatusUnauthorized)
-			return
-		}
-
-		isAdminUser, err := h.adminRepo.IsAdmin(ctx, orcid)
+		_, err := requireAdminUser(w, r, h.adminRepo)
 		if err != nil {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
-
-		if !isAdminUser {
-			http.Error(w, "Forbidden: admin access required", http.StatusForbidden)
-			return
-		}
-
 		next(w, r)
 	}
 }

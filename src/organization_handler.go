@@ -102,15 +102,7 @@ func (h *OrganizationHandler) GetOrganizationsPage(w http.ResponseWriter, r *htt
 		return strings.ToLower(organizations[i].Name) < strings.ToLower(organizations[j].Name)
 	})
 
-	// Get current user info
-	var user *User
-	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
-		name, _ := sessionManager.Get(ctx, "name").(string)
-		user = &User{
-			Name:  name,
-			Orcid: orcid,
-		}
-	}
+	user, _ := userFromSession(ctx)
 
 	// Render template
 	var pageTmpl = template.Must(template.ParseFS(appFS(),

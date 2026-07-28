@@ -114,17 +114,8 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 // ModerateRecord handles POST /api/v1/moderation/{id} - Approve/reject/flag a record
 func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// Check if user is authenticated and is admin
-	orcid, ok := sessionManager.Get(ctx, "orcid").(string)
-	if !ok {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
-	if err != nil || !isAdmin {
-		http.Error(w, "Admin access required", http.StatusForbidden)
+	admin, err := requireAdminUser(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 
@@ -218,7 +209,7 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	// Log moderation action
 	action := RecordsModerationLogs{
 		RecordID:         id,
-		AdminOrcid:       orcid,
+		AdminOrcid:       admin.Orcid,
 		ModerationStatus: newStatus,
 		Reason:           req.Reason,
 		VersionName:      versionName,

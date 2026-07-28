@@ -196,14 +196,7 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 	))
 
 	ctx := r.Context()
-	var user *User
-	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
-		name, _ := sessionManager.Get(ctx, "name").(string)
-		user = &User{
-			Name:  name,
-			Orcid: orcid,
-		}
-	}
+	user, _ := userFromSession(ctx)
 
 	data := struct {
 		App         App
@@ -220,10 +213,8 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 
 func newEntry(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// Check if user is authenticated
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	if !okO {
+	user, isAuthenticated := userFromSession(ctx)
+	if !isAuthenticated {
 		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 		return
 	}
@@ -233,16 +224,10 @@ func newEntry(w http.ResponseWriter, r *http.Request) {
 		"templates/new.html",
 	))
 
-	categories, err := getCategories(r.Context())
+	categories, err := getCategories(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
-	}
-
-	name, _ := sessionManager.Get(ctx, "name").(string)
-	user := &User{
-		Name:  name,
-		Orcid: orcid,
 	}
 
 	data := struct {
@@ -263,23 +248,15 @@ func newEntry(w http.ResponseWriter, r *http.Request) {
 
 func getProfile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// Check if user is authenticated
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	if !okO {
+	user, isAuthenticated := userFromSession(ctx)
+	if !isAuthenticated {
 		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 		return
 	}
 
-	name, _ := sessionManager.Get(ctx, "name").(string)
-	user := &User{
-		Name:  name,
-		Orcid: orcid,
-	}
-
 	// Get user's records
 	recordRepo := NewPostgresRecordRepository(db, NewPostgresCategoryRepository(db), NewPostgresRorRepository(db))
-	records, totalCount, err := recordRepo.GetAllByOrcidPaginated(ctx, orcid, 100, 0)
+	records, totalCount, err := recordRepo.GetAllByOrcidPaginated(ctx, user.Orcid, 100, 0)
 	if err != nil {
 		log.Printf("Error fetching records: %v", err)
 		http.Error(w, "Error fetching records", http.StatusInternalServerError)
@@ -293,9 +270,9 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Check if user is admin (needed for nav link)
 	adminRepo := NewPostgresAdminRepository(db)
-	isAdmin := false
-	if admin, err := adminRepo.IsAdmin(ctx, orcid); err == nil {
-		isAdmin = admin
+	isAdmin, err := currentUserIsAdmin(w, r, adminRepo)
+	if err != nil {
+		return
 	}
 
 	var pageTmpl = template.Must(template.ParseFS(appFS(),
