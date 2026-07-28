@@ -32,8 +32,8 @@ const commentHandlerErr = "Error: comment handler:"
 func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	source := errorSource("CreateComment", commentHandlerErr)
 	ctx := r.Context()
-	user, ok := requireAuthenticatedUser(w, r, source)
-	if !ok {
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
 		return
 	}
 	recordId, ok := parsePath(w, r, "/records/", "/comments", "comment", source)
@@ -83,12 +83,12 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 	}
 	user, isAuthenticated := userFromSession(ctx)
 
-	isAdmin, ok := currentUserIsAdmin(w, r, source, h.adminRepo)
-	if !ok {
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 	var comments []Comment
-	var err error
+//	var err error
 	switch {
 	case isAdmin:
 		comments, err = h.commentRepo.GetByRecordID(ctx, recordId)
@@ -111,8 +111,8 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 func (h *CommentHandler) getPendingComments(w http.ResponseWriter, r *http.Request) {
 	source := errorSource("getPendingComments", commentHandlerErr)
 	ctx := r.Context()
-	_, ok := requireAdminUser(w, r, source, h.adminRepo)
-	if !ok {
+	_, err := requireAdminUser(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 	limit, offset := parsePagination(r)
@@ -182,8 +182,8 @@ func (h *CommentHandler) createApprovedNotifications(ctx context.Context, commen
 func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request, suffix string, status ModerationStatus) {
 	source := errorSource("moderateComment", commentHandlerErr)
 	ctx := r.Context()
-	admin, ok := requireAdminUser(w, r, source, h.adminRepo)
-	if !ok {
+	admin, err := requireAdminUser(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 	commentPath, ok := parsePath(w, r, "/moderation/comments/", "/"+suffix, "comment moderation", source)
@@ -241,8 +241,8 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	source := errorSource("flagComment", commentHandlerErr)
 	ctx := r.Context()
-	user, ok := requireAuthenticatedUser(w, r, source)
-	if !ok {
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
 		return
 	}
 	recordID := r.PathValue("recordID")
@@ -291,8 +291,8 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	source := errorSource("deleteComment", commentHandlerErr)
 	ctx := r.Context()
-	user, ok := requireAuthenticatedUser(w, r, source)
-	if !ok {
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
 		return
 	}
 	recordID := r.PathValue("recordID")
@@ -320,8 +320,8 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
-	isAdmin, ok := currentUserIsAdmin(w, r, source, h.adminRepo)
-	if !ok {
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 	if isModerationRoute && !isAdmin {

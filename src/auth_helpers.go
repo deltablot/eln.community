@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+    "errors"
 )
 
 const (
@@ -13,6 +14,12 @@ const (
 type adminChecker interface {
 	IsAdmin(ctx context.Context, orcid string) (bool, error)
 }
+
+var (
+    ErrAuthRequired = errors.New("authentication required")
+ErrAdminPermissions = errors.New("failed to check admin permissions")
+ErrAdminRequired = errors.New("admin access required")
+)
 
 // https://pkg.go.dev/github.com/alexedwards/scs/v2#SessionManager
 func userFromSession(ctx context.Context) (*User, bool) {
@@ -28,49 +35,49 @@ func userFromSession(ctx context.Context) (*User, bool) {
 	}, true
 }
 
-func requireAuthenticatedUser(w http.ResponseWriter, r *http.Request, source string) (*User, bool) {
+func requireAuthenticatedUser(w http.ResponseWriter, r *http.Request) (*User, error) {
 	user, ok := userFromSession(r.Context())
 	if !ok {
-		errorLogger.Printf("%s: authentication required: method %q, path %q", source, r.Method, r.URL.Path)
-		http.Error(w, "authentication required", http.StatusUnauthorized)
-		return nil, false
+		errorLogger.Printf("%s: method %q, path %q", ErrAuthRequired, r.Method, r.URL.Path)
+		http.Error(w, ErrAuthRequired.Error() , http.StatusUnauthorized)
+		return nil, ErrAuthRequired
 	}
-	return user, true
+	return user, nil
 }
 
-func currentUserIsAdmin(w http.ResponseWriter, r *http.Request, source string, adminRepo adminChecker) (bool, bool) {
+func currentUserIsAdmin(w http.ResponseWriter, r *http.Request, adminRepo adminChecker) (bool, error) {
 	user, ok := userFromSession(r.Context())
 	if !ok {
-		return false, true
+		return false, nil
 	}
 
 	isAdmin, err := adminRepo.IsAdmin(r.Context(), user.Orcid)
 	if err != nil {
-		errorLogger.Printf("%s: failed to check admin status for orcid %q: %v", source, user.Orcid, err)
-		http.Error(w, "failed to check admin permissions", http.StatusInternalServerError)
-		return false, false
+		errorLogger.Printf("%s for orcid %q: %v", ErrAdminPermissions, user.Orcid, err)
+		http.Error(w, ErrAdminPermissions.Error(), http.StatusInternalServerError)
+		return false, ErrAdminPermissions
 	}
-	return isAdmin, true
+	return isAdmin, nil
 }
 
-func requireAdminUser(w http.ResponseWriter, r *http.Request, source string, adminRepo adminChecker) (*User, bool) {
-	user, ok := requireAuthenticatedUser(w, r, source)
-	if !ok {
-		return nil, false
+func requireAdminUser(w http.ResponseWriter, r *http.Request, adminRepo adminChecker) (*User, error) {
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
+        return nil, err
 	}
 
 	isAdmin, err := adminRepo.IsAdmin(r.Context(), user.Orcid)
 	if err != nil {
-		errorLogger.Printf("%s: failed to check admin status for orcid %q: %v", source, user.Orcid, err)
-		http.Error(w, "failed to check admin permissions", http.StatusInternalServerError)
-		return nil, false
+		errorLogger.Printf("%s for orcid %q: %v", ErrAdminPermissions, user.Orcid, err)
+		http.Error(w, ErrAdminPermissions.Error(), http.StatusInternalServerError)
+		return nil, ErrAdminPermissions
 	}
 
 	if !isAdmin {
-		errorLogger.Printf("%s: admin access required for orcid %q", source, user.Orcid)
-		http.Error(w, "admin access required", http.StatusForbidden)
-		return nil, false
+		errorLogger.Printf("%s for orcid %q", ErrAdminRequired, user.Orcid)
+		http.Error(w, ErrAdminRequired.Error(), http.StatusForbidden)
+		return nil, ErrAdminRequired
 	}
 
-	return user, true
+	return user, nil
 }

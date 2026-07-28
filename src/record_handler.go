@@ -742,7 +742,6 @@ func extractRoCrateMetadata(f multipart.File) ([]byte, error) {
 
 // GetRecordPage handles HTML page rendering for individual records
 func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
-	source := errorSource("GetRecordPage", recordHandlerErr)
 	funcMap := template.FuncMap{
 		"toJson": func(v interface{}) template.JS {
 			b, _ := json.Marshal(v)
@@ -870,8 +869,8 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 
 	isArchived := record.IsArchived()
 
-	isAdmin, ok := currentUserIsAdmin(w, r, source, h.adminRepo)
-	if !ok {
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 
