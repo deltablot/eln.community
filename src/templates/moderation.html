@@ -58,7 +58,7 @@
                                     <p class="mb-1"><strong>ID:</strong> <code>{{.RecordID}}</code></p>
                                     <p class="mb-1"><strong>SHA256:</strong> <code class="small">{{.Sha256}}</code></p>
                                     {{if .Categories}}
-                                    <p class="mb-0"><strong>Categories:</strong> 
+                                    <p class="mb-0"><strong>Categories:</strong>
                                         {{range $i, $cat := .Categories}}
                                             {{if $i}}, {{end}}{{$cat.Name}}
                                         {{end}}
