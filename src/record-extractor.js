@@ -32,9 +32,9 @@ function getMainDataset(roCrateData) {
     if (!node || typeof node !== 'object') return false;
     if (node['@id'] === './') {
         hasPart = node['hasPart'];
-        hasPart.map(id => {
-          if (id?.['@id']) hasPartId = id['@id'];
-        });
+        if (hasPart?.[0]?.['@id']) {
+            hasPartId = hasPart[0]['@id'];
+        }
     }
   });
   graph.map(node => {
