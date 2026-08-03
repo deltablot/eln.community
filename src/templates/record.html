@@ -21,7 +21,7 @@
 </div>
 {{ end }}
 
-<div class="d-flex justify-content-between align-items-start mb-3">
+<div class="d-flex justify-content-between align-items-start mt-5 mb-3">
   <div>
     <h1>{{ .Record.Name }}</h1>
     <p>{{ .Record.Description.String }}</p>
@@ -50,7 +50,7 @@
       <span class="badge bg-secondary" id="version-count"></span>
     </div>
     <div class="col-auto">
-      <button class="btn btn-outline-primary btn-sm" id="get-permalink-btn" title="Get a permanent link to this exact version">
+      <button class="btn btn-outline-success btn-sm" id="get-permalink-btn" title="Get a permanent link to this exact version">
         <i class="bi bi-link-45deg"></i> Get permalink
       </button>
     </div>
@@ -70,7 +70,7 @@
       <i class="bi bi-person me-2 text-secondary"></i>
       <span class="text-muted me-2">Uploaded by</span>
       <span>
-        <a href="https://orcid.org/{{ .Record.UploaderOrcid }}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">{{ .Record.UploaderName }}</a>
+        <a href="https://orcid.org/{{ .Record.UploaderOrcid }}" target="_blank" rel="noopener noreferrer">{{ .Record.UploaderName }}</a>
       </span>
     </div>
     {{- if .Record.RorIds }}
@@ -111,15 +111,15 @@
   <div class="d-flex align-items-center gap-3">
     <span>Downloads: <span id="download-count">{{ .Record.DownloadCount }}</span></span>
     {{ if not .IsArchived }}
-    <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.json">Download Metadata</a>
-    <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.eln" id="download-eln-btn" data-record-id="{{ .Record.Id }}">Download ELN File</a>
+    <a class="btn btn-outline-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.json">Download Metadata</a>
+    <a class="btn btn-outline-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.eln" id="download-eln-btn" data-record-id="{{ .Record.Id }}">Download ELN File</a>
     {{ end }}
   </div>
 </div>
 <div id="ro-crate-viewer">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-      <button class="btn btn-primary btn-sm" id="view-formatted">Formatted View</button>
+      <button class="btn btn-primary btn-sm me-2" id="view-formatted">Formatted View</button>
       <button class="btn btn-outline-secondary btn-sm" id="view-raw">Raw JSON</button>
     </div>
   </div>
@@ -171,7 +171,7 @@
 <section class="mt-4" id="comments-section" data-record-id="{{ .Record.Id }}" data-current-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}" data-current-user-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}">
   <h4 class="mb-3">
     <i class="bi bi-chat-left-text me-2"></i>Comments
-    <span class="badge eln-bg-secondary" id="comment-count"></span>
+    <span class="badge bg-secondary" id="comment-count"></span>
   </h4>
 
   <div id="comments-list">
@@ -184,30 +184,30 @@
   </div>
 
   <template id="comment-template">
-    <div class="card mb-3 comment-item" data-comment-id="">
+    <div class="card mb-3 comment-item rounded-3" data-comment-id="">
       <div class="card-body">
         <div class="flex-column justify-content-between align-items-start mb-2">
-          <div class="d-flex justify-content-between">
-            <strong><a class="comment-author-link text-decoration-none" target="_blank"></a></strong>
-            <span class="comment-status-badge badge ms-2 d-none"></span>
+          <div class="d-flex justify-content-between align-items-center">
+            <strong><a class="comment-author-link fs-5 fw-bold" target="_blank"></a></strong>
+            <span class="comment-status-badge badge ms-2 d-none p-2 rounded-3 border"></span>
           </div>
           <div>
             <small class="comment-created-at text-muted"></small>
           </div>
-          <p class="comment-content card-text gap-2 mt-2" style="white-space: pre-wrap;"></p>
+          <p class="comment-content card-text gap-2 mt-2 fw-normal" style="white-space: pre-wrap;"></p>
           <details class="comment-actions gap-2 mt-2 d-none">
             <summary>Modify status<i class="bi bi-chevron-down chevron"></i></summary>
             <div class="d-flex gap-2 flex-wrap mt-2">
-              <button type="button" class="btn btn-outline-success btn-sm comment-approve-btn" data-action="approve">
+              <button type="button" class="btn btn-outline-success btn-sm fw-bold" data-action="approve">
                 <i class="bi bi-check-lg"></i> Approve
               </button>
-              <button type="button" class="btn btn-outline-danger btn-sm comment-reject-btn" data-action="reject">
+              <button type="button" class="btn btn-outline-danger btn-sm fw-bold" data-action="reject">
                 <i class="bi bi-x-lg"></i> Reject
               </button>
-              <button type="button" class="btn btn-outline-primary btn-sm comment-flag-btn" data-action="flag">
+              <button type="button" class="btn btn-outline-warning btn-sm fw-bold" data-action="flag">
                 <i class="bi bi-flag"></i> Report
               </button>
-              <button type="button" class="btn btn-outline-secondary btn-sm comment-delete-btn" data-action="delete">
+              <button type="button" class="btn btn-outline-secondary btn-sm fw-bold" data-action="delete">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false"> <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/> <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
                 </svg> Delete
               </button>
@@ -246,7 +246,7 @@
             <span id="char-count">0</span> / <span id='comment-max'></span> characters
           </div>
         </div>
-        <button type="submit" class="btn btn-primary" id="submit-comment-btn">
+        <button type="submit" class="btn btn-primary fw-bold" id="submit-comment-btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
             <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124L5.638 10.36.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.592 6.602l4.339 2.76 7.492-7.493Z"/>
           </svg>

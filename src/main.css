@@ -6,7 +6,6 @@
     --white: #fbfef9;
     --highlight: #f1e4f1;
     --red: #a63446;
-    --dangerred: #e6614c;
 
     --yellow-dark: #764c05;
     --yellow-soft: #fff7eb;
@@ -26,9 +25,17 @@
 
     --gray-dark:#4b5563;
     --gray-soft:#e5e7eb;
-    --gray-medium:#4b5563;
     --gray-border:#e5e7eb;
+}
 
+main a:not(.btn) {
+  color: var(--blue-dark);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+main a:not(.btn):hover {
+  text-decoration: underline;
 }
 
 .container-fluid {
@@ -1122,7 +1129,7 @@ footer {
 
 /* required labels/input */
 .required-label::after {
-    color: var(--dangerred);
+   color: var(--red-dark);
    content: ' *';
 }
 
@@ -1169,103 +1176,56 @@ footer {
   color: #000;
 }
 
-.eln-bg-secondary {
-  color: var(--gray-medium);
-  background-color: var(--blue-soft);
-}
-
-.reported-flag, .rejected-flag, .pending-flag {
-  padding: 0.5rem;
-  border-radius: 8px;
-  font-size: small;
-  border: 1px solid;
-}
-
-.comment-approve-btn {
+/* new css */
+.btn-outline-success {
   color: var(--green-dark);
   background-color: var(--green-soft);
   border-color: var(--green-border);
 }
 
-.comment-delete-btn {
-  color: var(--gray-dark);
-  border-color: var(--gray-border);
-}
-
-.pending-flag {
-  color: var(--yellow-dark);
-  background-color: var(--yellow-soft);
-  border-color: var(--yellow-border);
-}
-
-.rejected-flag, .comment-reject-btn, #logout-btn {
-  color: var(--red-dark);
-  background-color: var(--red-soft);
-  border-color: var(--red-border);
-}
-
-.reported-flag, .comment-flag-btn {
-  color: var(--blue-dark);
-  background-color: var(--blue-soft);
-  border-color: var(--blue-border);
-}
-
-.reported-flag {
-  border-color: var(--blue-border);
-}
-
-.comment-approve-btn, .comment-flag-btn, .comment-reject-btn, .comment-delete-btn {
-  font-weight: 700;
-  font-size: medium;
-}
-
-.comment-approve-btn:hover, .comment-flag-btn:hover, .comment-reject-btn:hover, .comment-delete-btn:hover {
-    border: none;
-}
-
-.comment-approve-btn:hover, #submit-comment-btn {
+.btn-outline-success:hover {
   color: var(--green-soft);
   background-color: var(--green-dark);
-  border: var(--green-dark);
+  border-color: var(--green-dark);
 }
 
-.comment-flag-btn:hover {
-  color: var(--blue-soft);
-  background-color: var(--blue-dark);
+.btn-outline-danger, .bg-danger, .btn-danger {
+  color: var(--red-dark);
+  background-color: var(--red-soft) !important;
+  border-color: var(--red-border) !important;
 }
 
-.comment-reject-btn:hover {
+.btn-outline-danger:hover, .btn-danger:hover {
   color: var(--red-soft);
-  background-color: var(--red-dark);
-  border-color: var(--red-border);
+  background-color: var(--red-dark) !important;
+  border-color: var(--red-dark) !important;
 }
 
-#logout-btn:hover {
-  background-color: #D00000;
-  background-color: var(--red-dark);
-  border-color: #ec7389;
-  color: #ffffff;
+.btn-outline-warning, .bg-warning, .bg-secondary, .btn-primary:hover {
+  color: var(--blue-dark) !important;
+  background-color: var(--blue-soft) !important;
+  border-color: var(--blue-border) !important;
 }
 
-.comment-delete-btn:hover {
-  border-color: var(--gray-border);
-  }
+.btn-outline-warning:hover, .btn-primary {
+  color: var(--blue-soft);
+  background-color: var(--blue-dark) !important;
+  border-color: var(--blue-dark) !important;
+}
 
-.comment-item {
+.btn-outline-secondary {
   color: var(--gray-dark);
-  border-radius: 8px;
+  border-color: var(--gray-border);
 }
 
-.comment-created-at {
-  color: var(--gray-light);
+.btn-outline-secondary:hover {
+  color: var(--gray-soft);
+  background-color: var(--gray-light);
 }
 
-.comment-content {
-  color: var(--black);
-  font-weight: 500;
+.bg-info {
+  color: var(--yellow-dark);
+  background-color: var(--yellow-soft) !important;
+  border-color: var(--yellow-border) !important;
 }
 
-.comment-author-link {
-  color: var(--black);
-  font-size: larger;
-}

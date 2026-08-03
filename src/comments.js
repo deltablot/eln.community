@@ -129,10 +129,10 @@ async function handleStatus(event) {
   if (!commentItem)
     return;
   const commentId = commentItem.dataset.commentId;
-  const approveBtn = event.target.closest('.comment-approve-btn');
-  const rejectBtn = event.target.closest('.comment-reject-btn');
-  const deleteBtn = event.target.closest('.comment-delete-btn');
-  const flagBtn = event.target.closest('.comment-flag-btn');
+  const approveBtn = event.target.closest('.btn-outline-success');
+  const rejectBtn = event.target.closest('.btn-outline-danger');
+  const deleteBtn = event.target.closest('.btn-outline-secondary');
+  const flagBtn = event.target.closest('.btn-outline-warning');
 
   if (approveBtn) {
     await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/approve`, 'POST', 'approve');
@@ -177,25 +177,25 @@ function displayCommentStatus(commentItem, comment) {
   commentStatus.classList.remove('d-none');
 
   if (comment.moderation_status === ModerationStatus.Flagged) {
-    commentStatus.classList.add('reported-flag');
+    commentStatus.classList.add('bg-warning');
     return;
   }
   if (comment.moderation_status === ModerationStatus.Rejected) {
-    commentStatus.classList.add('rejected-flag');
+    commentStatus.classList.add('bg-danger');
     return;
   }
 
-  commentStatus.classList.add('pending-flag');
+  commentStatus.classList.add('bg-info');
 }
 
 function displayCommentActions(commentItem, comment) {
   const actions = commentItem.querySelector('.comment-actions');
   const summary = actions.querySelector('summary');
 
-  const approveBtn = commentItem.querySelector('.comment-approve-btn');
-  const rejectBtn = commentItem.querySelector('.comment-reject-btn');
-  const deleteBtn = commentItem.querySelector('.comment-delete-btn');
-  const flagBtn = commentItem.querySelector('.comment-flag-btn');
+  const approveBtn = commentItem.querySelector('.btn-outline-success');
+  const rejectBtn = commentItem.querySelector('.btn-outline-danger');
+  const deleteBtn = commentItem.querySelector('.btn-outline-secondary');
+  const flagBtn = commentItem.querySelector('.btn-outline-warning');
 
   const showApprove = canApproveComment(comment);
   const showReject = canRejectComment(comment);
