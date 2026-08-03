@@ -182,6 +182,28 @@ func (h *CommentHandler) createApprovedNotifications(ctx context.Context, commen
 	return nil
 }
 
+func (h *CommentHandler) setCommentModerationStatus(ctx context.Context, commentID int64, status ModerationStatus) error {
+	switch status {
+	case StatusApproved:
+		if err := h.commentRepo.MarkAsApproved(ctx, commentID); err != nil {
+		//	errorLogger.Printf("%s failed to approve comment %d: %v", commentHandlerErr, commentID, err)
+        return fmt.Errorf("%s failed to approve comment: %w", commentHandlerErr, err)
+		}
+	case StatusRejected:
+		if err := h.commentRepo.MarkAsRejected(ctx, commentID); err != nil {
+			return fmt.Errorf("%s failed to rejected comment: %w", commentHandlerErr, err)
+		}
+	case StatusFlagged:
+		if err := h.commentRepo.MarkAsFlagged(ctx, commentID); err != nil {
+	//		errorLogger.Printf("%s failed to flag comment %d: %v", commentHandlerErr, commentID, err)
+			return fmt.Errorf("%s failed to flag comment: %w", commentHandlerErr, err)
+		}
+    default:
+        return fmt.Errorf("%s unsupported moderation status: %d", commentHandlerErr, status)
+	}
+	return nil
+}
+
 func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) {
 	h.moderateComment(w, r, StatusApproved)
 }
@@ -211,6 +233,12 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "failed to moderate comment", http.StatusInternalServerError)
 		return
 	}
+    errMark := h.setCommentModerationStatus(ctx, commentID, status);
+    if errMark != nil {
+		http.Error(w, "failed to moderate comment", http.StatusInternalServerError)
+		return
+    }
+    /*
 	if status == StatusApproved {
 		if err := h.commentRepo.MarkAsApproved(ctx, commentID); err != nil {
 			http.Error(w, "failed to approve comment", http.StatusInternalServerError)
@@ -223,6 +251,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 			return
 		}
 	}
+    */
 	commentModeration := CommentsModerationLogs{
 		CommentID:      commentID,
 		ReporterOrcid:  admin.Orcid,
@@ -272,11 +301,14 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
+    h.setCommentModerationStatus(ctx, commentID, StatusFlagged);
+    /*
 	if err := h.commentRepo.MarkAsFlagged(ctx, commentID); err != nil {
 		errorLogger.Printf("%s failed to flag comment %d: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to flag comments", http.StatusInternalServerError)
 		return
 	}
+    */
 	commentModeration := CommentsModerationLogs{
 		CommentID:      commentID,
 		ReporterOrcid:  user.Orcid,
