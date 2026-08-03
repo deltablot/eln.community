@@ -35,7 +35,6 @@ func NewPostgresCommentRepository(db *sql.DB) *PostgresCommentRepository {
 const commentErr = "comment repository: failed to"
 
 func scanAllComments(rows *sql.Rows, fn string, data string) ([]Comment, error) {
-	source := errorSource(fn, commentErr)
 	var comments []Comment
 	for rows.Next() {
 		var comment Comment
@@ -49,18 +48,17 @@ func scanAllComments(rows *sql.Rows, fn string, data string) ([]Comment, error) 
 			&comment.CreatedAt,
 			&comment.ModifiedAt,
 		); err != nil {
-			return nil, fmt.Errorf("%s scan comment row: %w", source, err)
+			return nil, fmt.Errorf("%s scan comment row: %w", commentErr, err)
 		}
 		comments = append(comments, comment)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s read %s rows: %w", source, data, err)
+		return nil, fmt.Errorf("%s read %s rows: %w", commentErr, data, err)
 	}
 	return comments, nil
 }
 
 func (r *PostgresCommentRepository) Create(ctx context.Context, comment *Comment) error {
-	source := errorSource("Create", commentErr)
 	query := `
       INSERT INTO comments (record_id, commenter_name, commenter_orcid, content, moderation_status)
       VALUES ($1, $2, $3, $4, $5)
@@ -73,14 +71,13 @@ func (r *PostgresCommentRepository) Create(ctx context.Context, comment *Comment
 		comment.ModerationStatus,
 	).Scan(&comment.ID, &comment.CreatedAt, &comment.ModifiedAt)
 	if err != nil {
-		return fmt.Errorf("%s create comment: %w", source, err)
+		return fmt.Errorf("%s create comment: %w", commentErr, err)
 	}
 
 	return nil
 }
 
 func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID string) ([]Comment, error) {
-	source := errorSource("GetByRecordID", commentErr)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, record_id, commenter_name, commenter_orcid, content,
 		       moderation_status, created_at, modified_at
@@ -88,7 +85,7 @@ func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID 
 		WHERE record_id = $1
 	    ORDER BY created_at ASC`, recordID)
 	if err != nil {
-		return nil, fmt.Errorf("%s get comments by record id %q: %w", source, recordID, err)
+		return nil, fmt.Errorf("%s get comments by record id %q: %w", commentErr, recordID, err)
 	}
 	defer rows.Close()
 	comments, err := scanAllComments(rows, "GetByRecordID", "comment")
@@ -97,7 +94,6 @@ func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID 
 }
 
 func (r *PostgresCommentRepository) GetApprovedByRecordID(ctx context.Context, recordID string) ([]Comment, error) {
-	source := errorSource("GetApprovedByRecordID", commentErr)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, record_id, commenter_name, commenter_orcid, content,
 		       moderation_status, created_at, modified_at
@@ -105,7 +101,7 @@ func (r *PostgresCommentRepository) GetApprovedByRecordID(ctx context.Context, r
 		WHERE record_id = $1 AND moderation_status = $2 AND moderation_status != $3
 	    ORDER BY created_at ASC`, recordID, StatusApproved, StatusDeleted)
 	if err != nil {
-		return nil, fmt.Errorf("%s get approved comments by record id %q: %w", source, recordID, err)
+		return nil, fmt.Errorf("%s get approved comments by record id %q: %w", commentErr, recordID, err)
 	}
 	defer rows.Close()
 	comments, err := scanAllComments(rows, "GetApprovedByRecordID", "approved comment")
@@ -114,7 +110,6 @@ func (r *PostgresCommentRepository) GetApprovedByRecordID(ctx context.Context, r
 }
 
 func (r *PostgresCommentRepository) GetVisibleByRecordID(ctx context.Context, recordID string, commenterOrcid string) ([]Comment, error) {
-	source := errorSource("GetVisibleByRecordID", commentErr)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, record_id, commenter_name, commenter_orcid, content,
 		       moderation_status, created_at, modified_at
@@ -122,7 +117,7 @@ func (r *PostgresCommentRepository) GetVisibleByRecordID(ctx context.Context, re
 		WHERE record_id = $1 AND (moderation_status = $2 OR moderation_status = $5 OR (commenter_orcid = $3 AND moderation_status != $4))
 	    ORDER BY created_at ASC`, recordID, StatusApproved, commenterOrcid, StatusDeleted, StatusFlagged)
 	if err != nil {
-		return nil, fmt.Errorf("%s get approved comments by record id %q: %w", source, recordID, err)
+		return nil, fmt.Errorf("%s get approved comments by record id %q: %w", commentErr, recordID, err)
 	}
 	defer rows.Close()
 	comments, err := scanAllComments(rows, "GetApprovedByRecordID", "visible comment")
@@ -131,7 +126,6 @@ func (r *PostgresCommentRepository) GetVisibleByRecordID(ctx context.Context, re
 }
 
 func (r *PostgresCommentRepository) GetByID(ctx context.Context, id int64) (*Comment, error) {
-	source := errorSource("GetByID", commentErr)
 	query := `
 		SELECT id, record_id, commenter_name, commenter_orcid, content,
 		       moderation_status, created_at, modified_at
@@ -149,32 +143,30 @@ func (r *PostgresCommentRepository) GetByID(ctx context.Context, id int64) (*Com
 		&comment.ModifiedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%s get comment %d row: %w", source, id, err)
+		return nil, fmt.Errorf("%s get comment %d row: %w", commentErr, id, err)
 	}
 
 	return &comment, nil
 }
 
 func (r *PostgresCommentRepository) CountPending(ctx context.Context) (int, error) {
-	source := errorSource("CountPending", commentErr)
 	var total int
 	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM comments WHERE moderation_status = $1`, StatusPending).Scan(&total)
 	if err != nil {
-		return 0, fmt.Errorf("%s count pending comments: %w", source, err)
+		return 0, fmt.Errorf("%s count pending comments: %w", commentErr, err)
 	}
 
 	return total, nil
 }
 
 func (r *PostgresCommentRepository) GetPending(ctx context.Context, limit int, offset int) ([]Comment, error) {
-	source := errorSource("GetPending", commentErr)
 	rows, err := r.db.QueryContext(ctx, `SELECT c.id, c.record_id, c.commenter_name, c.commenter_orcid, c.content, c.moderation_status, c.created_at, c.modified_at
 		FROM comments c
 		WHERE c.moderation_status = $1
 		ORDER BY c.created_at ASC
 		LIMIT $2 OFFSET $3`, StatusPending, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("%s get pending comments: %w", source, err)
+		return nil, fmt.Errorf("%s get pending comments: %w", commentErr, err)
 	}
 	defer rows.Close()
 	comments, err := scanAllComments(rows, "GetPending", "pending comment")
@@ -191,49 +183,44 @@ func (r *PostgresCommentRepository) MarkAsRejected(ctx context.Context, id int64
 }
 
 func (r *PostgresCommentRepository) setModerationIfNotDeleted(ctx context.Context, id int64, status ModerationStatus) error {
-	source := errorSource("SetModerationIfNotDeleted", commentErr)
 	res, err := r.db.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status != $3`, status, id, StatusDeleted)
 	if err != nil {
-		return fmt.Errorf("%s mark comment %d as approved: %w", source, id, err)
+		return fmt.Errorf("%s mark comment %d as approved: %w", commentErr, id, err)
 	}
 	n, err := res.RowsAffected()
-	return errorUpdateRow(source, "comment", id, err, n)
+	return errorUpdateRow(commentErr, "comment", id, err, n)
 }
 
 func (r *PostgresCommentRepository) MarkAsFlagged(ctx context.Context, id int64) error {
-	source := errorSource("MarkAsFlagged", commentErr)
 	res, err := r.db.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status = $3`, StatusFlagged, id, StatusApproved)
 	if err != nil {
-		return fmt.Errorf("%s mark comment %d as flagged: %w", source, id, err)
+		return fmt.Errorf("%s mark comment %d as flagged: %w", commentErr, id, err)
 	}
 	n, err := res.RowsAffected()
-	return errorUpdateRow(source, "comment", id, err, n)
+	return errorUpdateRow(commentErr, "comment", id, err, n)
 }
 
 func (r *PostgresCommentRepository) DeleteComment(ctx context.Context, id int64) error {
-	source := errorSource("DeleteComment", commentErr)
 	res, err := r.db.ExecContext(ctx, `DELETE FROM comments WHERE id = $1`, id)
 	if err != nil {
-		return fmt.Errorf("%s delete comment %d: %w", source, id, err)
+		return fmt.Errorf("%s delete comment %d: %w", commentErr, id, err)
 	}
 	n, err := res.RowsAffected()
-	return errorUpdateRow(source, "comment", id, err, n)
+	return errorUpdateRow(commentErr, "comment", id, err, n)
 }
 
 func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id int64, commentatorOrcid string) error {
-	source := errorSource("AuthorDeleteComment", commentErr)
 	res, err := r.db.ExecContext(ctx, `DELETE FROM comments WHERE id = $1 AND commenter_orcid = $2`, id, commentatorOrcid)
 	if err != nil {
-		return fmt.Errorf("%s delete comment %d: %w", source, id, err)
+		return fmt.Errorf("%s delete comment %d: %w", commentErr, id, err)
 	}
 	n, err := res.RowsAffected()
-	errorUpdateRow(source, "comment", id, err, n)
+	errorUpdateRow(commentErr, "comment", id, err, n)
 
 	return nil
 }
 
 func (r *PostgresCommentRepository) CreateRecordsModerationLogs(ctx context.Context, moderation CommentsModerationLogs) error {
-	source := errorSource("CreateRecordsModerationLogs", commentErr)
 	query := `INSERT INTO comments_moderation_logs (comment_id, reporter_orcid, previous_status, new_status)
 		 VALUES ($1, $2, $3, $4)`
 	_, err := r.db.ExecContext(ctx, query,
@@ -243,20 +230,19 @@ func (r *PostgresCommentRepository) CreateRecordsModerationLogs(ctx context.Cont
 		moderation.NewStatus,
 	)
 	if err != nil {
-		return fmt.Errorf("%s create log for comment: %w", source, err)
+		return fmt.Errorf("%s create log for comment: %w", commentErr, err)
 	}
 
 	return nil
 }
 
 func (r *PostgresCommentRepository) GetRecordsModerationLogs(ctx context.Context, commentID int64) ([]CommentsModerationLogs, error) {
-	source := errorSource("GetRecordsModerationLogs", commentErr)
 	rows, err := r.db.QueryContext(ctx, `SELECT id, comment_id, reporter_orcid, previous_status, new_status, created_at, modified_at
 		FROM comments_moderation_logs
 		WHERE comment_id = $1
 		ORDER BY created_at DESC`, commentID)
 	if err != nil {
-		return nil, fmt.Errorf("%s get history moderation comment rows: %w", source, err)
+		return nil, fmt.Errorf("%s get history moderation comment rows: %w", commentErr, err)
 	}
 	defer rows.Close()
 	var moderations []CommentsModerationLogs
@@ -271,34 +257,33 @@ func (r *PostgresCommentRepository) GetRecordsModerationLogs(ctx context.Context
 			&moderation.CreatedAt,
 			&moderation.ModifiedAt,
 		); err != nil {
-			return nil, fmt.Errorf("%s scan history moderation comment row: %w", source, err)
+			return nil, fmt.Errorf("%s scan history moderation comment row: %w", commentErr, err)
 		}
 		moderations = append(moderations, moderation)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s read history moderation comment rows: %w", source, err)
+		return nil, fmt.Errorf("%s read history moderation comment rows: %w", commentErr, err)
 	}
 
 	return moderations, rows.Err()
 }
 
 func (r *PostgresCommentRepository) GetAllOrcids(ctx context.Context, recordId string) ([]string, error) {
-	source := errorSource("GetAllOrcids", commentErr)
 	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT commenter_orcid FROM comments WHERE record_id = $1 AND commenter_orcid IS NOT NULL AND commenter_orcid != '' AND moderation_status = $2`, recordId, StatusApproved)
 	if err != nil {
-		return nil, fmt.Errorf("%s get all orcids for record id %q: %w", source, recordId, err)
+		return nil, fmt.Errorf("%s get all orcids for record id %q: %w", commentErr, recordId, err)
 	}
 	defer rows.Close()
 	var commentators []string
 	for rows.Next() {
 		var commentator string
 		if err := rows.Scan(&commentator); err != nil {
-			return nil, fmt.Errorf("%s scan orcid row for record %q: %w", source, recordId, err)
+			return nil, fmt.Errorf("%s scan orcid row for record %q: %w", commentErr, recordId, err)
 		}
 		commentators = append(commentators, commentator)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s read orcid rows for record %q: %w", source, recordId, err)
+		return nil, fmt.Errorf("%s read orcid rows for record %q: %w", commentErr, recordId, err)
 	}
 
 	return commentators, nil

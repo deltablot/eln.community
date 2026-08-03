@@ -1208,7 +1208,7 @@ footer {
 }
 
 .btn-outline-warning:hover, .btn-primary {
-  color: var(--blue-soft);
+  color: var(--blue-soft) !important;
   background-color: var(--blue-dark) !important;
   border-color: var(--blue-dark) !important;
 }
