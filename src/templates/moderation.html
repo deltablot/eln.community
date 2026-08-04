@@ -76,17 +76,17 @@
                         </div>
 
                         <div class="d-flex flex-row gap-2 flex-wrap">
-                            <button class="btn btn-success moderation-btn"
+                            <button class="btn btn-outline-success btn-sm fw-bold moderation-btn"
                                     data-record-id="{{.RecordID}}"
                                     data-action="approve">
                                 <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
-                                <span class="btn-text">✓ Approve{{if not .IsNewEntry}} Version{{end}}</span>
+                                <span class="btn-text">Approve{{if not .IsNewEntry}} Version{{end}}</span>
                             </button>
-                            <button class="btn btn-danger moderation-btn"
+                            <button class="btn btn-outline-danger btn-sm fw-bold moderation-btn"
                                     data-record-id="{{.RecordID}}"
                                     data-action="reject">
                                 <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
-                                <span class="btn-text">✗ Reject{{if not .IsNewEntry}} Version{{end}}</span>
+                                <span class="btn-text">Reject{{if not .IsNewEntry}} Version{{end}}</span>
                             </button>
                             {{if not .IsNewEntry}}
                             <a href="/record/{{.RecordID}}" class="btn btn-outline-secondary">

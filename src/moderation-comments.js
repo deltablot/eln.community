@@ -45,17 +45,17 @@ function renderPendingComment(comment) {
         </div>
 
         <div class="d-flex gap-2">
-          <button class="btn btn-outline-success btn-sm approve-comment-btn"
+          <button class="btn btn-outline-success btn-sm fw-bold approve-comment-btn"
                   data-comment-id="${comment.id}">
             <span class="spinner-border spinner-border-sm d-none me-1"></span>
             <i class="bi bi-check-circle me-1"></i>Approve
           </button>
-          <button class="btn btn-outline-danger btn-sm reject-comment-btn"
+          <button class="btn btn-outline-danger btn-sm fw-bold reject-comment-btn"
                   data-comment-id="${comment.id}">
             <span class="spinner-border spinner-border-sm d-none me-1"></span>
             <i class="bi bi-x-circle me-1"></i>Reject
           </button>
-          <button class="btn btn-outline-secondary btn-sm delete-comment-btn"
+          <button class="btn btn-outline-secondary btn-sm fw-bold delete-comment-btn"
                   data-comment-id="${comment.id}">
             <span class="spinner-border spinner-border-sm d-none me-1"></span>
             <i class="bi bi-trash me-1"></i>Delete

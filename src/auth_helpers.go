@@ -79,6 +79,5 @@ func requireAdminUser(w http.ResponseWriter, r *http.Request, adminRepo adminChe
 		return nil, ErrAdminRequired
 	}
 
-	user.IsAdmin = true
 	return user, nil
 }
