@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 )
 
 type CommentHandler struct {
@@ -77,10 +76,10 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create comment", http.StatusInternalServerError)
 		return
 	}
-	writeJson(w, http.StatusCreated, comment)
 	if err := h.notificationService.CreateForComment(ctx, comment, StatusPending); err != nil {
 		errorLogger.Printf("%s failed to create comment notification for comment %d: %v", commentHandlerErr, comment.ID, err)
 	}
+	writeJson(w, http.StatusCreated, comment)
 }
 
 func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
@@ -199,13 +198,11 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	commentIDStr := r.PathValue("id")
-	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	params, err := requireCommentPathParams(w, r)
 	if err != nil {
-		errorLogger.Printf("%s invalid comment id %q: %v", commentHandlerErr, commentIDStr, err)
-		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
+	commentID := params.commentID
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
@@ -227,7 +224,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 	case StatusApproved:
 		err = h.createApprovedNotifications(ctx, commentID)
 	case StatusRejected:
-		err = h.notificationService.CreateForCommentModeration(ctx, comment, StatusRejected)
+		err = h.notificationService.CreateForCommentModeration(ctx, comment, status)
 	}
 	if err != nil {
 		errorLogger.Printf("%s failed to create notification for comment %d: %v", commentHandlerErr, commentID, err)
@@ -241,14 +238,12 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	recordID := r.PathValue("recordID")
-	commentIDStr := r.PathValue("commentID")
-	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	params, err := requireCommentPathParams(w, r)
 	if err != nil {
-		errorLogger.Printf("%s invalid comment id %q: %v", commentHandlerErr, commentIDStr, err)
-		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
+	recordID := params.recordID
+	commentID := params.commentID
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
@@ -284,20 +279,13 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	//TODO: Parse id
-	recordID := r.PathValue("recordID")
-	commentIDStr := r.PathValue("commentID")
-	isModerationRoute := false
-	if commentIDStr == "" {
-		commentIDStr = r.PathValue("id")
-		isModerationRoute = true
-	}
-	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	params, err := requireCommentPathParams(w, r)
 	if err != nil {
-		errorLogger.Printf("%s invalid comment id %q: %v", commentHandlerErr, commentIDStr, err)
-		http.Error(w, "invalid comment id", http.StatusBadRequest)
 		return
 	}
+	recordID := params.recordID
+	commentID := params.commentID
+	isModerationRoute := params.isModerationRoute
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
