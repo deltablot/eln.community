@@ -450,6 +450,7 @@ func main() {
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
 	commentRepo := NewPostgresCommentRepository(db)
 	notificationService := NewNotificationService(adminRepo, emailQueueRepo, commentRepo)
+    commentModerationService := NewCommentModerationService(commentRepo)
 	emailSender, err := NewEmailSender()
 	if err != nil {
 		errorLogger.Fatalf("Error: failed to configure email sender: %v", err)
@@ -458,7 +459,7 @@ func main() {
 	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidClient)
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
 	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, recordRepo)
-	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService)
+	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService, commentModerationService)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()

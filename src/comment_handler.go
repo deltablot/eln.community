@@ -8,22 +8,24 @@ import (
 )
 
 type CommentHandler struct {
-	commentRepo         CommentRepository
-	recordRepo          RecordRepository
-	adminRepo           AdminRepository
-	notificationService *NotificationService
+	commentRepo              CommentRepository
+	recordRepo               RecordRepository
+	adminRepo                AdminRepository
+	notificationService      *NotificationService
+	commentModerationService *CommentModerationService
 }
 
 type createCommentRequest struct {
 	Content string `json:"content"`
 }
 
-func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService) *CommentHandler {
+func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepository, adminRepo AdminRepository, notificationService *NotificationService, commentModerationService *CommentModerationService) *CommentHandler {
 	return &CommentHandler{
-		commentRepo:         commentRepo,
-		recordRepo:          recordRepo,
-		adminRepo:           adminRepo,
-		notificationService: notificationService,
+		commentRepo:              commentRepo,
+		recordRepo:               recordRepo,
+		adminRepo:                adminRepo,
+		notificationService:      notificationService,
+		commentModerationService: commentModerationService,
 	}
 }
 
@@ -182,28 +184,6 @@ func (h *CommentHandler) createApprovedNotifications(ctx context.Context, commen
 	return nil
 }
 
-func (h *CommentHandler) setCommentModerationStatus(ctx context.Context, commentID int64, status ModerationStatus) error {
-	switch status {
-	case StatusApproved:
-		if err := h.commentRepo.MarkAsApproved(ctx, commentID); err != nil {
-		//	errorLogger.Printf("%s failed to approve comment %d: %v", commentHandlerErr, commentID, err)
-        return fmt.Errorf("%s failed to approve comment: %w", commentHandlerErr, err)
-		}
-	case StatusRejected:
-		if err := h.commentRepo.MarkAsRejected(ctx, commentID); err != nil {
-			return fmt.Errorf("%s failed to rejected comment: %w", commentHandlerErr, err)
-		}
-	case StatusFlagged:
-		if err := h.commentRepo.MarkAsFlagged(ctx, commentID); err != nil {
-	//		errorLogger.Printf("%s failed to flag comment %d: %v", commentHandlerErr, commentID, err)
-			return fmt.Errorf("%s failed to flag comment: %w", commentHandlerErr, err)
-		}
-    default:
-        return fmt.Errorf("%s unsupported moderation status: %d", commentHandlerErr, status)
-	}
-	return nil
-}
-
 func (h *CommentHandler) approveComment(w http.ResponseWriter, r *http.Request) {
 	h.moderateComment(w, r, StatusApproved)
 }
@@ -233,36 +213,17 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "failed to moderate comment", http.StatusInternalServerError)
 		return
 	}
-    errMark := h.setCommentModerationStatus(ctx, commentID, status);
-    if errMark != nil {
-		http.Error(w, "failed to moderate comment", http.StatusInternalServerError)
+	if err := h.commentModerationService.setCommentModerationStatus(ctx, commentID, status); err != nil {
+		errorLogger.Printf("%s failed to update moderation status for comment %d: %v", commentHandlerErr, commentID, err)
+		http.Error(w, "failed to update moderation status for comment", http.StatusInternalServerError)
 		return
-    }
-    /*
-	if status == StatusApproved {
-		if err := h.commentRepo.MarkAsApproved(ctx, commentID); err != nil {
-			http.Error(w, "failed to approve comment", http.StatusInternalServerError)
-			return
-		}
 	}
-	if status == StatusRejected {
-		if err := h.commentRepo.MarkAsRejected(ctx, commentID); err != nil {
-			http.Error(w, "failed to reject comment", http.StatusInternalServerError)
-			return
-		}
-	}
-    */
-	commentModeration := CommentsModerationLogs{
-		CommentID:      commentID,
-		ReporterOrcid:  admin.Orcid,
-		PreviousStatus: comment.ModerationStatus,
-		NewStatus:      status,
-	}
-	if err := h.commentRepo.CreateRecordsModerationLogs(ctx, commentModeration); err != nil {
-		errorLogger.Printf("%s failed to create moderation history for %d comment %d: %v", commentHandlerErr, status, commentID, err)
+	if err := h.commentModerationService.createLog(ctx, comment, admin.Orcid, status); err != nil {
+		errorLogger.Printf("%s failed to create moderation history for comment %d: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to approve/reject comment", http.StatusInternalServerError)
 		return
 	}
+
 	if status == StatusApproved {
 		err = h.createApprovedNotifications(ctx, commentID)
 	}
@@ -272,7 +233,7 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		errorLogger.Printf("%s failed to create notification for %d comment: %v", commentHandlerErr, status, err)
 	}
-	writeJson(w, http.StatusOK, map[string]any{"status": status})
+	writeJson(w, http.StatusOK, map[string]ModerationStatus{"status": status})
 }
 
 func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
@@ -301,27 +262,18 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
-    h.setCommentModerationStatus(ctx, commentID, StatusFlagged);
-    /*
-	if err := h.commentRepo.MarkAsFlagged(ctx, commentID); err != nil {
-		errorLogger.Printf("%s failed to flag comment %d: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to flag comments", http.StatusInternalServerError)
+	if err := h.commentModerationService.setCommentModerationStatus(ctx, commentID, StatusFlagged); err != nil {
+		http.Error(w, "failed to update moderation status for comment", http.StatusInternalServerError)
 		return
 	}
-    */
-	commentModeration := CommentsModerationLogs{
-		CommentID:      commentID,
-		ReporterOrcid:  user.Orcid,
-		PreviousStatus: comment.ModerationStatus,
-		NewStatus:      StatusFlagged,
-	}
-	if err := h.commentRepo.CreateRecordsModerationLogs(ctx, commentModeration); err != nil {
-		errorLogger.Printf("%s failed to create moderation history for flagged comment %d: %v", commentHandlerErr, commentID, err)
+
+	if err := h.commentModerationService.createLog(ctx, comment, user.Orcid, StatusFlagged); err != nil {
+		errorLogger.Printf("%s failed to create moderation history for comment %d: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to flag comment", http.StatusInternalServerError)
 		return
 	}
 
-	writeJson(w, http.StatusOK, map[string]any{"status": StatusFlagged})
+	writeJson(w, http.StatusOK, map[string]ModerationStatus{"status": StatusFlagged})
 	if err := h.notificationService.CreateForComment(ctx, comment, StatusFlagged); err != nil {
 		errorLogger.Printf("%s failed to create comment notification for comment %d: %v", commentHandlerErr, comment.ID, err)
 	}
@@ -371,17 +323,6 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	commentModeration := CommentsModerationLogs{
-		CommentID:      commentID,
-		ReporterOrcid:  user.Orcid,
-		PreviousStatus: comment.ModerationStatus,
-		NewStatus:      StatusDeleted,
-	}
-	if err := h.commentRepo.CreateRecordsModerationLogs(ctx, commentModeration); err != nil {
-		errorLogger.Printf("%s failed to create moderation history for deleted comment %d: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
-		return
-	}
 	if isAdmin {
 		err = h.commentRepo.DeleteComment(ctx, commentID)
 	} else {
@@ -392,5 +333,10 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to delete comments", http.StatusInternalServerError)
 		return
 	}
-	writeJson(w, http.StatusOK, map[string]any{"status": StatusDeleted})
+	if err := h.commentModerationService.createLog(ctx, comment, user.Orcid, StatusDeleted); err != nil {
+		errorLogger.Printf("%s failed to create moderation history for comment %d: %v", commentHandlerErr, commentID, err)
+		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
+		return
+	}
+	writeJson(w, http.StatusOK, map[string]ModerationStatus{"status": StatusDeleted})
 }

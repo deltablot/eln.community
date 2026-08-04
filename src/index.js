@@ -1058,7 +1058,7 @@ async function searchRorOrganizations(query, resultsId, selectedId, hiddenInputI
       // Prepare country badge
       let countryHtml = '';
       if (org.country && org.country.country_name) {
-        countryHtml = `<span class="badge bg-light text-dark border me-2">${escapeHtml(org.country.country_name)}</span>`;
+        countryHtml = `<span class="badge bg-light text-dark me-2">${escapeHtml(org.country.country_name)}</span>`;
       }
 
       // Prepare website link

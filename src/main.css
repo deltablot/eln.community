@@ -28,15 +28,6 @@
     --gray-border:#e5e7eb;
 }
 
-main a:not(.btn) {
-  color: var(--blue-dark);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-main a:not(.btn):hover {
-  text-decoration: underline;
-}
 
 .container-fluid {
     min-height: 100%;
@@ -1177,16 +1168,36 @@ footer {
 }
 
 /* new css */
-.btn-outline-success {
+main a:not(.btn) {
+  color: var(--blue-dark);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+main a:not(.btn):hover {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+
+.table a:not(.btn) {
+  color: var(--black);
+  font-weight: 400;
+}
+
+.badge {
+  border: 1px solid var(--bs-border-color);
+}
+
+.btn-outline-success, .bg-success {
   color: var(--green-dark);
-  background-color: var(--green-soft);
-  border-color: var(--green-border);
+  background-color: var(--green-soft) !important;
+  border-color: var(--green-border) !important;
 }
 
 .btn-outline-success:hover {
   color: var(--green-soft);
-  background-color: var(--green-dark);
-  border-color: var(--green-dark);
+  background-color: var(--green-dark) !important;
+  border-color: var(--green-dark) !important;
 }
 
 .btn-outline-danger, .bg-danger, .btn-danger {

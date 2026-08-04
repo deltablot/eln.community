@@ -108,11 +108,9 @@
                     <a class="page-link" href="?page={{sub .Page 1}}">← Previous</a>
                 </li>
                 {{end}}
-                
                 <li class="page-item active">
                     <span class="page-link">Page {{.Page}} of {{.TotalPages}}</span>
                 </li>
-                
                 {{if lt .Page .TotalPages}}
                 <li class="page-item">
                     <a class="page-link" href="?page={{add .Page 1}}">Next →</a>
@@ -168,7 +166,7 @@
                             <span class="badge bg-danger">Rejected</span>
                             <!-- 4 = 'Flagged' -->
                             {{else if eq .ModerationStatus 4}}
-                            <span class="badge bg-warning text-dark">Flagged</span>
+                            <span class="badge bg-warning">Flagged</span>
                             {{end}}
                         </td>
                         <td>
