@@ -22,9 +22,8 @@ type pathConfig struct {
 }
 
 type pathParams struct {
-	recordID          string
-	commentID         int64
-	isModerationRoute bool
+	recordID  string
+	commentID int64
 }
 
 func parsePath(w http.ResponseWriter, r *http.Request, config pathConfig) (string, error) {
@@ -53,7 +52,6 @@ func requireCommentPathParams(w http.ResponseWriter, r *http.Request) (pathParam
 	commentIDStr := r.PathValue("commentID")
 	if commentIDStr == "" {
 		commentIDStr = r.PathValue("id")
-		params.isModerationRoute = true
 	}
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
 	if err != nil {

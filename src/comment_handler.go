@@ -31,6 +31,14 @@ func NewCommentHandler(commentRepo CommentRepository, recordRepo RecordRepositor
 const commentHandlerErr = "Error: comment handler:"
 const commentMaxLength = 5000
 
+type deletionMode int
+
+const (
+	unknownMode deletionMode = iota
+	deleteAsAuthor
+	deleteAsAdmin
+)
+
 var commentsPath = pathConfig{
 	prefix:   "/records/",
 	suffix:   "/comments",
@@ -43,7 +51,6 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-
 	recordId, err := parsePath(w, r, commentsPath)
 	if err != nil {
 		return
@@ -89,7 +96,6 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, isAuthenticated := userFromSession(ctx)
-
 	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
 	if err != nil {
 		return
@@ -197,13 +203,11 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		return
 	}
-
 	params, err := requireCommentPathParams(w, r)
 	if err != nil {
 		return
 	}
 	commentID := params.commentID
-
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
 		errorLogger.Printf("%s failed to get comment %d before approval/rejection: %v", commentHandlerErr, commentID, err)
@@ -244,7 +248,6 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	}
 	recordID := params.recordID
 	commentID := params.commentID
-
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
 		errorLogger.Printf("%s failed to get comment %d before flagging: %v", commentHandlerErr, commentID, err)
@@ -261,7 +264,6 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to update moderation status for comment", http.StatusInternalServerError)
 		return
 	}
-
 	if err := h.commentModerationService.createLog(ctx, comment, user.Orcid, StatusFlagged); err != nil {
 		errorLogger.Printf("%s failed to create moderation history for comment %d: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to flag comment", http.StatusInternalServerError)
@@ -273,9 +275,28 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	writeJson(w, http.StatusOK, map[string]ModerationStatus{"status": StatusFlagged})
 }
 
-func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
+func (h *CommentHandler) deleteOwnComment(w http.ResponseWriter, r *http.Request) {
+	h.deleteComment(w, r, deleteAsAuthor)
+}
+
+func (h *CommentHandler) deleteCommentAsModerator(w http.ResponseWriter, r *http.Request) {
+	h.deleteComment(w, r, deleteAsAdmin)
+}
+
+func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request, mode deletionMode) {
 	ctx := r.Context()
-	user, err := requireAuthenticatedUser(w, r)
+	var user *User
+	var err error
+	switch mode {
+	case deleteAsAuthor:
+		user, err = requireAuthenticatedUser(w, r)
+	case deleteAsAdmin:
+		user, err = requireAdminUser(w, r, h.adminRepo)
+	default:
+		errorLogger.Printf("%s unsupported comment deletion mode: %d", commentHandlerErr, mode)
+		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
+		return
+	}
 	if err != nil {
 		return
 	}
@@ -285,7 +306,6 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 	recordID := params.recordID
 	commentID := params.commentID
-	isModerationRoute := params.isModerationRoute
 
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
@@ -298,29 +318,24 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
-	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
-	if err != nil {
-		return
-	}
-	if isModerationRoute && !isAdmin {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
-	}
-	if !isAdmin && comment.CommenterOrcid != user.Orcid {
-		errorLogger.Printf("%s user %q tried to delete comment %d owned by %q", commentHandlerErr, user.Orcid, commentID, comment.CommenterOrcid)
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
-	}
-	if isAdmin {
-		err = h.commentRepo.DeleteComment(ctx, commentID)
-	} else {
+
+	switch mode {
+	case deleteAsAuthor:
+		if comment.CommenterOrcid != user.Orcid {
+			errorLogger.Printf("%s user %q tried to delete comment %d owned by %q", commentHandlerErr, user.Orcid, commentID, comment.CommenterOrcid)
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 		err = h.commentRepo.AuthorDeleteComment(ctx, commentID, user.Orcid)
+	case deleteAsAdmin:
+		err = h.commentRepo.DeleteComment(ctx, commentID)
 	}
 	if err != nil {
 		errorLogger.Printf("%s failed to delete comment %d: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to delete comments", http.StatusInternalServerError)
+		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
 		return
 	}
+
 	if err := h.commentModerationService.createLog(ctx, comment, user.Orcid, StatusDeleted); err != nil {
 		errorLogger.Printf("%s failed to create moderation history for comment %d: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
