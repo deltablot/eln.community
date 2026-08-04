@@ -185,7 +185,7 @@ func (r *PostgresCommentRepository) MarkAsRejected(ctx context.Context, id int64
 func (r *PostgresCommentRepository) setModerationIfNotDeleted(ctx context.Context, id int64, status ModerationStatus) error {
 	res, err := r.db.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status != $3`, status, id, StatusDeleted)
 	if err != nil {
-		return fmt.Errorf("%s mark comment %d as approved: %w", commentErr, id, err)
+		return fmt.Errorf("%s set moderation status for comment %d: %w", commentErr, id, err)
 	}
 	n, err := res.RowsAffected()
 	return errorUpdateRow(commentErr, "comment", id, err, n)
@@ -215,9 +215,7 @@ func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id 
 		return fmt.Errorf("%s delete comment %d: %w", commentErr, id, err)
 	}
 	n, err := res.RowsAffected()
-	errorUpdateRow(commentErr, "comment", id, err, n)
-
-	return nil
+	return errorUpdateRow(commentErr, "comment", id, err, n)
 }
 
 func (r *PostgresCommentRepository) CreateRecordsModerationLogs(ctx context.Context, moderation CommentsModerationLogs) error {

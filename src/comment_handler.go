@@ -223,15 +223,14 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "failed to approve/reject comment", http.StatusInternalServerError)
 		return
 	}
-
-	if status == StatusApproved {
+	switch status {
+	case StatusApproved:
 		err = h.createApprovedNotifications(ctx, commentID)
-	}
-	if status == StatusRejected {
+	case StatusRejected:
 		err = h.notificationService.CreateForCommentModeration(ctx, comment, StatusRejected)
 	}
 	if err != nil {
-		errorLogger.Printf("%s failed to create notification for %d comment: %v", commentHandlerErr, status, err)
+		errorLogger.Printf("%s failed to create notification for comment %d: %v", commentHandlerErr, commentID, err)
 	}
 	writeJson(w, http.StatusOK, map[string]ModerationStatus{"status": status})
 }
@@ -258,11 +257,12 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if comment.RecordID != recordID {
-		errorLogger.Printf("%s comment %d does not belong to record %q: %v", commentHandlerErr, commentID, recordID, err)
+		errorLogger.Printf("%s comment %d does not belong to record %q", commentHandlerErr, commentID, recordID)
 		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
 	if err := h.commentModerationService.setCommentModerationStatus(ctx, commentID, StatusFlagged); err != nil {
+		errorLogger.Printf("%s failed to flag comment %d: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to update moderation status for comment", http.StatusInternalServerError)
 		return
 	}
@@ -272,11 +272,10 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to flag comment", http.StatusInternalServerError)
 		return
 	}
-
-	writeJson(w, http.StatusOK, map[string]ModerationStatus{"status": StatusFlagged})
 	if err := h.notificationService.CreateForComment(ctx, comment, StatusFlagged); err != nil {
 		errorLogger.Printf("%s failed to create comment notification for comment %d: %v", commentHandlerErr, comment.ID, err)
 	}
+	writeJson(w, http.StatusOK, map[string]ModerationStatus{"status": StatusFlagged})
 }
 
 func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +284,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	//TODO: Parse id
 	recordID := r.PathValue("recordID")
 	commentIDStr := r.PathValue("commentID")
 	isModerationRoute := false
@@ -306,7 +306,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if recordID != "" && comment.RecordID != recordID {
-		errorLogger.Printf("%s comment %d does not belong to record %q: %v", commentHandlerErr, commentID, recordID, err)
+		errorLogger.Printf("%s comment %d does not belong to record %q", commentHandlerErr, commentID, recordID)
 		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
