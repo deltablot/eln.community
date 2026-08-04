@@ -1,10 +1,10 @@
 BEGIN;
 
--- Revert table records_logs
-ALTER TABLE records_versions
+-- Revert table records_revisions
+ALTER TABLE records_revisions
     DROP CONSTRAINT records_versions_moderation_status_check;
 
-ALTER TABLE records_versions
+ALTER TABLE records_revisions
     ALTER COLUMN moderation_status DROP DEFAULT;
 
 ALTER TABLE records_revisions

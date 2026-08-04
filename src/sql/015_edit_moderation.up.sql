@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Edit table moderation_actions
 ALTER TABLE moderation_actions RENAME TO records_moderation_logs;
 ALTER TABLE records_moderation_logs RENAME COLUMN action TO moderation_status;
@@ -76,6 +78,8 @@ USING CASE moderation_status
    WHEN 'flag' THEN 4
    ELSE NULL
 END;
+COMMIT;
+
 ALTER TABLE records_revisions ALTER COLUMN moderation_status SET NOT NULL;
 ALTER TABLE records_revisions ALTER COLUMN moderation_status SET DEFAULT 0;
 ALTER TABLE records_revisions ADD CONSTRAINT records_revisions_moderation_status_check CHECK (moderation_status IN (0, 1, 2, 3, 4));

@@ -63,8 +63,9 @@ type Category struct {
 }
 
 type User struct {
-	Name  string
-	Orcid string
+	Name    string
+	Orcid   string
+	IsAdmin bool
 }
 
 type App struct {
