@@ -92,6 +92,8 @@ async function handleSubmit(event) {
     renderAllComments(state.comments);
   } catch (err) {
     console.log('failed to create comment:', err);
+    alert('Failed to post your comment. Please try again');
+    commentInput.focus();
   } finally {
     submitCommentBtn.disabled = false;
   }
@@ -123,32 +125,33 @@ async function handleStatus(event) {
   if (!actionBtn)
     return;
   const action = actionBtn.dataset.action;
-    /*
-  const approveBtn = event.target.closest('.btn-outline-success');
-  const rejectBtn = event.target.closest('.btn-outline-danger');
-  const deleteBtn = event.target.closest('.btn-outline-secondary');
-  const flagBtn = event.target.closest('.btn-outline-warning');
-  */
-//TODO if/else ?
-    // if (action == 'approve') ...
+
   switch (action) {
     case 'approve':
       await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/approve`, 'POST', 'approve');
       await loadComments();
-      return;
+      break;
     case 'reject':
+      alert('Are you sure you want to report this comment? Please note this action is reversible.')
       await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/reject`, 'POST', 'reject');
       await loadComments();
-      return;
+      break;
     case 'delete':
-      await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}`, 'DELETE', 'delete');
-      state.comments = state.comments.filter((comment) => String(comment.id) !== commentId);
+      const comment = state.comments.find(({id}) => String(id) === commentId);
+      if (!comment)
+        return;
+      const url = state.isAdmin && comment.commenter_orcid !== state.currentUserOrcid ?
+              `/api/v1/moderation/comments/${commentId}` : `/api/v1/records/${state.recordId}/comments/${commentId}`;
+      alert('Are you sure you want to permanently delete this comment? This action cannot be undone.')
+      await updateCommentStatus(url, 'DELETE', 'delete');
+      state.comments = state.comments.filter(({ id }) => String(id) !== commentId);
       renderAllComments(state.comments);
-      return;
+      break;
     case 'flag':
       await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}/flag`, 'POST', 'flag');
+
       await loadComments();
-      return;
+      break;
     default:
       return;
   }

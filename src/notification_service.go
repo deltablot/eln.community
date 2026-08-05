@@ -44,12 +44,10 @@ func notificationErr(msg string, err error) error {
 
 func textToHTML(body string) string {
 	escapedText := html.EscapeString(body)
+	replacer := strings.NewReplacer("https://eln.community/moderation", `<a href="https://eln.community/moderation" target="_blank" rel="noopener noreferrer">https://eln.community/moderation</a>`, "https://eln.community", `<a href="https://eln.community" target="_blank" rel="noopener noreferrer">https://eln.community</a>`, "contact@deltablot.email", `<a href="mailto:contact@deltablot.email">contact@deltablot.email</a>`, "\n", "<br>")
 
-	escapedText = strings.ReplaceAll(escapedText, "https://eln.community/moderation", `<a href="https://eln.community/moderation" target="_blank">https://eln.community/moderation</a>`)
+	escapedText = replacer.Replace(escapedText)
 
-	escapedText = strings.ReplaceAll(escapedText, "contact@deltablot.email", `<a href="mailto:contact@deltablot.email">contact@deltablot.email</a>`)
-
-	escapedText = strings.ReplaceAll(escapedText, "\n", "<br>")
 	return fmt.Sprintf(`<!doctype html><html><body style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #222;">%s</body></html>`, escapedText)
 }
 

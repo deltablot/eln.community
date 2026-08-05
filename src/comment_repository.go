@@ -124,7 +124,7 @@ func (r *PostgresCommentRepository) GetVisibleByRecordID(ctx context.Context, re
 	WHERE record_id = $1 AND (moderation_status = $2 OR moderation_status = $3 OR (commenter_orcid = $4 AND moderation_status != $5))
 	ORDER BY created_at ASC`, recordID, StatusApproved, StatusFlagged, commenterOrcid, StatusDeleted)
 	if err != nil {
-		return nil, fmt.Errorf("%s get approved comments by record id %q: %w", commentErr, recordID, err)
+		return nil, fmt.Errorf("%s get visible comments by record id %q: %w", commentErr, recordID, err)
 	}
 	defer rows.Close()
 	comments, err := scanAllComments(rows, "visible comment")

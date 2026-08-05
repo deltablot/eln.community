@@ -77,9 +77,10 @@ USING CASE moderation_status
    WHEN 'deleted' THEN 3
    WHEN 'flagged' THEN 4
 END;
-COMMIT;
 
 ALTER TABLE records_revisions ALTER COLUMN moderation_status SET NOT NULL;
 ALTER TABLE records_revisions ALTER COLUMN moderation_status SET DEFAULT 0;
 COMMENT ON COLUMN records_revisions.moderation_status IS 'Moderation status: 0 = pending, 1 = approved, 2 = rejected, 3 = deleted, 4 = flagged';
 ALTER TABLE records_revisions ADD CONSTRAINT records_revisions_moderation_status_check CHECK (moderation_status IN (0, 1, 2, 3, 4));
+
+COMMIT;

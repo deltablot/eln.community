@@ -12,9 +12,9 @@ ALTER TABLE records_revisions
     USING CASE moderation_status
         WHEN 0 THEN 'pending'
         WHEN 1 THEN 'approved'
-        WHEN 2 THEN 'reject'
-        WHEN 3 THEN 'delete'
-        WHEN 4 THEN 'flag'
+        WHEN 2 THEN 'rejected'
+        WHEN 3 THEN 'deleted'
+        WHEN 4 THEN 'flagged'
     END;
 
 ALTER TABLE records_revisions

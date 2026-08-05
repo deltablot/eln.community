@@ -262,7 +262,6 @@ footer {
     }
 
     a:hover {
-        color: var(--blue);
         text-decoration: none;
     }
 }
@@ -586,7 +585,7 @@ footer {
 }
 
 .record-card-title a:hover {
-    color: var(--blue);
+    color: var(--blue-dark);
     text-decoration: underline;
 }
 
@@ -629,7 +628,7 @@ footer {
 }
 
 .record-card-rors a {
-    color: var(--blue);
+    color: var(--blue-dark);
     text-decoration: none;
 }
 
@@ -637,15 +636,15 @@ footer {
     text-decoration: underline;
 }
 
-.ror-filter-link {
-    color: var(--blue);
+.ror-filter-link -dark{
+    color: var(--blue-dark);
     text-decoration: none;
-    border-bottom: 1px dotted var(--blue);
+    border-bottom: 1px dotted var(--blue-dark);
 }
 
 .ror-filter-link:hover {
     text-decoration: none;
-    border-bottom: 1px solid var(--blue);
+    border-bottom: 1px solid var(--blue-dark);
     color: var(--black);
 }
 
@@ -1212,13 +1211,13 @@ main a:not(.btn):hover {
   border-color: var(--red-dark) !important;
 }
 
-.btn-outline-warning, .bg-warning, .bg-secondary, .btn-primary:hover {
+ .bg-info, .bg-secondary, .btn-primary:hover {
   color: var(--blue-dark) !important;
   background-color: var(--blue-soft) !important;
   border-color: var(--blue-border) !important;
 }
 
-.btn-outline-warning:hover, .btn-primary {
+.btn-primary {
   color: var(--blue-soft) !important;
   background-color: var(--blue-dark) !important;
   border-color: var(--blue-dark) !important;
@@ -1231,12 +1230,18 @@ main a:not(.btn):hover {
 
 .btn-outline-secondary:hover {
   color: var(--gray-soft);
-  background-color: var(--gray-light);
+  background-color: var(--gray-dark) !important;
+  border-color: var(--gray-dark) !important;
 }
 
-.bg-info {
+.btn-outline-warning, .bg-warning {
   color: var(--yellow-dark);
   background-color: var(--yellow-soft) !important;
   border-color: var(--yellow-border) !important;
 }
 
+.btn-outline-warning:hover {
+  color: var(--yellow-soft) !important;
+  background-color: var(--yellow-dark) !important;
+  border-color: var(--yellow-dark) !important;
+}
