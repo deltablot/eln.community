@@ -1,5 +1,3 @@
-//import { ModerationStatus } from './comments.js';
-
 // Intentionally high limit to support long user descriptions and multilingual content
 const DESCRIPTION_MAX_LENGTH = 10000;
 
@@ -2548,4 +2546,4 @@ document.addEventListener('DOMContentLoaded', function () {
   initializeModerationButtons();
 });
 
-export { updateCount };
+export { updateCount, ModerationStatus };

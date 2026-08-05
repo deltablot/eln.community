@@ -1,15 +1,7 @@
 import { formatDateTime } from './record-extractor.js';
-import { updateCount } from './index.js';
+import { updateCount, ModerationStatus } from './index.js';
 
-const COMMENT_MAX_LENGTH = 15000;
-
-const ModerationStatus = {
-  Pending: 0,
-  Approved: 1,
-  Rejected: 2,
-  Deleted: 3,
-  Flagged: 4,
-};
+const COMMENT_MAX_LENGTH = 5000;
 
 const ModerationStatusLabel = {
   [ModerationStatus.Pending]: 'Pending',
@@ -129,34 +121,38 @@ async function handleStatus(event) {
   if (!commentItem)
     return;
   const commentId = commentItem.dataset.commentId;
+  const actionBtn = event.target.closest('[data-action]');
+  if (!actionBtn)
+    return;
+  const action = actionBtn.dataset.action;
+    /*
   const approveBtn = event.target.closest('.btn-outline-success');
   const rejectBtn = event.target.closest('.btn-outline-danger');
   const deleteBtn = event.target.closest('.btn-outline-secondary');
   const flagBtn = event.target.closest('.btn-outline-warning');
-
-  if (approveBtn) {
-    await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/approve`, 'POST', 'approve');
-    await loadComments();
-    return;
-  }
-
-  if (rejectBtn) {
-    await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/reject`, 'POST', 'reject');
-    await loadComments();
-    return;
-  }
-
-  if (deleteBtn) {
-    await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}`, 'DELETE', 'delete');
-    state.comments = state.comments.filter((comment) => String(comment.id) !== commentId);
-    renderAllComments(state.comments);
-    return;
-  }
-
-  if (flagBtn) {
-    await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}/flag`, 'POST', 'flag');
-    await loadComments();
-    return;
+  */
+//TODO if/else ?
+    // if (action == 'approve') ...
+  switch (action) {
+    case 'approve':
+      await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/approve`, 'POST', 'approve');
+      await loadComments();
+      return;
+    case 'reject':
+      await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/reject`, 'POST', 'reject');
+      await loadComments();
+      return;
+    case 'delete':
+      await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}`, 'DELETE', 'delete');
+      state.comments = state.comments.filter((comment) => String(comment.id) !== commentId);
+      renderAllComments(state.comments);
+      return;
+    case 'flag':
+      await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}/flag`, 'POST', 'flag');
+      await loadComments();
+      return;
+    default:
+      return;
   }
 }
 

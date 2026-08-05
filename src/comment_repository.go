@@ -19,8 +19,7 @@ type CommentRepository interface {
 	MarkAsFlagged(ctx context.Context, id int64) error
 	DeleteComment(ctx context.Context, id int64) error
 	AuthorDeleteComment(ctx context.Context, id int64, commentatorOrcid string) error
-	CreateRecordsModerationLogs(ctx context.Context, action CommentsModerationLogs) error
-	GetRecordsModerationLogs(ctx context.Context, commentID int64) ([]CommentsModerationLogs, error)
+	CreateModerationLogs(ctx context.Context, action CommentsModerationLogs) error
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
 }
 
@@ -218,7 +217,7 @@ func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id 
 	return errorUpdateRow(commentErr, "comment", id, err, n)
 }
 
-func (r *PostgresCommentRepository) CreateRecordsModerationLogs(ctx context.Context, moderation CommentsModerationLogs) error {
+func (r *PostgresCommentRepository) CreateModerationLogs(ctx context.Context, moderation CommentsModerationLogs) error {
 	query := `INSERT INTO comments_moderation_logs (comment_id, reporter_orcid, previous_status, new_status)
 		 VALUES ($1, $2, $3, $4)`
 	_, err := r.db.ExecContext(ctx, query,
@@ -232,38 +231,6 @@ func (r *PostgresCommentRepository) CreateRecordsModerationLogs(ctx context.Cont
 	}
 
 	return nil
-}
-
-func (r *PostgresCommentRepository) GetRecordsModerationLogs(ctx context.Context, commentID int64) ([]CommentsModerationLogs, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, comment_id, reporter_orcid, previous_status, new_status, created_at, modified_at
-		FROM comments_moderation_logs
-		WHERE comment_id = $1
-		ORDER BY created_at DESC`, commentID)
-	if err != nil {
-		return nil, fmt.Errorf("%s get history moderation comment rows: %w", commentErr, err)
-	}
-	defer rows.Close()
-	var moderations []CommentsModerationLogs
-	for rows.Next() {
-		var moderation CommentsModerationLogs
-		if err := rows.Scan(
-			&moderation.ID,
-			&moderation.CommentID,
-			&moderation.ReporterOrcid,
-			&moderation.PreviousStatus,
-			&moderation.NewStatus,
-			&moderation.CreatedAt,
-			&moderation.ModifiedAt,
-		); err != nil {
-			return nil, fmt.Errorf("%s scan history moderation comment row: %w", commentErr, err)
-		}
-		moderations = append(moderations, moderation)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s read history moderation comment rows: %w", commentErr, err)
-	}
-
-	return moderations, rows.Err()
 }
 
 func (r *PostgresCommentRepository) GetAllOrcids(ctx context.Context, recordId string) ([]string, error) {

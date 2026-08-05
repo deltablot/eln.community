@@ -42,7 +42,7 @@ func (s *CommentModerationService) createLog(ctx context.Context, comment *Comme
 		PreviousStatus: comment.ModerationStatus,
 		NewStatus:      status,
 	}
-	if err := s.commentRepo.CreateRecordsModerationLogs(ctx, commentModeration); err != nil {
+	if err := s.commentRepo.CreateModerationLogs(ctx, commentModeration); err != nil {
 		return fmt.Errorf("create moderation log for comment %d: %w", comment.ID, err)
 	}
 	return nil

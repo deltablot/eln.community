@@ -335,11 +335,5 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request, m
 		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
 		return
 	}
-
-	if err := h.commentModerationService.createLog(ctx, comment, user.Orcid, StatusDeleted); err != nil {
-		errorLogger.Printf("%s failed to create moderation history for comment %d: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
-		return
-	}
 	writeJson(w, http.StatusOK, map[string]ModerationStatus{"status": StatusDeleted})
 }
