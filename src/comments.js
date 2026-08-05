@@ -16,9 +16,7 @@ const state = {
   comments: [],
 };
 
-function readInitialState() {
-  const commentsSection = document.getElementById('comments-section');
-
+function readInitialState(commentsSection) {
   state.recordId = commentsSection.dataset.recordId;
   state.currentUserOrcid = commentsSection.dataset.currentUserOrcid || null;
   state.isAdmin = commentsSection.dataset.currentUserIsAdmin === 'true';
@@ -263,7 +261,10 @@ async function loadComments() {
 }
 
 function initComments() {
-  readInitialState();
+  const commentsSection = document.getElementById('comments-section');
+  if (!commentsSection)
+    return;
+  readInitialState(commentsSection);
   bindCommentForm();
   loadComments();
   bindStatus();

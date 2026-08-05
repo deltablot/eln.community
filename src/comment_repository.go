@@ -33,7 +33,7 @@ func NewPostgresCommentRepository(db *sql.DB) *PostgresCommentRepository {
 
 const commentErr = "comment repository: failed to"
 
-func scanAllComments(rows *sql.Rows, fn string, data string) ([]Comment, error) {
+func scanAllComments(rows *sql.Rows, data string) ([]Comment, error) {
 	var comments []Comment
 	for rows.Next() {
 		var comment Comment
@@ -87,7 +87,10 @@ func (r *PostgresCommentRepository) GetByRecordID(ctx context.Context, recordID 
 		return nil, fmt.Errorf("%s get comments by record id %q: %w", commentErr, recordID, err)
 	}
 	defer rows.Close()
-	comments, err := scanAllComments(rows, "GetByRecordID", "comment")
+	comments, err := scanAllComments(rows, "comment")
+	if err != nil {
+		return nil, err
+	}
 
 	return comments, nil
 }
@@ -103,23 +106,31 @@ func (r *PostgresCommentRepository) GetApprovedByRecordID(ctx context.Context, r
 		return nil, fmt.Errorf("%s get approved comments by record id %q: %w", commentErr, recordID, err)
 	}
 	defer rows.Close()
-	comments, err := scanAllComments(rows, "GetApprovedByRecordID", "approved comment")
+	comments, err := scanAllComments(rows, "approved comment")
+	if err != nil {
+		return nil, err
+	}
 
 	return comments, nil
 }
 
+// Flagged comments intentionally remain visible to authenticated users.
+// This prevents duplicate reports and allows the UI to show that the comment has already been reported.
 func (r *PostgresCommentRepository) GetVisibleByRecordID(ctx context.Context, recordID string, commenterOrcid string) ([]Comment, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, record_id, commenter_name, commenter_orcid, content,
 		       moderation_status, created_at, modified_at
 		FROM comments
-		WHERE record_id = $1 AND (moderation_status = $2 OR moderation_status = $5 OR (commenter_orcid = $3 AND moderation_status != $4))
-	    ORDER BY created_at ASC`, recordID, StatusApproved, commenterOrcid, StatusDeleted, StatusFlagged)
+	WHERE record_id = $1 AND (moderation_status = $2 OR moderation_status = $3 OR (commenter_orcid = $4 AND moderation_status != $5))
+	ORDER BY created_at ASC`, recordID, StatusApproved, StatusFlagged, commenterOrcid, StatusDeleted)
 	if err != nil {
 		return nil, fmt.Errorf("%s get approved comments by record id %q: %w", commentErr, recordID, err)
 	}
 	defer rows.Close()
-	comments, err := scanAllComments(rows, "GetApprovedByRecordID", "visible comment")
+	comments, err := scanAllComments(rows, "visible comment")
+	if err != nil {
+		return nil, err
+	}
 
 	return comments, nil
 }
@@ -168,7 +179,10 @@ func (r *PostgresCommentRepository) GetPending(ctx context.Context, limit int, o
 		return nil, fmt.Errorf("%s get pending comments: %w", commentErr, err)
 	}
 	defer rows.Close()
-	comments, err := scanAllComments(rows, "GetPending", "pending comment")
+	comments, err := scanAllComments(rows, "pending comment")
+	if err != nil {
+		return nil, err
+	}
 
 	return comments, nil
 }
