@@ -58,9 +58,11 @@ func (s *CommentModerationService) moderate(ctx context.Context, comment *Commen
 	}
 	defer tx.Rollback()
 	if err := s.setCommentModerationStatus(ctx, tx, comment.ID, status); err != nil {
+		errorLogger.Printf("failed to update moderation status for comment %d: %v", comment.ID, err)
 		return err
 	}
 	if err := s.createLog(ctx, tx, comment, orcid, status); err != nil {
+		errorLogger.Printf("failed to create moderation history for comment %d: %v", comment.ID, err)
 		return err
 	}
 	return tx.Commit()

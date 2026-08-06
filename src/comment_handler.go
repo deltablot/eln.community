@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 )
@@ -68,7 +70,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	content, err := enforceLength(req.Content, commentMaxLength)
 	if err != nil {
 		errorLogger.Printf("%s %v", commentHandlerErr, err)
-		http.Error(w, "Error: ", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: comment must not be empty and must not exceed %d characters", commentMaxLength), http.StatusBadRequest)
 		return
 	}
 	comment := &Comment{
@@ -156,6 +158,20 @@ func (h *CommentHandler) getPendingComments(w http.ResponseWriter, r *http.Reque
 	writeJson(w, http.StatusOK, comments)
 }
 
+func (h *CommentHandler) requireCommentByID(w http.ResponseWriter, r *http.Request, commentID int64) (*Comment, error) {
+	comment, err := h.commentRepo.GetByID(r.Context(), commentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "comment not found", http.StatusNotFound)
+			return nil, err
+		}
+		errorLogger.Printf("%s failed to get comment %d: %v", commentHandlerErr, commentID, err)
+		http.Error(w, "failed to get comment", http.StatusInternalServerError)
+		return nil, err
+	}
+	return comment, nil
+}
+
 func (h *CommentHandler) createApprovedNotifications(ctx context.Context, commentID int64) error {
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
@@ -208,10 +224,8 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	commentID := params.commentID
-	comment, err := h.commentRepo.GetByID(ctx, commentID)
+	comment, err := h.requireCommentByID(w, r, commentID)
 	if err != nil {
-		errorLogger.Printf("%s failed to get comment %d before approval/rejection: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to get comment before approval/rejection", http.StatusInternalServerError)
 		return
 	}
 	if err := h.commentModerationService.moderate(ctx, comment, admin.Orcid, status); err != nil {
@@ -243,10 +257,8 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	}
 	recordID := params.recordID
 	commentID := params.commentID
-	comment, err := h.commentRepo.GetByID(ctx, commentID)
+	comment, err := h.requireCommentByID(w, r, commentID)
 	if err != nil {
-		errorLogger.Printf("%s failed to get comment %d before flagging: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to get comment before flagging", http.StatusInternalServerError)
 		return
 	}
 	if comment.RecordID != recordID {
@@ -297,10 +309,8 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request, m
 	recordID := params.recordID
 	commentID := params.commentID
 
-	comment, err := h.commentRepo.GetByID(ctx, commentID)
+	comment, err := h.requireCommentByID(w, r, commentID)
 	if err != nil {
-		errorLogger.Printf("%s failed to get comment %d before deletion: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to get comment before deletion", http.StatusInternalServerError)
 		return
 	}
 	if recordID != "" && comment.RecordID != recordID {

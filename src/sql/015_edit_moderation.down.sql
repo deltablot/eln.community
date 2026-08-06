@@ -2,7 +2,7 @@ BEGIN;
 
 -- Revert table records_revisions
 ALTER TABLE records_revisions
-    DROP CONSTRAINT records_versions_moderation_status_check;
+    DROP CONSTRAINT records_revisions_moderation_status_check;
 
 ALTER TABLE records_revisions
     ALTER COLUMN moderation_status DROP DEFAULT;
@@ -39,9 +39,9 @@ ALTER TABLE records
     USING CASE moderation_status
         WHEN 0 THEN 'pending'
         WHEN 1 THEN 'approved'
-        WHEN 2 THEN 'reject'
-        WHEN 3 THEN 'delete'
-        WHEN 4 THEN 'flag'
+        WHEN 2 THEN 'rejected'
+        WHEN 3 THEN 'deleted'
+        WHEN 4 THEN 'flagged'
     END;
 
 ALTER TABLE records
@@ -61,7 +61,8 @@ ALTER INDEX idx_comments_moderation_logs_comment
 ALTER INDEX idx_comments_moderation_logs_reporter
     RENAME TO idx_comment_moderation_actions_admin;
 
-COMMENT ON COLUMN comments.moderation_status IS NULL;
+COMMENT ON COLUMN comments_moderation_logs.previous_status IS NULL;
+COMMENT ON COLUMN comments_moderation_logs.new_status IS NULL;
 
 ALTER TABLE comments_moderation_logs
     DROP COLUMN new_status;

@@ -88,7 +88,6 @@ async function handleSubmit(event) {
     state.comments.push(newComment);
     commentInput.value = '';
     charCount.textContent = '0';
-    commentInput.required = false;
     renderAllComments(state.comments);
   } catch (err) {
     console.log('failed to create comment:', err);
