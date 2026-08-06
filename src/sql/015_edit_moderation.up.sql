@@ -21,12 +21,14 @@ ALTER TABLE records_moderation_logs ALTER COLUMN moderation_status TYPE INTEGER
     WHEN 'flagged' THEN 4
   END;
 ALTER TABLE records_moderation_logs ALTER COLUMN moderation_status SET NOT NULL;
-ALTER TABLE records_moderation_logs ALTER COLUMN moderation_status SET DEFAULT 0;
+--ALTER TABLE records_moderation_logs ALTER COLUMN moderation_status SET DEFAULT 0;
 ALTER TABLE records_moderation_logs ADD CONSTRAINT records_moderation_logs_moderation_status_check CHECK (moderation_status IN (0, 1, 2, 3, 4));
 
-ALTER TABLE records_moderation_logs ADD new_status INTEGER NOT NULL DEFAULT 0 CHECK (new_status IN (0, 1, 2, 3, 4));
-ALTER TABLE records_moderation_logs ADD previous_status INTEGER NOT NULL DEFAULT 0 CHECK (previous_status IN (0, 1, 2, 3, 4));
-ALTER TABLE records_moderation_logs ADD modified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+-- new_status, previous_status and modified_at are schema placeholders
+-- reserved for the future record moderation refactor.
+ALTER TABLE records_moderation_logs ADD new_status INTEGER CHECK (new_status IN (0, 1, 2, 3, 4));
+ALTER TABLE records_moderation_logs ADD previous_status INTEGER CHECK (previous_status IN (0, 1, 2, 3, 4));
+ALTER TABLE records_moderation_logs ADD modified_at TIMESTAMP WITH TIME ZONE;
 
 ALTER INDEX idx_moderation_actions_record RENAME TO idx_records_moderation_logs_record;
 ALTER INDEX idx_moderation_actions_admin RENAME TO idx_records_moderation_logs_admin;
@@ -56,7 +58,7 @@ ALTER TABLE comments_moderation_logs ALTER COLUMN new_status SET DEFAULT 0;
 ALTER TABLE comments_moderation_logs ADD CONSTRAINT comments_moderation_logs_new_status_check CHECK (new_status IN (0, 1, 2, 3, 4));
 -- Historical logs do not contain the previous status.
 -- New logs created by the application will explicitly provide it.
-ALTER TABLE comments_moderation_logs ADD previous_status INTEGER NOT NULL DEFAULT 0 CHECK (previous_status IN (0, 1, 2, 3, 4));
+ALTER TABLE comments_moderation_logs ADD previous_status INTEGER CHECK (previous_status IN (0, 1, 2, 3, 4));
 ALTER TABLE comments_moderation_logs ADD modified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 ALTER INDEX idx_comment_moderation_actions_comment RENAME TO idx_comments_moderation_logs_comment;
 ALTER INDEX idx_comment_moderation_actions_admin RENAME TO idx_comments_moderation_logs_reporter;

@@ -26,6 +26,8 @@ var moderationStatusName = map[ModerationStatus]string{
 	StatusFlagged:  "flagged",
 }
 
+// TODO: NewStatus, PreviousStatus and ModifiedAt are schema placeholders.
+// Do not use them until the moderation flow is refactored.
 type RecordsModerationLogs struct {
 	ID               int64
 	RecordID         string

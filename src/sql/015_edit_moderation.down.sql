@@ -62,6 +62,7 @@ COMMENT ON COLUMN comments_moderation_logs.new_status IS NULL;
 ALTER TABLE comments_moderation_logs DROP COLUMN previous_status;
 ALTER TABLE comments_moderation_logs DROP COLUMN modified_at;
 ALTER TABLE comments_moderation_logs DROP CONSTRAINT comments_moderation_logs_new_status_check;
+ALTER TABLE comments_moderation_logs ALTER COLUMN new_status DROP DEFAULT;
 ALTER TABLE comments_moderation_logs ALTER COLUMN new_status TYPE TEXT
   USING CASE new_status
     WHEN 0 THEN 'pending'
