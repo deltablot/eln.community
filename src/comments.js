@@ -131,7 +131,9 @@ async function handleStatus(event) {
       await loadComments();
       break;
     case 'reject':
-      alert('Are you sure you want to report this comment? Please note this action is reversible.')
+      if (!window.confirm('Are you sure you want to report this comment? Please note this action is reversible.')) {
+        return;
+      }
       await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/reject`, 'POST', 'reject');
       await loadComments();
       break;
@@ -141,7 +143,9 @@ async function handleStatus(event) {
         return;
       const url = state.isAdmin && comment.commenter_orcid !== state.currentUserOrcid ?
               `/api/v1/moderation/comments/${commentId}` : `/api/v1/records/${state.recordId}/comments/${commentId}`;
-      alert('Are you sure you want to permanently delete this comment? This action cannot be undone.')
+      if (!window.confirm('Are you sure you want to permanently delete this comment? This cannot be undone.')) {
+        return;
+      }
       await updateCommentStatus(url, 'DELETE', 'delete');
       state.comments = state.comments.filter(({ id }) => String(id) !== commentId);
       renderAllComments(state.comments);

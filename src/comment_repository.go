@@ -173,7 +173,7 @@ func (r *PostgresCommentRepository) GetPending(ctx context.Context, limit int, o
 	rows, err := r.db.QueryContext(ctx, `SELECT c.id, c.record_id, c.commenter_name, c.commenter_orcid, c.content, c.moderation_status, c.created_at, c.modified_at
 		FROM comments c
 		WHERE c.moderation_status = $1
-		ORDER BY c.created_at ASC
+		ORDER BY c.created_at ASC, c.id ASC
 		LIMIT $2 OFFSET $3`, StatusPending, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("%s get pending comments: %w", commentErr, err)

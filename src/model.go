@@ -21,7 +21,7 @@ type Record struct {
 	RorIds           []string         `json:"rors,omitempty"`
 	Categories       []Category       `json:"categories,omitempty"`
 	DownloadCount    int              `json:"download_count"`
-	ModerationStatus ModerationStatus `json:"moderation_status,omitempty"`
+	ModerationStatus ModerationStatus `json:"moderation_status"`
 	License          string           `json:"license"`
 	ArchivedAt       *time.Time       `json:"archived_at,omitempty"`
 	ArchiveReason    string           `json:"archive_reason,omitempty"`
@@ -48,7 +48,7 @@ type RecordsRevisions struct {
 	ModifiedAt       time.Time        `json:"modified_at"`
 	ArchivedAt       time.Time        `json:"archived_at"`
 	ChangeType       string           `json:"change_type"`
-	ModerationStatus ModerationStatus `json:"moderation_status,omitempty"`
+	ModerationStatus ModerationStatus `json:"moderation_status"`
 	License          string           `json:"license"`
 }
 

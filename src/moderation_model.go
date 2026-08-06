@@ -26,7 +26,6 @@ var moderationStatusName = map[ModerationStatus]string{
 	StatusFlagged:  "flagged",
 }
 
-// TODO: Use NewStatus, PreviousStatus, ModifiedAt when refactoring RecordsModerationLogs
 type RecordsModerationLogs struct {
 	ID               int64
 	RecordID         string
