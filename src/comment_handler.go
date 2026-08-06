@@ -211,16 +211,11 @@ func (h *CommentHandler) moderateComment(w http.ResponseWriter, r *http.Request,
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
 		errorLogger.Printf("%s failed to get comment %d before approval/rejection: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to moderate comment", http.StatusInternalServerError)
+		http.Error(w, "failed to get comment before approval/rejection", http.StatusInternalServerError)
 		return
 	}
-	if err := h.commentModerationService.setCommentModerationStatus(ctx, commentID, status); err != nil {
-		errorLogger.Printf("%s failed to update moderation status for comment %d: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to update moderation status for comment", http.StatusInternalServerError)
-		return
-	}
-	if err := h.commentModerationService.createLog(ctx, comment, admin.Orcid, status); err != nil {
-		errorLogger.Printf("%s failed to create moderation history for comment %d: %v", commentHandlerErr, commentID, err)
+	if err := h.commentModerationService.moderate(ctx, comment, admin.Orcid, status); err != nil {
+		errorLogger.Printf("%s failed to moderate comment %d: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to approve/reject comment", http.StatusInternalServerError)
 		return
 	}
@@ -251,7 +246,7 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
 		errorLogger.Printf("%s failed to get comment %d before flagging: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to flag comment", http.StatusInternalServerError)
+		http.Error(w, "failed to get comment before flagging", http.StatusInternalServerError)
 		return
 	}
 	if comment.RecordID != recordID {
@@ -259,13 +254,8 @@ func (h *CommentHandler) flagComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "comment does not belong to record", http.StatusNotFound)
 		return
 	}
-	if err := h.commentModerationService.setCommentModerationStatus(ctx, commentID, StatusFlagged); err != nil {
+	if err := h.commentModerationService.moderate(ctx, comment, user.Orcid, StatusFlagged); err != nil {
 		errorLogger.Printf("%s failed to flag comment %d: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to update moderation status for comment", http.StatusInternalServerError)
-		return
-	}
-	if err := h.commentModerationService.createLog(ctx, comment, user.Orcid, StatusFlagged); err != nil {
-		errorLogger.Printf("%s failed to create moderation history for comment %d: %v", commentHandlerErr, commentID, err)
 		http.Error(w, "failed to flag comment", http.StatusInternalServerError)
 		return
 	}
@@ -294,7 +284,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request, m
 		user, err = requireAdminUser(w, r, h.adminRepo)
 	default:
 		errorLogger.Printf("%s unsupported comment deletion mode: %d", commentHandlerErr, mode)
-		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
+		http.Error(w, "unsupported comment deletion mode", http.StatusInternalServerError)
 		return
 	}
 	if err != nil {
@@ -310,7 +300,7 @@ func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request, m
 	comment, err := h.commentRepo.GetByID(ctx, commentID)
 	if err != nil {
 		errorLogger.Printf("%s failed to get comment %d before deletion: %v", commentHandlerErr, commentID, err)
-		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
+		http.Error(w, "failed to get comment before deletion", http.StatusInternalServerError)
 		return
 	}
 	if recordID != "" && comment.RecordID != recordID {

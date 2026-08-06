@@ -450,7 +450,7 @@ func main() {
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
 	commentRepo := NewPostgresCommentRepository(db)
 	notificationService := NewNotificationService(adminRepo, emailQueueRepo, commentRepo)
-	commentModerationService := NewCommentModerationService(commentRepo)
+	commentModerationService := NewCommentModerationService(db, commentRepo)
 	emailSender, err := NewEmailSender()
 	if err != nil {
 		errorLogger.Fatalf("Error: failed to configure email sender: %v", err)
@@ -522,7 +522,6 @@ func main() {
 	mux.HandleFunc("GET /api/v1/moderation/comments", commentHandler.getPendingComments)
 	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/approve", commentHandler.approveComment)
 	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", commentHandler.rejectComment)
-
 	mux.HandleFunc("POST /api/v1/records/{recordID}/comments/{commentID}/flag", commentHandler.flagComment)
 	mux.HandleFunc("DELETE /api/v1/records/{recordID}/comments/{commentID}", commentHandler.deleteOwnComment)
 	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteCommentAsModerator)

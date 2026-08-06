@@ -32,7 +32,6 @@ func (r *Record) IsArchived() bool {
 	return r.ArchivedAt != nil
 }
 
-// RecordsLogs represents a historical version of a record
 type RecordsRevisions struct {
 	HistoryId        int64            `json:"history_id"`
 	RecordId         string           `json:"record_id"`

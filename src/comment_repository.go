@@ -14,12 +14,12 @@ type CommentRepository interface {
 	GetByID(ctx context.Context, id int64) (*Comment, error)
 	CountPending(ctx context.Context) (int, error)
 	GetPending(ctx context.Context, limit int, offset int) ([]Comment, error)
-	MarkAsApproved(ctx context.Context, id int64) error
-	MarkAsRejected(ctx context.Context, id int64) error
-	MarkAsFlagged(ctx context.Context, id int64) error
+	MarkAsApproved(ctx context.Context, tx *sql.Tx, id int64) error
+	MarkAsRejected(ctx context.Context, tx *sql.Tx, id int64) error
+	MarkAsFlagged(ctx context.Context, tx *sql.Tx, id int64) error
 	DeleteComment(ctx context.Context, id int64) error
 	AuthorDeleteComment(ctx context.Context, id int64, commentatorOrcid string) error
-	CreateModerationLogs(ctx context.Context, action CommentsModerationLogs) error
+	CreateModerationLogs(ctx context.Context, tx *sql.Tx, action CommentsModerationLogs) error
 	GetAllOrcids(ctx context.Context, recordId string) ([]string, error)
 }
 
@@ -187,16 +187,16 @@ func (r *PostgresCommentRepository) GetPending(ctx context.Context, limit int, o
 	return comments, nil
 }
 
-func (r *PostgresCommentRepository) MarkAsApproved(ctx context.Context, id int64) error {
-	return r.setModerationIfNotDeleted(ctx, id, StatusApproved)
+func (r *PostgresCommentRepository) MarkAsApproved(ctx context.Context, tx *sql.Tx, id int64) error {
+	return r.setModerationIfNotDeleted(ctx, tx, id, StatusApproved)
 }
 
-func (r *PostgresCommentRepository) MarkAsRejected(ctx context.Context, id int64) error {
-	return r.setModerationIfNotDeleted(ctx, id, StatusRejected)
+func (r *PostgresCommentRepository) MarkAsRejected(ctx context.Context, tx *sql.Tx, id int64) error {
+	return r.setModerationIfNotDeleted(ctx, tx, id, StatusRejected)
 }
 
-func (r *PostgresCommentRepository) setModerationIfNotDeleted(ctx context.Context, id int64, status ModerationStatus) error {
-	res, err := r.db.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status != $3`, status, id, StatusDeleted)
+func (r *PostgresCommentRepository) setModerationIfNotDeleted(ctx context.Context, tx *sql.Tx, id int64, status ModerationStatus) error {
+	res, err := tx.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status != $3`, status, id, StatusDeleted)
 	if err != nil {
 		return fmt.Errorf("%s set moderation status for comment %d: %w", commentErr, id, err)
 	}
@@ -204,8 +204,8 @@ func (r *PostgresCommentRepository) setModerationIfNotDeleted(ctx context.Contex
 	return errorUpdateRow(commentErr, "comment", id, err, n)
 }
 
-func (r *PostgresCommentRepository) MarkAsFlagged(ctx context.Context, id int64) error {
-	res, err := r.db.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status = $3`, StatusFlagged, id, StatusApproved)
+func (r *PostgresCommentRepository) MarkAsFlagged(ctx context.Context, tx *sql.Tx, id int64) error {
+	res, err := tx.ExecContext(ctx, `UPDATE comments SET moderation_status = $1, modified_at = NOW() WHERE id = $2 AND moderation_status = $3`, StatusFlagged, id, StatusApproved)
 	if err != nil {
 		return fmt.Errorf("%s mark comment %d as flagged: %w", commentErr, id, err)
 	}
@@ -231,10 +231,10 @@ func (r *PostgresCommentRepository) AuthorDeleteComment(ctx context.Context, id 
 	return errorUpdateRow(commentErr, "comment", id, err, n)
 }
 
-func (r *PostgresCommentRepository) CreateModerationLogs(ctx context.Context, moderation CommentsModerationLogs) error {
+func (r *PostgresCommentRepository) CreateModerationLogs(ctx context.Context, tx *sql.Tx, moderation CommentsModerationLogs) error {
 	query := `INSERT INTO comments_moderation_logs (comment_id, reporter_orcid, previous_status, new_status)
 		 VALUES ($1, $2, $3, $4)`
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := tx.ExecContext(ctx, query,
 		moderation.CommentID,
 		moderation.ReporterOrcid,
 		moderation.PreviousStatus,

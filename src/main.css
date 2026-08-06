@@ -636,7 +636,7 @@ footer {
     text-decoration: underline;
 }
 
-.ror-filter-link -dark{
+.ror-filter-link {
     color: var(--blue-dark);
     text-decoration: none;
     border-bottom: 1px dotted var(--blue-dark);
