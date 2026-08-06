@@ -285,6 +285,8 @@ func (h *CommentHandler) deleteCommentAsModerator(w http.ResponseWriter, r *http
 	h.deleteComment(w, r, deleteAsAdmin)
 }
 
+// For now, comment deletion is intentionally permanent and is not recorded in the
+// moderation log. Revisit this behavior when deletion auditing is introduced.
 func (h *CommentHandler) deleteComment(w http.ResponseWriter, r *http.Request, mode deletionMode) {
 	ctx := r.Context()
 	var user *User

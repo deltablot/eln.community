@@ -21,7 +21,6 @@ ALTER TABLE records_moderation_logs ALTER COLUMN moderation_status TYPE INTEGER
     WHEN 'flagged' THEN 4
   END;
 ALTER TABLE records_moderation_logs ALTER COLUMN moderation_status SET NOT NULL;
---ALTER TABLE records_moderation_logs ALTER COLUMN moderation_status SET DEFAULT 0;
 ALTER TABLE records_moderation_logs ADD CONSTRAINT records_moderation_logs_moderation_status_check CHECK (moderation_status IN (0, 1, 2, 3, 4));
 
 -- new_status, previous_status and modified_at are schema placeholders
@@ -54,7 +53,6 @@ ALTER TABLE comments_moderation_logs ALTER COLUMN new_status TYPE INTEGER
     WHEN 'flagged' THEN 4
   END;
 ALTER TABLE comments_moderation_logs ALTER COLUMN new_status SET NOT NULL;
-ALTER TABLE comments_moderation_logs ALTER COLUMN new_status SET DEFAULT 0;
 ALTER TABLE comments_moderation_logs ADD CONSTRAINT comments_moderation_logs_new_status_check CHECK (new_status IN (0, 1, 2, 3, 4));
 -- Historical logs do not contain the previous status.
 -- New logs created by the application will explicitly provide it.

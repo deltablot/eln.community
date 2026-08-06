@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// TODO: Use those helpers for email errors
+// TODO: Use macro instead: https://github.com/golang/go/issues/12876#issuecomment-146878684
 func errorSource(fn, errMsg string) string {
 	return "Error: " + fn + "(): " + errMsg
 }
