@@ -28,16 +28,8 @@ func NewModerationHandler(moderationRepo ModerationRepository, adminRepo AdminRe
 func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Check if user is authenticated and is admin
-	orcid, ok := sessionManager.Get(ctx, "orcid").(string)
-	if !ok {
-		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
-		return
-	}
-
-	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
-	if err != nil || !isAdmin {
-		http.Error(w, "Admin access required", http.StatusForbidden)
+	admin, err := requireAdminUser(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 
@@ -57,6 +49,7 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 	items, totalCount, err := h.moderationRepo.GetPendingItems(ctx, pageSize, offset)
 
 	if err != nil {
+		errorLogger.Printf("Error: %s", err)
 		http.Error(w, "Error fetching pending items", http.StatusInternalServerError)
 		return
 	}
@@ -67,19 +60,13 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 	}
 
 	// Get recent moderation history
-	var history []ModerationHistoryEntry
+	var history []RecordsModerationLogsEntry
 	if repo, ok := h.moderationRepo.(*PostgresModerationRepository); ok {
-		history, err = repo.GetRecentModerationHistory(ctx, 50)
+		history, err = repo.GetRecentRecordsModerationLogs(ctx, 50)
 		if err != nil {
 			errorLogger.Printf("Error fetching moderation history: %v", err)
 			// Don't fail the request, just show empty history
 		}
-	}
-
-	name, _ := sessionManager.Get(ctx, "name").(string)
-	user := &User{
-		Name:  name,
-		Orcid: orcid,
 	}
 
 	funcMap := template.FuncMap{
@@ -101,14 +88,14 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 		App         App
 		User        *User
 		Items       []PendingItem
-		History     []ModerationHistoryEntry
+		History     []RecordsModerationLogsEntry
 		CurrentPage string
 		Page        int
 		TotalPages  int
 		TotalCount  int
 	}{
 		App:         app,
-		User:        user,
+		User:        admin,
 		Items:       items,
 		History:     history,
 		CurrentPage: "moderation",
@@ -127,17 +114,8 @@ func (h *ModerationHandler) GetModerationQueue(w http.ResponseWriter, r *http.Re
 // ModerateRecord handles POST /api/v1/moderation/{id} - Approve/reject/flag a record
 func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// Check if user is authenticated and is admin
-	orcid, ok := sessionManager.Get(ctx, "orcid").(string)
-	if !ok {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
-	if err != nil || !isAdmin {
-		http.Error(w, "Admin access required", http.StatusForbidden)
+	admin, err := requireAdminUser(w, r, h.adminRepo)
+	if err != nil {
 		return
 	}
 
@@ -156,12 +134,11 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	// Parse request body
 	var req struct {
-		Action string `json:"action"` // "approve", "reject", "flag"
-		Reason string `json:"reason"`
+		ModerationStatus string `json:"action"` // "approve", "reject", "flag"
+		Reason           string `json:"reason"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := requireJSONBody(w, r, &req); err != nil {
 		return
 	}
 
@@ -171,11 +148,10 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	// Try to get pending version name first
 	var pendingName string
 	err = h.moderationRepo.(*PostgresModerationRepository).db.QueryRowContext(ctx,
-		`SELECT name FROM record_history
-		 WHERE record_id = $1 AND moderation_status = 'pending' AND change_type = 'PENDING_VERSION'
+		`SELECT name FROM records_revisions
+		 WHERE record_id = $1 AND moderation_status = $2 AND change_type = 'PENDING_VERSION'
 		 ORDER BY version DESC LIMIT 1`,
-		id,
-	).Scan(&pendingName)
+		id, StatusPending).Scan(&pendingName)
 	if err == nil {
 		versionName = pendingName
 	} else {
@@ -195,12 +171,13 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 
 	uploaderOrcid, err := h.recordRepo.GetOwnerOrcid(ctx, id)
 
-	switch req.Action {
+	switch req.ModerationStatus {
 	case "approve":
 		newStatus = StatusApproved
 
 		// Check if there's a pending version to approve
 		if err := h.moderationRepo.ApprovePendingVersion(ctx, id); err != nil {
+			errorLogger.Printf("handler: failed to moderate: %v", err)
 			http.Error(w, "Error approving record/version", http.StatusInternalServerError)
 			return
 		}
@@ -230,21 +207,21 @@ func (h *ModerationHandler) ModerateRecord(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Log moderation action
-	action := ModerationAction{
-		RecordID:    id,
-		AdminOrcid:  orcid,
-		Action:      req.Action,
-		Reason:      req.Reason,
-		VersionName: versionName,
+	action := RecordsModerationLogs{
+		RecordID:         id,
+		AdminOrcid:       admin.Orcid,
+		ModerationStatus: newStatus,
+		Reason:           req.Reason,
+		VersionName:      versionName,
 	}
-	if err := h.moderationRepo.LogModerationAction(ctx, action); err != nil {
+	if err := h.moderationRepo.LogRecordsModerationLogs(ctx, action); err != nil {
 		errorLogger.Printf("Error logging moderation action: %v", err)
 		// Don't fail the request if logging fails
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":  string(newStatus),
+	json.NewEncoder(w).Encode(map[string]any{
+		"status":  newStatus,
 		"message": "Record moderation status updated successfully",
 	})
 }

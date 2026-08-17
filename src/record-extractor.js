@@ -49,7 +49,7 @@ function getMainDataset(roCrateData) {
 function formatDateTime(value) {
     const date = new Date(value);
     const hasTime = value.includes('T');
-    let options = {year: 'numeric', month: 'long', day: 'numeric' };
+    let options = { year: 'numeric', month: 'long', day: 'numeric' };
 
     if (hasTime) {
       options.hour = '2-digit';
@@ -63,7 +63,7 @@ function renderCardHeader(title, card, badge = '') {
     return `
       <div class="d-flex align-items-center flex-wrap gap-2">
         <strong>${title} ${card}</strong>
-        ${badge ? `<span class="badge bg-secondary small">${badge}</span>` : ''}
+        ${badge ? `<span class="badge bg-secondary">${badge}</span>` : ''}
       </div>`;
 }
 
@@ -325,6 +325,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     extractRecordData,
     renderData,
+    formatDateTime,
   };
 }
 

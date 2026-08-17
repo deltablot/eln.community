@@ -33,6 +33,8 @@ const (
 	descriptionMaxLength = 10000
 )
 
+const recordHandlerErr = "record handler:"
+
 type RecordHandler struct {
 	recordRepo          RecordRepository
 	categoryRepo        CategoryRepository
@@ -56,22 +58,16 @@ func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryR
 // CreateRecord handles POST /api/v1/records - Create a new record
 func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var user *User
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	user_name, _ := sessionManager.Get(ctx, "name").(string)
-	if okO {
-		user = &User{
-			Name:  user_name,
-			Orcid: orcid,
-		}
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
+		return
 	}
 
 	// Limit the request body size to 32MB
 	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
 
 	// Parse the multipart form with a maximum memory of 10 MB for file parts.
-	err := r.ParseMultipartForm(10 << 20) // 10MB
-	if err != nil {
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		http.Error(w, "Error parsing multipart form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -765,6 +761,11 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	user, isAuthenticated := userFromSession(ctx)
+	isAdmin, authErr := currentUserIsAdmin(w, r, h.adminRepo)
+	if authErr != nil {
+		return
+	}
 
 	// Check if version query parameter is provided
 	versionParam := r.URL.Query().Get("version")
@@ -795,24 +796,14 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 
 		// Check permissions for non-approved versions
 		if historyRecord.ModerationStatus != StatusApproved {
-			// Get current user
-			orcid, isAuthenticated := sessionManager.Get(ctx, "orcid").(string)
-			if !isAuthenticated {
-				http.Error(w, "This version is not publicly available", http.StatusForbidden)
-				return
-			}
-
-			// Check if user is admin or owner
-			isAdmin, _ := h.adminRepo.IsAdmin(ctx, orcid)
-			isOwner := historyRecord.UploaderOrcid == orcid
-
+			isOwner := isAuthenticated && historyRecord.UploaderOrcid == user.Orcid
 			if !isAdmin && !isOwner {
 				http.Error(w, "This version is not publicly available", http.StatusForbidden)
 				return
 			}
 		}
 
-		// Convert RecordHistory to Record for display
+		// Convert RecordsRevisions to Record for display
 		record = &Record{
 			Id:               historyRecord.RecordId,
 			Name:             historyRecord.Name,
@@ -845,25 +836,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	record.MetadataPretty = prettyJSON(record.Metadata)
 
 	// Check if current user can edit this record
-	ctx = r.Context()
-	canEdit := false
-	var user *User
-	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
-		name, _ := sessionManager.Get(ctx, "name").(string)
-		user = &User{
-			Name:  name,
-			Orcid: orcid,
-		}
-		// User owns the record or is admin
-		if record.UploaderOrcid == orcid {
-			canEdit = true
-		} else {
-			// Check if user is admin
-			if isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid); err == nil && isAdmin {
-				canEdit = true
-			}
-		}
-	}
+	canEdit := isAuthenticated && (record.UploaderOrcid == user.Orcid || isAdmin)
 
 	isArchived := record.IsArchived()
 
@@ -874,6 +847,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 		CanArchive:     canEdit,                                 // Same permission as edit (owner or admin)
 		IsArchived:     isArchived,
 		User:           user,
+		IsAdmin:        isAdmin,
 		CurrentPage:    "",
 		IsHistorical:   isHistorical,
 		HistoryVersion: historyVersion,
@@ -1385,18 +1359,11 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 
 	// Get current user info
 	ctx := r.Context()
-	var user *User
-	var isAdmin bool
-	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
-		name, _ := sessionManager.Get(ctx, "name").(string)
-		user = &User{
-			Name:  name,
-			Orcid: orcid,
-		}
-		// Check if user is admin
-		if adminStatus, err := h.adminRepo.IsAdmin(ctx, orcid); err == nil {
-			isAdmin = adminStatus
-		}
+	user, _ := userFromSession(ctx)
+
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
+	if err != nil {
+		return
 	}
 
 	// Get style nonce from context (set by browseSecurityHeaders middleware)
@@ -1451,10 +1418,8 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id string) {
 	ctx := r.Context()
 
-	// Check if user is authenticated
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	if !okO {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
 		return
 	}
 
@@ -1469,14 +1434,12 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	// Check if user owns this record or is admin
-	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
 	if err != nil {
-		http.Error(w, "Error checking admin status", http.StatusInternalServerError)
 		return
 	}
 
-	if existingRecord.UploaderOrcid != orcid && !isAdmin {
+	if existingRecord.UploaderOrcid != user.Orcid && !isAdmin {
 		http.Error(w, "You can only edit your own records", http.StatusForbidden)
 		return
 	}
@@ -1617,7 +1580,7 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 		// Get next version number
 		var nextVersion int
 		err = tx.QueryRowContext(ctx,
-			`SELECT COALESCE(MAX(version), 0) + 1 FROM record_history WHERE record_id = $1`,
+			`SELECT COALESCE(MAX(version), 0) + 1 FROM records_revisions WHERE record_id = $1`,
 			updatedRecord.Id,
 		).Scan(&nextVersion)
 		if err != nil {
@@ -1627,11 +1590,11 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 
 		// Insert new version into history with pending status
 		_, err = tx.ExecContext(ctx,
-			`INSERT INTO record_history (
+			`INSERT INTO records_revisions (
 				record_id, version, s3_key, name, description, sha256, metadata,
 				uploader_name, uploader_orcid, download_count,
 				created_at, modified_at, moderation_status, change_type
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, $10, 'pending', 'PENDING_VERSION')`,
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, $10, 0, 'PENDING_VERSION')`,
 			updatedRecord.Id, nextVersion, newS3Key, updatedRecord.Name, updatedRecord.Description, updatedRecord.Sha256, updatedRecord.Metadata,
 			existingRecord.UploaderName, existingRecord.UploaderOrcid, existingRecord.CreatedAt,
 		)
@@ -1718,11 +1681,8 @@ func (h *RecordHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id 
 // ArchiveRecord handles archive (soft delete) requests for a record
 func (h *RecordHandler) ArchiveRecord(w http.ResponseWriter, r *http.Request, id string) {
 	ctx := r.Context()
-
-	// Check if user is authenticated
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	if !okO {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
 		return
 	}
 
@@ -1737,14 +1697,12 @@ func (h *RecordHandler) ArchiveRecord(w http.ResponseWriter, r *http.Request, id
 		return
 	}
 
-	// Check if user owns this record or is admin
-	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
 	if err != nil {
-		http.Error(w, "Error checking admin status", http.StatusInternalServerError)
 		return
 	}
 
-	if existingRecord.UploaderOrcid != orcid && !isAdmin {
+	if existingRecord.UploaderOrcid != user.Orcid && !isAdmin {
 		http.Error(w, "You can only archive your own records", http.StatusForbidden)
 		return
 	}
@@ -1770,11 +1728,8 @@ func (h *RecordHandler) ArchiveRecord(w http.ResponseWriter, r *http.Request, id
 // UnarchiveRecord handles unarchive requests for a record
 func (h *RecordHandler) UnarchiveRecord(w http.ResponseWriter, r *http.Request, id string) {
 	ctx := r.Context()
-
-	// Check if user is authenticated
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	if !okO {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
 		return
 	}
 
@@ -1789,14 +1744,12 @@ func (h *RecordHandler) UnarchiveRecord(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// Check if user owns this record or is admin
-	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
 	if err != nil {
-		http.Error(w, "Error checking admin status", http.StatusInternalServerError)
 		return
 	}
 
-	if existingRecord.UploaderOrcid != orcid && !isAdmin {
+	if existingRecord.UploaderOrcid != user.Orcid && !isAdmin {
 		http.Error(w, "You can only unarchive your own records", http.StatusForbidden)
 		return
 	}
@@ -1815,18 +1768,9 @@ func (h *RecordHandler) UnarchiveRecord(w http.ResponseWriter, r *http.Request, 
 // GetEditPage handles GET requests for the edit form
 func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id string) {
 	ctx := r.Context()
-
-	// Check if user is authenticated
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	if !okO {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
+	user, err := requireAuthenticatedUser(w, r)
+	if err != nil {
 		return
-	}
-
-	name, _ := sessionManager.Get(ctx, "name").(string)
-	user := &User{
-		Name:  name,
-		Orcid: orcid,
 	}
 
 	// Get the existing record
@@ -1840,14 +1784,11 @@ func (h *RecordHandler) GetEditPage(w http.ResponseWriter, r *http.Request, id s
 		return
 	}
 
-	// Check if user owns this record or is admin
-	isAdmin, err := h.adminRepo.IsAdmin(ctx, orcid)
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
 	if err != nil {
-		http.Error(w, "Error checking admin status", http.StatusInternalServerError)
 		return
 	}
-
-	if record.UploaderOrcid != orcid && !isAdmin {
+	if record.UploaderOrcid != user.Orcid && !isAdmin {
 		http.Redirect(w, r, fmt.Sprintf("/record/%s", id), http.StatusSeeOther)
 		return
 	}

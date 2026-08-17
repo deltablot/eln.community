@@ -21,7 +21,7 @@ type Record struct {
 	RorIds           []string         `json:"rors,omitempty"`
 	Categories       []Category       `json:"categories,omitempty"`
 	DownloadCount    int              `json:"download_count"`
-	ModerationStatus ModerationStatus `json:"moderation_status,omitempty"`
+	ModerationStatus ModerationStatus `json:"moderation_status"`
 	License          string           `json:"license"`
 	ArchivedAt       *time.Time       `json:"archived_at,omitempty"`
 	ArchiveReason    string           `json:"archive_reason,omitempty"`
@@ -32,8 +32,7 @@ func (r *Record) IsArchived() bool {
 	return r.ArchivedAt != nil
 }
 
-// RecordHistory represents a historical version of a record
-type RecordHistory struct {
+type RecordsRevisions struct {
 	HistoryId        int64            `json:"history_id"`
 	RecordId         string           `json:"record_id"`
 	Version          int              `json:"version"`
@@ -49,7 +48,7 @@ type RecordHistory struct {
 	ModifiedAt       time.Time        `json:"modified_at"`
 	ArchivedAt       time.Time        `json:"archived_at"`
 	ChangeType       string           `json:"change_type"`
-	ModerationStatus ModerationStatus `json:"moderation_status,omitempty"`
+	ModerationStatus ModerationStatus `json:"moderation_status"`
 	License          string           `json:"license"`
 }
 
@@ -80,6 +79,7 @@ type RecordPageData struct {
 	CanArchive     bool
 	IsArchived     bool
 	User           *User
+	IsAdmin        bool
 	CurrentPage    string
 	IsHistorical   bool
 	HistoryVersion int

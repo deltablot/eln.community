@@ -21,7 +21,7 @@
 </div>
 {{ end }}
 
-<div class="d-flex justify-content-between align-items-start mb-3">
+<div class="d-flex justify-content-between align-items-start mt-5 mb-3">
   <div>
     <h1>{{ .Record.Name }}</h1>
     <p>{{ .Record.Description.String }}</p>
@@ -50,7 +50,7 @@
       <span class="badge bg-secondary" id="version-count"></span>
     </div>
     <div class="col-auto">
-      <button class="btn btn-outline-primary btn-sm" id="get-permalink-btn" title="Get a permanent link to this exact version">
+      <button class="btn btn-outline-success btn-sm" id="get-permalink-btn" title="Get a permanent link to this exact version">
         <i class="bi bi-link-45deg"></i> Get permalink
       </button>
     </div>
@@ -63,14 +63,14 @@
   <div>
     <div class="mb-2">
       <i class="bi bi-calendar3 me-2 text-secondary"></i>
-      <span class="text-muted">Created at</span> 
+      <span class="text-muted">Created at</span>
       <span class="fw-medium">{{ .Record.CreatedAt }}</span>
     </div>
     <div class="d-flex align-items-center flex-wrap mb-2">
       <i class="bi bi-person me-2 text-secondary"></i>
       <span class="text-muted me-2">Uploaded by</span>
       <span>
-        <a href="https://orcid.org/{{ .Record.UploaderOrcid }}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">{{ .Record.UploaderName }}</a>
+        <a href="https://orcid.org/{{ .Record.UploaderOrcid }}" target="_blank" rel="noopener noreferrer">{{ .Record.UploaderName }}</a>
       </span>
     </div>
     {{- if .Record.RorIds }}
@@ -111,15 +111,15 @@
   <div class="d-flex align-items-center gap-3">
     <span>Downloads: <span id="download-count">{{ .Record.DownloadCount }}</span></span>
     {{ if not .IsArchived }}
-    <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.json">Download Metadata</a>
-    <a class="btn btn-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.eln" id="download-eln-btn" data-record-id="{{ .Record.Id }}">Download ELN File</a>
+    <a class="btn btn-outline-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.json">Download Metadata</a>
+    <a class="btn btn-outline-success btn-sm" href="/api/v1/record/{{ .Record.Id }}.eln" id="download-eln-btn" data-record-id="{{ .Record.Id }}">Download ELN File</a>
     {{ end }}
   </div>
 </div>
 <div id="ro-crate-viewer">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-      <button class="btn btn-primary btn-sm" id="view-formatted">Formatted View</button>
+      <button class="btn btn-primary btn-sm me-2" id="view-formatted">Formatted View</button>
       <button class="btn btn-outline-secondary btn-sm" id="view-raw">Raw JSON</button>
     </div>
   </div>
@@ -147,7 +147,7 @@
   <div class="card-body">
     <h5 class="card-title">License</h5>
     <p class="card-text mb-2">
-      This entry is licensed under 
+      This entry is licensed under
       {{ if eq .Record.License "CC-BY-4.0" }}
       <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">
         <strong>Creative Commons Attribution 4.0 International (CC BY 4.0)</strong>
@@ -166,58 +166,102 @@
   </div>
 </div>
 
-<hr class="section-divider mt-4">
-
 <!-- Comments Section -->
-<div class="mt-4" id="comments-section">
+<hr class="section-divider mt-4">
+<section class="mt-4" id="comments-section" data-record-id="{{ .Record.Id }}" data-current-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}" data-current-user-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}">
   <h4 class="mb-3">
     <i class="bi bi-chat-left-text me-2"></i>Comments
-    <span class="badge bg-secondary" id="comment-count">0</span>
+    <span class="badge bg-secondary" id="comment-count"></span>
   </h4>
 
+  <div id="comments-list">
+    <div class="text-center p-4" id="comments-loading">
+      <div class="spinner-border spinner-border-sm" role="status">
+        <span class="visually-hidden">Loading comments</span>
+      </div>
+      <p class="mt-2 text-muted">Loading comments</p>
+    </div>
+  </div>
+
+  <template id="comment-template">
+    <div class="card mb-3 comment-item rounded-3" data-comment-id="">
+      <div class="card-body">
+        <div class="flex-column justify-content-between align-items-start mb-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <strong><a class="comment-author-link fs-5 fw-bold" target="_blank" rel="noopener noreferrer"></a></strong>
+            <span class="comment-status-badge badge ms-2 d-none p-2 rounded-3"></span>
+          </div>
+          <div>
+            <small class="comment-created-at text-muted"></small>
+          </div>
+          <p class="comment-content card-text gap-2 mt-2 fw-normal" style="white-space: pre-wrap;"></p>
+          <details class="comment-actions gap-2 mt-2 d-none">
+            <summary>Modify status<i class="bi bi-chevron-down chevron"></i></summary>
+            <div class="d-flex gap-2 flex-wrap mt-2">
+              <button type="button" class="btn btn-outline-success btn-sm fw-bold" data-action="approve">
+                <i class="bi bi-check-lg"></i> Approve
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm fw-bold" data-action="reject">
+                <i class="bi bi-x-lg"></i> Reject
+              </button>
+              <button type="button" class="btn btn-outline-warning btn-sm fw-bold" data-action="flag">
+                <i class="bi bi-flag"></i> Report
+              </button>
+              <button type="button" class="btn btn-outline-secondary btn-sm fw-bold" data-action="delete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false"> <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/> <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                </svg> Delete
+              </button>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="comments-empty-template">
+    <div class="text-center p-4 text-muted">
+      <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
+      <p class="mt-2">No comments yet. Be the first to comment!</p>
+    </div>
+  </template>
+
+  <template id="comments-error-template">
+    <div class="alert alert-danger">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      <span class="comments-error-message">Failed to load comments. Please try again later.</span>
+    </div>
+  </template>
+
   {{ if .User }}
-  <!-- Comment Form -->
   <div class="card mb-4">
     <div class="card-body">
-      <h5 class="card-title">Add a Comment</h5>
+      <h5 class="card-title mb-3">Add a Comment</h5>
       <form id="comment-form">
         <div class="mb-3">
-          <label for="comment-content" class="form-label">Your comment (plain text only)</label>
-          <textarea 
-            class="form-control" 
-            id="comment-content" 
-            rows="4" 
-            maxlength="5000" 
-            placeholder="Share your thoughts about this entry..."
-            required></textarea>
+          <label for="comment-input" class="form-label fw-bold required-label mt-3 mb-1">
+            Your comment <span class="smallgray">(required)</span>
+          </label>
+          <textarea class="form-control" id="comment-input" rows="4" maxlength="5000" placeholder="Comment this entry."></textarea>
           <div class="form-text">
-            <span id="char-count">0</span> / 5000 characters
+            <span id="char-count">0</span> / <span id='comment-max'></span> characters
           </div>
         </div>
-        <button type="submit" class="btn btn-primary" id="submit-comment-btn">
-          <i class="bi bi-send me-1"></i>Post Comment
+        <button type="submit" class="btn btn-primary fw-bold" id="submit-comment-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124L5.638 10.36.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.592 6.602l4.339 2.76 7.492-7.493Z"/>
+          </svg>
+          Post
         </button>
       </form>
     </div>
   </div>
   {{ else }}
-  <!-- Login prompt -->
   <div class="alert alert-info">
     <i class="bi bi-info-circle me-2"></i>
     <a href="/auth/login" class="alert-link">Sign in</a> to post a comment.
   </div>
   {{ end }}
-
-  <!-- Comments List -->
-  <div id="comments-list">
-    <div class="text-center p-4">
-      <div class="spinner-border spinner-border-sm" role="status">
-        <span class="visually-hidden">Loading comments...</span>
-      </div>
-      <p class="mt-2 text-muted">Loading comments...</p>
-    </div>
-  </div>
-</div>
+</section>
 
 <!-- Pass JSON data safely to JavaScript -->
 <script type="application/json" id="ro-crate-json-data">{{ .Record.Metadata }}</script>

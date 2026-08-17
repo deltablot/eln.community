@@ -24,7 +24,7 @@
 
 <div class="container py-4">
     <h1 class="mb-4">Moderation Queue</h1>
-    
+
     {{if eq (len .Items) 0}}
         <div class="alert alert-success text-center">
             <p class="mb-0 fs-5">✓ No items pending review</p>
@@ -58,7 +58,7 @@
                                     <p class="mb-1"><strong>ID:</strong> <code>{{.RecordID}}</code></p>
                                     <p class="mb-1"><strong>SHA256:</strong> <code class="small">{{.Sha256}}</code></p>
                                     {{if .Categories}}
-                                    <p class="mb-0"><strong>Categories:</strong> 
+                                    <p class="mb-0"><strong>Categories:</strong>
                                         {{range $i, $cat := .Categories}}
                                             {{if $i}}, {{end}}{{$cat.Name}}
                                         {{end}}
@@ -76,17 +76,17 @@
                         </div>
 
                         <div class="d-flex flex-row gap-2 flex-wrap">
-                            <button class="btn btn-success moderation-btn"
+                            <button class="btn btn-outline-success btn-sm fw-bold moderation-btn"
                                     data-record-id="{{.RecordID}}"
                                     data-action="approve">
                                 <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
-                                <span class="btn-text">✓ Approve{{if not .IsNewEntry}} Version{{end}}</span>
+                                <span class="btn-text">Approve{{if not .IsNewEntry}} Version{{end}}</span>
                             </button>
-                            <button class="btn btn-danger moderation-btn"
+                            <button class="btn btn-outline-danger btn-sm fw-bold moderation-btn"
                                     data-record-id="{{.RecordID}}"
                                     data-action="reject">
                                 <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
-                                <span class="btn-text">✗ Reject{{if not .IsNewEntry}} Version{{end}}</span>
+                                <span class="btn-text">Reject{{if not .IsNewEntry}} Version{{end}}</span>
                             </button>
                             {{if not .IsNewEntry}}
                             <a href="/record/{{.RecordID}}" class="btn btn-outline-secondary">
@@ -108,11 +108,9 @@
                     <a class="page-link" href="?page={{sub .Page 1}}">← Previous</a>
                 </li>
                 {{end}}
-                
                 <li class="page-item active">
                     <span class="page-link">Page {{.Page}} of {{.TotalPages}}</span>
                 </li>
-                
                 {{if lt .Page .TotalPages}}
                 <li class="page-item">
                     <a class="page-link" href="?page={{add .Page 1}}">Next →</a>
@@ -160,14 +158,15 @@
                             <a href="/record/{{.RecordID}}">{{.RecordName}}</a>
                         </td>
                         <td>
-                            {{if eq .Action "approve"}}
+                            <!-- 1 = 'Approved' -->
+                            {{if eq .ModerationStatus 1}}
                             <span class="badge bg-success">Approved</span>
-                            {{else if eq .Action "reject"}}
+                            <!-- 2 = 'Rejected' -->
+                            {{else if eq .ModerationStatus 2}}
                             <span class="badge bg-danger">Rejected</span>
-                            {{else if eq .Action "flag"}}
-                            <span class="badge bg-warning text-dark">Flagged</span>
-                            {{else}}
-                            <span class="badge bg-secondary">{{.Action}}</span>
+                            <!-- 4 = 'Flagged' -->
+                            {{else if eq .ModerationStatus 4}}
+                            <span class="badge bg-warning">Flagged</span>
                             {{end}}
                         </td>
                         <td>

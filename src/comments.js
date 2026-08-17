@@ -1,255 +1,283 @@
-/**
- * Comments functionality for record pages
- */
+import { formatDateTime } from './record-extractor.js';
+import { updateCount, ModerationStatus } from './index.js';
 
-// Sanitize text content to prevent XSS
-function sanitizeText(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+const COMMENT_MAX_LENGTH = 5000;
+
+const ModerationStatusLabel = {
+  [ModerationStatus.Pending]: 'Pending',
+  [ModerationStatus.Rejected]: 'Rejected',
+  [ModerationStatus.Flagged]: 'Reported',
+};
+
+const state = {
+  recordId: null,
+  currentUserOrcid: null,
+  isAdmin: false,
+  comments: [],
+};
+
+function readInitialState(commentsSection) {
+  state.recordId = commentsSection.dataset.recordId;
+  state.currentUserOrcid = commentsSection.dataset.currentUserOrcid || null;
+  state.isAdmin = commentsSection.dataset.currentUserIsAdmin === 'true';
 }
 
-// Format date for display
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+function isAuthenticated() {
+  return state.currentUserOrcid ? true : false;
+}
 
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-  
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+function isCommentAuthor(comment) {
+  return comment.commenter_orcid === state.currentUserOrcid;
+}
+
+function canApproveComment(comment) {
+  return state.isAdmin
+    && comment.moderation_status !== ModerationStatus.Approved
+    && comment.moderation_status !== ModerationStatus.Deleted;
+}
+
+function canRejectComment(comment) {
+  return state.isAdmin
+    && comment.moderation_status !== ModerationStatus.Rejected
+    && comment.moderation_status !== ModerationStatus.Deleted;
+}
+
+function canDeleteComment(comment) {
+  return isAuthenticated() && (state.isAdmin || isCommentAuthor(comment));
+}
+
+function canFlagComment(comment) {
+  return isAuthenticated()
+    && !isCommentAuthor(comment)
+    && comment.moderation_status === ModerationStatus.Approved;
+}
+
+async function fetchComments() {
+  const res = await fetch(`/api/v1/records/${state.recordId}/comments`);
+  if (!res.ok)
+    throw new Error('failed to fetch comments');
+  return res.json();
+}
+
+async function createComment(content) {
+  const req = await fetch(`/api/v1/records/${state.recordId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
   });
+  if (!req.ok)
+    throw new Error('failed to create comment');
+  return req.json();
 }
 
-// Render a single comment
-function renderComment(comment) {
-  const statusBadge = comment.moderation_status === 'pending_review' 
-    ? '<span class="badge bg-warning text-dark ms-2">Pending Review</span>'
-    : comment.moderation_status === 'rejected'
-    ? '<span class="badge bg-danger ms-2">Rejected</span>'
-    : '';
+async function handleSubmit(event) {
+  event.preventDefault();
+  const commentInput = document.getElementById('comment-input');
+  const content = commentInput.value.trim();
+  const submitCommentBtn = document.getElementById('submit-comment-btn');
+  const charCount = document.getElementById('char-count');
 
-  return `
-    <div class="card mb-3 comment-item" data-comment-id="${comment.id}">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start mb-2">
-          <div>
-            <strong>
-              <a href="https://orcid.org/${sanitizeText(comment.commenter_orcid)}" 
-                 target="_blank" 
-                 rel="noopener noreferrer" 
-                 class="text-decoration-none">
-                ${sanitizeText(comment.commenter_name)}
-              </a>
-            </strong>
-            ${statusBadge}
-          </div>
-          <small class="text-muted">${formatDate(comment.created_at)}</small>
-        </div>
-        <p class="card-text" style="white-space: pre-wrap;">${sanitizeText(comment.content)}</p>
-      </div>
-    </div>
-  `;
-}
+  if (!content) {
+      alert('Please enter a comment');
+      return;
+  }
 
-// Load comments for the current record
-async function loadComments(recordId) {
-  const commentsList = document.getElementById('comments-list');
-  const commentCount = document.getElementById('comment-count');
-
+  submitCommentBtn.disabled = true;
   try {
-    const response = await fetch(`/api/v1/records/${recordId}/comments`);
-    
-    if (!response.ok) {
-      // If 404, treat as no comments (endpoint might not exist yet)
-      if (response.status === 404) {
-        commentCount.textContent = '0';
-        commentsList.innerHTML = `
-          <div class="text-center p-4 text-muted">
-            <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
-            <p class="mt-2">No comments yet. Be the first to comment!</p>
-          </div>
-        `;
+    const newComment = await createComment(content);
+    state.comments.push(newComment);
+    commentInput.value = '';
+    charCount.textContent = '0';
+    renderAllComments(state.comments);
+  } catch (err) {
+    console.log('failed to create comment:', err);
+    alert('Failed to post your comment. Please try again');
+    commentInput.focus();
+  } finally {
+    submitCommentBtn.disabled = false;
+  }
+}
+
+function bindCommentForm() {
+  updateCount('comment-input', 'char-count', 'comment-max', COMMENT_MAX_LENGTH);
+  const commentForm = document.getElementById('comment-form');
+  if (!commentForm)
+    return;
+  commentForm.addEventListener('submit', handleSubmit);
+}
+
+async function updateCommentStatus(url, httpMethod, action) {
+  const req = await fetch(url, {
+      method: httpMethod,
+  });
+  if (!req.ok)
+    throw new Error(`failed to ${action} comment`);
+  return req.json();
+}
+
+async function handleStatus(event) {
+  const commentItem = event.target.closest('.comment-item');
+  if (!commentItem)
+    return;
+  const commentId = commentItem.dataset.commentId;
+  const actionBtn = event.target.closest('[data-action]');
+  if (!actionBtn)
+    return;
+  const action = actionBtn.dataset.action;
+
+  switch (action) {
+    case 'approve':
+      await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/approve`, 'POST', 'approve');
+      await loadComments();
+      break;
+    case 'reject':
+      if (!window.confirm('Are you sure you want to report this comment? Please note this action is reversible.')) {
         return;
       }
-      throw new Error('Failed to load comments');
-    }
-
-    const comments = await response.json();
-    
-    // Update count - only count approved comments for public display
-    const approvedComments = comments.filter(c => c.moderation_status === 'approved');
-    commentCount.textContent = approvedComments.length;
-
-    // Render comments
-    if (comments.length === 0) {
-      commentsList.innerHTML = `
-        <div class="text-center p-4 text-muted">
-          <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
-          <p class="mt-2">No comments yet. Be the first to comment!</p>
-        </div>
-      `;
-    } else {
-      const commentsHtml = comments.map(renderComment).join('');
-      
-      // Show admin notice if there are pending/rejected comments
-      const pendingCount = comments.filter(c => c.moderation_status === 'pending_review').length;
-      const rejectedCount = comments.filter(c => c.moderation_status === 'rejected').length;
-      
-      let adminNotice = '';
-      if (pendingCount > 0 || rejectedCount > 0) {
-        const notices = [];
-        if (pendingCount > 0) notices.push(`${pendingCount} pending review`);
-        if (rejectedCount > 0) notices.push(`${rejectedCount} rejected`);
-        
-        adminNotice = `
-          <div class="alert alert-info alert-dismissible fade show" role="alert">
-            <i class="bi bi-info-circle me-2"></i>
-            <strong>Admin View:</strong> You are seeing all comments including ${notices.join(' and ')}.
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        `;
+      await updateCommentStatus(`/api/v1/moderation/comments/${commentId}/reject`, 'POST', 'reject');
+      await loadComments();
+      break;
+    case 'delete':
+      const comment = state.comments.find(({id}) => String(id) === commentId);
+      if (!comment)
+        return;
+      const url = state.isAdmin && comment.commenter_orcid !== state.currentUserOrcid ?
+              `/api/v1/moderation/comments/${commentId}` : `/api/v1/records/${state.recordId}/comments/${commentId}`;
+      if (!window.confirm('Are you sure you want to permanently delete this comment? This cannot be undone.')) {
+        return;
       }
-      
-      commentsList.innerHTML = adminNotice + commentsHtml;
-    }
-  } catch (error) {
-    console.error('Error loading comments:', error);
-    commentsList.innerHTML = `
-      <div class="alert alert-danger">
-        <i class="bi bi-exclamation-triangle me-2"></i>
-        Failed to load comments. Please try again later.
-      </div>
-    `;
+      await updateCommentStatus(url, 'DELETE', 'delete');
+      state.comments = state.comments.filter(({ id }) => String(id) !== commentId);
+      renderAllComments(state.comments);
+      break;
+    case 'flag':
+      await updateCommentStatus(`/api/v1/records/${state.recordId}/comments/${commentId}/flag`, 'POST', 'flag');
+
+      await loadComments();
+      break;
+    default:
+      return;
   }
 }
 
-// Post a new comment
-async function postComment(recordId, content) {
-  const response = await fetch(`/api/v1/records/${recordId}/comments`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ content }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || 'Failed to post comment');
-  }
-
-  return await response.json();
+function bindStatus() {
+  const commentsList = document.getElementById('comments-list');
+  if (!commentsList)
+    return;
+  commentsList.addEventListener('click', handleStatus);
 }
 
-// Initialize comments functionality
-function initComments() {
-  const recordIdElement = document.getElementById('record-id-data');
-  if (!recordIdElement) {
-    console.error('Record ID not found');
+function displayCommentStatus(commentItem, comment) {
+  const commentStatus = commentItem.querySelector('.comment-status-badge');
+  const label =  ModerationStatusLabel[comment.moderation_status];
+  if (!label)
+    return;
+
+  commentStatus.textContent = label;
+  commentStatus.classList.remove('d-none');
+
+  if (comment.moderation_status === ModerationStatus.Flagged) {
+    commentStatus.classList.add('bg-warning');
+    return;
+  }
+  if (comment.moderation_status === ModerationStatus.Rejected) {
+    commentStatus.classList.add('bg-danger');
     return;
   }
 
-  const recordId = JSON.parse(recordIdElement.textContent);
-  
-  // Load comments on page load
-  loadComments(recordId);
+  commentStatus.classList.add('bg-info');
+}
 
-  // Handle comment form submission
-  const commentForm = document.getElementById('comment-form');
-  if (commentForm) {
-    const contentTextarea = document.getElementById('comment-content');
-    const charCount = document.getElementById('char-count');
-    const submitBtn = document.getElementById('submit-comment-btn');
+function displayCommentActions(commentItem, comment) {
+  const actions = commentItem.querySelector('.comment-actions');
+  const summary = actions.querySelector('summary');
 
-    // Update character count
-    contentTextarea.addEventListener('input', () => {
-      const length = contentTextarea.value.length;
-      charCount.textContent = length;
-      
-      if (length > 5000) {
-        charCount.classList.add('text-danger');
-      } else {
-        charCount.classList.remove('text-danger');
-      }
-    });
+  const approveBtn = commentItem.querySelector('.btn-outline-success');
+  const rejectBtn = commentItem.querySelector('.btn-outline-danger');
+  const deleteBtn = commentItem.querySelector('.btn-outline-secondary');
+  const flagBtn = commentItem.querySelector('.btn-outline-warning');
 
-    // Handle form submission
-    commentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+  const showApprove = canApproveComment(comment);
+  const showReject = canRejectComment(comment);
+  const showFlag = canFlagComment(comment);
+  const showDelete = canDeleteComment(comment);
 
-      const content = contentTextarea.value.trim();
-      
-      if (!content) {
-        alert('Please enter a comment');
-        return;
-      }
+  approveBtn.classList.toggle('d-none', !showApprove);
+  rejectBtn.classList.toggle('d-none', !showReject);
+  flagBtn.classList.toggle('d-none', !showFlag);
+  deleteBtn.classList.toggle('d-none', !showDelete);
 
-      if (content.length > 5000) {
-        alert('Comment is too long (maximum 5000 characters)');
-        return;
-      }
+  const hasActions = showApprove || showReject || showFlag || showDelete;
+  actions.classList.toggle('d-none', !hasActions);
 
-      // Disable form during submission
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Posting...';
+  if (!hasActions)
+    return;
 
-      try {
-        const comment = await postComment(recordId, content);
-        
-        // Clear form
-        contentTextarea.value = '';
-        charCount.textContent = '0';
+  const showActions = state.isAdmin && comment.moderation_status != ModerationStatus.Pending;
 
-        // Show success message
-        const successAlert = document.createElement('div');
-        successAlert.className = 'alert alert-success alert-dismissible fade show';
-        successAlert.innerHTML = `
-          <i class="bi bi-check-circle me-2"></i>
-          ${comment.moderation_status === 'pending_review' 
-            ? 'Comment submitted and is pending moderation.' 
-            : 'Comment posted successfully!'}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        commentForm.parentElement.insertBefore(successAlert, commentForm);
+  actions.open = !showActions;
+  summary.classList.toggle('d-none', !showActions);
+}
 
-        // Auto-dismiss after 5 seconds
-        setTimeout(() => {
-          successAlert.remove();
-        }, 5000);
+function renderComment(comment) {
+  const commentTemplate = document.getElementById('comment-template');
+  const clone = document.importNode(commentTemplate.content, true);
+  const commentItem = clone.querySelector('.comment-item');
+  const commentAuthor = commentItem.querySelector('.comment-author-link');
+  const commentDate = commentItem.querySelector('.comment-created-at');
+  const commentContent = commentItem.querySelector('.comment-content');
+  commentItem.dataset.commentId = comment.id;
+  displayCommentActions(commentItem, comment);
+  displayCommentStatus(commentItem, comment);
 
-        // Reload comments
-        await loadComments(recordId);
+  commentAuthor.textContent = comment.commenter_name;
+  commentAuthor.href = "https://orcid.org/" + comment.commenter_orcid;
+  commentDate.textContent = formatDateTime(comment.created_at);
+  commentContent.textContent = comment.content;
 
-      } catch (error) {
-        console.error('Error posting comment:', error);
-        alert('Failed to post comment: ' + error.message);
-      } finally {
-        // Re-enable form
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="bi bi-send me-1"></i>Post Comment';
-      }
-    });
+  return commentItem;
+}
+
+function updateCommentTotal() {
+  const commentCount = document.getElementById('comment-count');
+  if (!commentCount)
+    return;
+  commentCount.textContent = state.comments.length;
+}
+
+function renderAllComments(comments) {
+  const commentsList = document.getElementById('comments-list');
+  commentsList.replaceChildren();
+  comments.forEach((comment) => {
+    const commentEl = renderComment(comment);
+    commentsList.appendChild(commentEl);
+  });
+  updateCommentTotal();
+}
+
+async function loadComments() {
+  try {
+    const comments = await fetchComments();
+    state.comments = comments;
+    renderAllComments(state.comments);
+
+  } catch (err) {
+    console.error('Error loading comments:', err);
   }
 }
 
-// Initialize when DOM is ready
+function initComments() {
+  const commentsSection = document.getElementById('comments-section');
+  if (!commentsSection)
+    return;
+  readInitialState(commentsSection);
+  bindCommentForm();
+  loadComments();
+  bindStatus();
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initComments);
 } else {
   initComments();
 }
-
-// Export for use in other modules
-export { loadComments, postComment, sanitizeText, formatDate };

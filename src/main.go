@@ -1,4 +1,4 @@
-/**
+/*
  * eln.community
  * © 2025 - Nicolas CARPi, Deltablot
  * License: AGPLv3
@@ -196,14 +196,7 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 	))
 
 	ctx := r.Context()
-	var user *User
-	if orcid, ok := sessionManager.Get(ctx, "orcid").(string); ok {
-		name, _ := sessionManager.Get(ctx, "name").(string)
-		user = &User{
-			Name:  name,
-			Orcid: orcid,
-		}
-	}
+	user, _ := userFromSession(ctx)
 
 	data := struct {
 		App         App
@@ -220,10 +213,8 @@ func getAbout(w http.ResponseWriter, r *http.Request) {
 
 func newEntry(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// Check if user is authenticated
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	if !okO {
+	user, isAuthenticated := userFromSession(ctx)
+	if !isAuthenticated {
 		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 		return
 	}
@@ -233,16 +224,10 @@ func newEntry(w http.ResponseWriter, r *http.Request) {
 		"templates/new.html",
 	))
 
-	categories, err := getCategories(r.Context())
+	categories, err := getCategories(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "Error fetching rows", http.StatusInternalServerError)
 		return
-	}
-
-	name, _ := sessionManager.Get(ctx, "name").(string)
-	user := &User{
-		Name:  name,
-		Orcid: orcid,
 	}
 
 	data := struct {
@@ -263,24 +248,17 @@ func newEntry(w http.ResponseWriter, r *http.Request) {
 
 func getProfile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// Check if user is authenticated
-	orcid, okO := sessionManager.Get(ctx, "orcid").(string)
-	if !okO {
+	user, isAuthenticated := userFromSession(ctx)
+	if !isAuthenticated {
 		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 		return
 	}
 
-	name, _ := sessionManager.Get(ctx, "name").(string)
-	user := &User{
-		Name:  name,
-		Orcid: orcid,
-	}
-
 	// Get user's records
 	recordRepo := NewPostgresRecordRepository(db, NewPostgresCategoryRepository(db), NewPostgresRorRepository(db))
-	records, totalCount, err := recordRepo.GetAllByOrcidPaginated(ctx, orcid, 100, 0)
+	records, totalCount, err := recordRepo.GetAllByOrcidPaginated(ctx, user.Orcid, 100, 0)
 	if err != nil {
+		log.Printf("Error fetching records: %v", err)
 		http.Error(w, "Error fetching records", http.StatusInternalServerError)
 		return
 	}
@@ -292,9 +270,9 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Check if user is admin (needed for nav link)
 	adminRepo := NewPostgresAdminRepository(db)
-	isAdmin := false
-	if admin, err := adminRepo.IsAdmin(ctx, orcid); err == nil {
-		isAdmin = admin
+	isAdmin, err := currentUserIsAdmin(w, r, adminRepo)
+	if err != nil {
+		return
 	}
 
 	var pageTmpl = template.Must(template.ParseFS(appFS(),
@@ -472,6 +450,7 @@ func main() {
 	rorNameCache := NewRorNameCache(rorRepo, rorClient)
 	commentRepo := NewPostgresCommentRepository(db)
 	notificationService := NewNotificationService(adminRepo, emailQueueRepo, commentRepo)
+	commentModerationService := NewCommentModerationService(db, commentRepo)
 	emailSender, err := NewEmailSender()
 	if err != nil {
 		errorLogger.Fatalf("Error: failed to configure email sender: %v", err)
@@ -480,7 +459,7 @@ func main() {
 	emailWorker := NewEmailWorker(emailQueueRepo, emailSender, orcidClient)
 	moderationRepo := NewPostgresModerationRepository(db, categoryRepo, rorRepo)
 	moderationHandler := NewModerationHandler(moderationRepo, adminRepo, notificationService, recordRepo)
-	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService)
+	commentHandler := NewCommentHandler(commentRepo, recordRepo, adminRepo, notificationService, commentModerationService)
 
 	// Initialize ROR handler with name cache
 	rorHandler := NewRorHandler()
@@ -543,7 +522,9 @@ func main() {
 	mux.HandleFunc("GET /api/v1/moderation/comments", commentHandler.getPendingComments)
 	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/approve", commentHandler.approveComment)
 	mux.HandleFunc("POST /api/v1/moderation/comments/{id}/reject", commentHandler.rejectComment)
-	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteComment)
+	mux.HandleFunc("POST /api/v1/records/{recordID}/comments/{commentID}/flag", commentHandler.flagComment)
+	mux.HandleFunc("DELETE /api/v1/records/{recordID}/comments/{commentID}", commentHandler.deleteOwnComment)
+	mux.HandleFunc("DELETE /api/v1/moderation/comments/{id}", commentHandler.deleteCommentAsModerator)
 
 	// HTML pages (with CSP middleware)
 	mux.Handle("/about", securityHeaders(http.HandlerFunc(getAbout)))

@@ -71,16 +71,13 @@ func (h *HistoryHandler) GetVersionsList(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	// Check if user is authenticated
-	orcid, _ := sessionManager.Get(ctx, "orcid").(string)
+	user, isAuthenticated := userFromSession(ctx)
 
-	// Check if user is admin or owner
-	isAdmin := false
-	isOwner := false
-	if orcid != "" {
-		isAdmin, _ = h.adminRepo.IsAdmin(ctx, orcid)
-		isOwner = record.UploaderOrcid == orcid
+	isAdmin, err := currentUserIsAdmin(w, r, h.adminRepo)
+	if err != nil {
+		return
 	}
+	isOwner := isAuthenticated && record.UploaderOrcid == user.Orcid
 
 	// Get history
 	history, err := h.historyRepo.GetHistory(ctx, id)
@@ -90,7 +87,7 @@ func (h *HistoryHandler) GetVersionsList(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Filter versions based on user permissions
-	var filteredHistory []RecordHistory
+	var filteredHistory []RecordsRevisions
 	for _, h := range history {
 		// Show all versions to admin/owner, only approved to others
 		if isAdmin || isOwner || h.ModerationStatus == StatusApproved {
