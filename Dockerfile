@@ -20,7 +20,7 @@ COPY package.json src/
 COPY yarn.lock src/
 WORKDIR /home/node/src
 RUN yarn install
-RUN bash build.sh
+RUN bash build.sh --compress
 
 # STEP 2
 # Go builder
