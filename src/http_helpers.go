@@ -23,13 +23,13 @@ func requireJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 func writeJson(w http.ResponseWriter, statusCode int, data any) {
 	payload, err := json.Marshal(data)
 	if err != nil {
-		errorLogger.Printf("failed to marshal JSON response: %w", err)
+		errorLogger.Printf("failed to marshal JSON response: %v", err)
 		http.Error(w, ErrInvalidResponse.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(payload); err != nil {
-		errorLogger.Printf("failed to write JSON response: %w", err)
+		errorLogger.Printf("failed to write JSON response: %v", err)
 	}
 }
