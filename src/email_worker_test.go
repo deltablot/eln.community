@@ -223,9 +223,8 @@ func TestProcessPendingMarkAsSentWhenSuccess(t *testing.T) {
 		t.Fatal("expected Send to be called")
 	}
 
-	if mockSender.to == mockOrcid.emailToReturn {
-		t.Fatal("intentional failure to verify CI")
-		//	t.Fatalf("expected email: %q, got: %q", mockOrcid.emailToReturn, mockSender.to)
+	if mockSender.to != mockOrcid.emailToReturn {
+		t.Fatalf("expected email: %q, got: %q", mockOrcid.emailToReturn, mockSender.to)
 	}
 
 	if mockSender.subject != pending.Subject {
