@@ -70,7 +70,8 @@ jobs:
           background: true
       - run:
           name: Wait for application
-          command: for i in $(seq 1 30); do node -e "fetch('http://localhost:8080/healthcheck').then(response => process.exit(response.status === 204 ? 0 : 1)).catch(() => process.exit(1));" && exit 0; sleep 1; done; exit 1
+          command: |
+            for i in $(seq 1 30); do node -e "fetch('http://localhost:8080/healthcheck').then(response => process.exit(response.status === 204 ? 0 : 1)).catch(() => process.exit(1));" && exit 0; sleep 1; done; exit 1
       - run:
           name: Run Cypress tests
           command: cypress run
