@@ -25,7 +25,10 @@ yarn exec esbuild \
 cp "$SRC_DIR"/robots.txt "$DIST_DIR"
 cp "$SRC_DIR"/favicon.ico "$DIST_DIR"
 
-# brotli‑compress everything in $DIST_DIR
-for file in $DIST_DIR/*.{js,css,txt,ico}; do
-  brotli --quality=11 --keep --output="$file.br" "$file"
-done
+# Pass --compress to generate Brotli-compress assets
+if [ "${CI-0}" = "0" ]; then
+    # brotli‑compress everything in $DIST_DIR
+    for file in $DIST_DIR/*.{js,css,txt,ico}; do
+        brotli -v --quality=11 --keep --output="$file.br" "$file"
+    done
+fi
