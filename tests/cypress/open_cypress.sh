@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
+CYPRESS_VERSION="15.1.0"
 X11_USER="$(id -un)"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
@@ -24,5 +25,5 @@ docker run --rm -it \
     --volume "${PROJECT_DIR}":/e2e \
     --workdir /e2e \
     --entrypoint cypress \
-    cypress/included:15.1.0 \
+    cypress/included:"${CYPRESS_VERSION}" \
     open --project /e2e
