@@ -4,7 +4,7 @@ describe('about.html', () => {
       cy.url().should('include', '/about')
       cy.get('nav').should('exist')
       cy.contains('a', 'Sign In').should('have.attr', 'href')
-      cy.get('h1').should('exist').contains('About')
+      cy.get('h1').should('exist').contains('Welcome')
       cy.get('footer').should('exist')
   })
 })
