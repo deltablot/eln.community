@@ -11,6 +11,16 @@ executors:
           POSTGRES_DB: postgres
     resource_class: large
 
+  cypress-executor:
+    docker:
+      - image: cypress/included:15.1.0
+      - image: postgres:17
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+    resource_class: large
+
 jobs:
   test:
     executor: eln-executor
@@ -26,8 +36,51 @@ jobs:
       - run:
           name: Run tests
           command: go test -v ./src
+      - run:
+          name: Build application
+          command: mkdir -p build && CGO_ENABLED=0 go build -o build/eln.community ./src
+      - persist_to_workspace:
+          root: .
+          paths:
+            - build/eln.community
+
+  cypress:
+    executor: cypress-executor
+    working_directory: ~/deltablot/eln.community
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+      SITE_URL: http://localhost:8080
+      ORCID_CLIENT_ID: ci
+      ORCID_CLIENT_SECRET: ci
+      SMTP_HOST: localhost
+      SMTP_PORT: 1025
+      SMTP_FROM_ADDRESS: ci@localhost
+      SMTP_USERNAME: ci
+      SMTP_PASSWORD: ci
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Wait for Postgres
+          command: for i in $(seq 1 30); do node -e "const net = require('net'); const socket = net.createConnection(5432, 'localhost', () => { socket.end(); process.exit(0); }); socket.on('error', () => process.exit(1));" && exit 0; sleep 1; done; exit 1
+      - run:
+          name: Start application
+          command: ./build/eln.community
+          background: true
+      - run:
+          name: Wait for application
+          command: for i in $(seq 1 30); do node -e "fetch('http://localhost:8080/healthcheck').then(response => process.exit(response.status === 204 ? 0 : 1)).catch(() => process.exit(1));" && exit 0; sleep 1; done; exit 1
+      - run:
+          name: Run Cypress tests
+          command: cypress run
+      - store_artifacts:
+          path: tests/cypress/screenshots
 
 workflows:
   test-workflow:
     jobs:
       - test
+      - cypress:
+          requires:
+            - test
