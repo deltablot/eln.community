@@ -29,6 +29,6 @@ cp "$SRC_DIR"/favicon.ico "$DIST_DIR"
 if [ "${CI-0}" = "0" ]; then
     # brotli‑compress everything in $DIST_DIR
     for file in $DIST_DIR/*.{js,css,txt,ico}; do
-        brotli --quality=11 --keep --output="$file.br" "$file"
+        brotli -v --quality=11 --keep --output="$file.br" "$file"
     done
 fi
