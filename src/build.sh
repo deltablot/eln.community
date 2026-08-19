@@ -26,7 +26,7 @@ cp "$SRC_DIR"/robots.txt "$DIST_DIR"
 cp "$SRC_DIR"/favicon.ico "$DIST_DIR"
 
 # Pass --compress to generate Brotli-compress assets
-if [ "${1:-}" = "--compress" ]; then
+if [ "${CI-0}" = "0" ]; then
     # brotli‑compress everything in $DIST_DIR
     for file in $DIST_DIR/*.{js,css,txt,ico}; do
         brotli --quality=11 --keep --output="$file.br" "$file"

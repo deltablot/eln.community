@@ -10,6 +10,7 @@ ARG GO_IMG_TAG=nonroot
 # STEP 1
 # Node image to minify js and css files + brotli compression
 FROM node:23-alpine@sha256:a34e14ef1df25b58258956049ab5a71ea7f0d498e41d0b514f4b8de09af09456 AS bundler
+ARG CI=0
 RUN corepack enable \
     && corepack prepare yarn@stable --activate
 RUN apk add --no-cache brotli bash
@@ -20,7 +21,7 @@ COPY package.json src/
 COPY yarn.lock src/
 WORKDIR /home/node/src
 RUN yarn install
-RUN bash build.sh --compress
+RUN bash build.sh
 
 # STEP 2
 # Go builder
