@@ -44,6 +44,12 @@ type RecordHandler struct {
 	rorClient           *RorClient
 }
 
+type ResponseError struct {
+	Code        int    `json:"code"`
+	Message     string `json:"message"`
+	Description string `json:"description"`
+}
+
 func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, notificationService *NotificationService, rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
 	return &RecordHandler{
 		recordRepo:          recordRepo,
@@ -294,37 +300,24 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetRecord handles GET /api/v1/record/{id} - Get a specific record
 func (h *RecordHandler) GetRecord(w http.ResponseWriter, r *http.Request, id string) {
 	record, err := h.recordRepo.GetByID(r.Context(), id)
+	res := ResponseError{}
 	if err != nil {
 		if err == ErrRecordNotFound {
-			http.NotFound(w, r)
+			res.Code = http.StatusNotFound
+			res.Message = http.StatusText(res.Code)
+			res.Description = "record not found"
 		} else {
-			http.Error(w, "Database error", http.StatusInternalServerError)
+			res.Code = http.StatusInternalServerError
+			res.Message = http.StatusText(res.Code)
+			res.Description = "database error"
+			errorLogger.Printf("%s: failed to get record %q: %v", recordHandlerErr, id, err)
 		}
+		writeJson(w, res.Code, res)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(record); err != nil {
-		errorLogger.Printf("failed to write response: %v", err)
-	}
-}
-
-// GetRecordHTML handles HTML response for records
-func (h *RecordHandler) GetRecordHTML(w http.ResponseWriter, r *http.Request, id string) {
-	record, err := h.recordRepo.GetByID(r.Context(), id)
-	if err != nil {
-		if err == ErrRecordNotFound {
-			http.NotFound(w, r)
-		} else {
-			errorLogger.Printf("Database error: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-		}
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, "<pre>%#v</pre>", record)
+	writeJson(w, http.StatusOK, record)
 }
 
 // GetRecordMetadata handles metadata.json file download
@@ -533,21 +526,6 @@ func (h *RecordHandler) handleGetRecord(w http.ResponseWriter, r *http.Request) 
 	if ext == ".json" {
 		h.GetRecordMetadata(w, r, id)
 		return
-	}
-
-	// Handle content negotiation
-	accept := r.Header.Get("Accept")
-	parts := strings.Split(accept, ",")
-	for _, part := range parts {
-		mt := strings.TrimSpace(strings.SplitN(part, ";", 2)[0])
-		switch mt {
-		case "application/json", "application/ld+json":
-			h.GetRecord(w, r, id)
-			return
-		case "text/html":
-			h.GetRecordHTML(w, r, id)
-			return
-		}
 	}
 
 	// Default to JSON
