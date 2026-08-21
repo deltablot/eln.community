@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: eln.community REST API v1 Documentation
+  description: |
+    This document describes all available endpoints and methods for eln.community's API version 1.
+  version: 1.0.0
+servers:
+  - url: https://eln-dev.community:8081/api/v1
+    description: Local dev server
+
+components:
+  parameters:
+
+    schemas:
+      Record:
+      Error:
+        type: object
+        required: [code, message, description]
+        properties:
+          code:
+            type: integer
+          message:
+            type: string
+          description:
+            type: string
+
+  # RESPONSES
+  responses:
+    BadRequest:
+      description: Bad request (syntax error, invalid request or missing field)
+      content:
+        application/json:
+          $ref: '#components/schemas/Error'
+        example:
+          code: '400'
+          message: |
+            Error decoding json payload: Syntax error
+          description: ""
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          $ref: '#components/schemas/Error'
+        example:
+          code: '404'
+          message: Nothing to show with this id
+          description: ""
+    InternalServerError:
+      description: The server was unable to complte your request. PLease try again later.
+      content:
+        application/json:
+          $ref: '#components/schemas/Error'
+        example:
+          code: '500'
+          message: Unexpected error
+          description: ""
+
+paths:
+  /record/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: ID of the record
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Read a record
+      description: Retrieve one record by its ID
+      responses:
+        '200':
+          description: A single compound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/record'
+        '400':
+          $ref: '#components/responses/BadRequest'
+        '404':
+          $ref: '#components/responses/NotFound'
+        '500':
+          $ref: '#components/responses/InternalServerError'
