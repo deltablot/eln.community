@@ -51,6 +51,34 @@ components:
         archive_reason:
           type: string
 
+    Category:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+        - modified_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        parent_id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        modified_at:
+          type: string
+          format: date-time
+        subcategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+
+
     Error:
       type: object
       required: [code, message, description]
