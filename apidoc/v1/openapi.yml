@@ -9,20 +9,58 @@ servers:
     description: Local dev server
 
 components:
-  parameters:
+  schemas:
+    Record:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        modified_at:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sha256:
+          type: string
+        uploader_name:
+          type: string
+        uploader_orcid:
+          type: string
+        rors:
+          type: array
+          items:
+            type: string
+        download_count:
+          type: integer
+        moderation_status:
+          type: integer
+        license:
+          type: string
+        archived_at:
+          type: string
+          format: date-time
+        archive_reason:
+          type: string
 
-    schemas:
-      Record:
-      Error:
-        type: object
-        required: [code, message, description]
-        properties:
-          code:
-            type: integer
-          message:
-            type: string
-          description:
-            type: string
+    Error:
+      type: object
+      required: [code, message, description]
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        description:
+          type: string
 
   # RESPONSES
   responses:
@@ -30,30 +68,32 @@ components:
       description: Bad request (syntax error, invalid request or missing field)
       content:
         application/json:
-          $ref: '#components/schemas/Error'
-        example:
-          code: '400'
-          message: |
-            Error decoding json payload: Syntax error
-          description: ""
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 400
+            message: "Bad Request"
+            description: ""
     NotFound:
       description: Resource not found
       content:
         application/json:
-          $ref: '#components/schemas/Error'
-        example:
-          code: '404'
-          message: Nothing to show with this id
-          description: ""
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 404
+            message: "Not Found"
+            description: ""
     InternalServerError:
       description: The server was unable to complte your request. PLease try again later.
       content:
         application/json:
-          $ref: '#components/schemas/Error'
-        example:
-          code: '500'
-          message: Unexpected error
-          description: ""
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 500
+            message: "Internal Server Error"
+            description: ""
 
 paths:
   /record/{id}:
@@ -73,10 +113,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/record'
+                $ref: '#/components/schemas/Record'
         '400':
-          $ref: '#components/responses/BadRequest'
+          $ref: '#/components/responses/BadRequest'
         '404':
-          $ref: '#components/responses/NotFound'
+          $ref: '#/components/responses/NotFound'
         '500':
-          $ref: '#components/responses/InternalServerError'
+          $ref: '#/components/responses/InternalServerError'
