@@ -12,6 +12,19 @@ components:
   schemas:
     Record:
       type: object
+      required:
+        - id
+        - metadata
+        - created_at
+        - modified_at
+        - name
+        - description
+        - sha256
+        - uploader_name
+        - uploader_orcid
+        - download_count
+        - moderation_status
+        - license
       properties:
         id:
           type: string
@@ -27,8 +40,15 @@ components:
         name:
           type: string
         description:
-          type: string
-          nullable: true
+          type: object
+          required:
+            - String
+            - Valid
+          properties:
+            String:
+              type: string
+            Valid:
+              type: boolean
         sha256:
           type: string
         uploader_name:
@@ -39,10 +59,21 @@ components:
           type: array
           items:
             type: string
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
         download_count:
           type: integer
         moderation_status:
           type: integer
+          enum: [0, 1, 2, 3, 4]
+          description: |
+            0 = pending
+            1 = approved
+            2 = rejected
+            3 = deleted
+            4 = flagged
         license:
           type: string
         archived_at:
