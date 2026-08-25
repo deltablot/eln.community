@@ -452,8 +452,6 @@ func (h *RecordHandler) Router(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	switch {
-	case path == "/api/v1/records" && r.Method == "POST":
-		h.CreateRecord(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && strings.HasSuffix(path, "/download") && r.Method == "POST":
 		h.handleIncrementDownload(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && strings.HasSuffix(path, "/unarchive") && r.Method == "POST":
@@ -837,10 +835,11 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// BrowseRecordShort is a lightweight record representation for the browse API
-type BrowseRecordShort struct {
+// RecordListItem is a lightweight record representation for the browse API
+type RecordListItem struct {
 	Id            string            `json:"id"`
 	Name          string            `json:"name"`
+	Metadata      json.RawMessage   `json:"metadata"`
 	Description   sql.NullString    `json:"description"`
 	UploaderName  string            `json:"uploaderName"`
 	UploaderOrcid string            `json:"uploaderOrcid"`
@@ -851,9 +850,9 @@ type BrowseRecordShort struct {
 	CreatedAt     int64             `json:"createdAt"`
 }
 
-// BrowseAPIResponse is the JSON response for the browse API
-type BrowseAPIResponse struct {
-	Records    []BrowseRecordShort `json:"records"`
+// RecordsResponse is the JSON response for the browse API
+type RecordsResponse struct {
+	Records    []RecordListItem `json:"records"`
 	Pagination struct {
 		Page       int `json:"page"`
 		PageSize   int `json:"pageSize"`
@@ -862,9 +861,9 @@ type BrowseAPIResponse struct {
 	} `json:"pagination"`
 }
 
-// GetBrowseAPI handles GET /browse?short=1 with Accept: application/json
+// GetRecords handles GET /browse?short=1 with Accept: application/json
 // Returns a lightweight JSON response for ag-grid to consume
-func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
+func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Parse query parameters
@@ -1025,13 +1024,13 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		log.Printf("Error in GetBrowseAPI: %v", err)
+		log.Printf("Error in GetRecords: %v", err)
 		http.Error(w, "Error fetching records", http.StatusInternalServerError)
 		return
 	}
 
 	// Build lightweight response
-	shortRecords := make([]BrowseRecordShort, 0, len(records))
+	shortRecords := make([]RecordListItem, 0, len(records))
 	for _, rec := range records {
 		// Get organization names from ROR cache
 		organizations := make([]RorOrganization, 0, len(rec.RorIds))
@@ -1052,9 +1051,10 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		shortRecords = append(shortRecords, BrowseRecordShort{
+		shortRecords = append(shortRecords, RecordListItem{
 			Id:            rec.Id,
 			Name:          rec.Name,
+			Metadata:      rec.Metadata,
 			Description:   rec.Description,
 			UploaderName:  rec.UploaderName,
 			UploaderOrcid: rec.UploaderOrcid,
@@ -1071,7 +1071,7 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 		totalPages = 1
 	}
 
-	response := BrowseAPIResponse{
+	response := RecordsResponse{
 		Records: shortRecords,
 	}
 	response.Pagination.Page = page
@@ -1091,7 +1091,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("short") == "1" {
 		accept := r.Header.Get("Accept")
 		if strings.Contains(accept, "application/json") {
-			h.GetBrowseAPI(w, r)
+			h.GetRecords(w, r)
 			return
 		}
 	}

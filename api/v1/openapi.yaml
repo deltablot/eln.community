@@ -10,6 +10,80 @@ servers:
 
 components:
   schemas:
+    RecordsResponse:
+      type: object
+      required:
+        - records
+        - pagination
+      properties:
+        records:
+          type: array
+          items:
+            $ref '#/components/schemas/RecordListItem'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    RecordListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        metadata:
+          type: object
+        description:
+          type: object
+          required:
+            - String
+            - Valid
+          properties:
+            String:
+              type: string
+            Valid:
+              type: boolean
+        uploaderName:
+          type: string
+        uploaderOrcid:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+          nullable: true
+        rorIds:
+          type: array
+          items:
+            type: string
+          nullable: true
+        organizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Organization'
+        downloadCount:
+          type: integer
+        createdAt:
+          type: integer
+          format: int64
+
+    Pagination:
+      type: object
+      required:
+        - page
+        - pageSize
+        - totalCount
+        - totalPages
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+        totalPages:
+          type: integer
+
     Record:
       type: object
       required:
@@ -109,6 +183,17 @@ components:
           items:
             $ref: '#/components/schemas/Category'
 
+    Organization:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
 
     Error:
       type: object
@@ -144,7 +229,7 @@ components:
             message: "Not Found"
             description: ""
     InternalServerError:
-      description: The server was unable to complte your request. PLease try again later.
+      description: The server was unable to complete your request. PLease try again later.
       content:
         application/json:
           schema:
@@ -155,6 +240,23 @@ components:
             description: ""
 
 paths:
+  /records:
+    get:
+      summary: List records
+      description: Retrieve approved, non-archived records with search, filtering, sorting and pagination.
+      responses:
+        '200':
+          description: A paginated list of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+
   /record/{id}:
     parameters:
       - name: id
@@ -168,7 +270,7 @@ paths:
       description: Retrieve one record by its ID
       responses:
         '200':
-          description: A single compound
+          description: A single record
           content:
             application/json:
               schema:

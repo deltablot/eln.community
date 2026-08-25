@@ -495,6 +495,7 @@ func main() {
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
+	mux.HandleFunc("GET /api/v1/records", recordHandler.GetRecords)
 	mux.HandleFunc("GET /api/v1/record/", recordHandler.Router)
 	mux.HandleFunc("POST /api/v1/record/", recordHandler.Router)
 	mux.HandleFunc("PUT /api/v1/record/", recordHandler.Router)
