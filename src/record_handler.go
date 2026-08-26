@@ -44,12 +44,6 @@ type RecordHandler struct {
 	rorClient           *RorClient
 }
 
-type ResponseError struct {
-	Code        int    `json:"code"`
-	Message     string `json:"message"`
-	Description string `json:"description"`
-}
-
 func NewRecordHandlerWithRor(recordRepo RecordRepository, categoryRepo CategoryRepository, adminRepo AdminRepository, notificationService *NotificationService, rorNameCache *RorNameCache, rorClient *RorClient) *RecordHandler {
 	return &RecordHandler{
 		recordRepo:          recordRepo,
@@ -302,22 +296,25 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 
 func (h *RecordHandler) GetRecord(w http.ResponseWriter, r *http.Request, id string) {
 	record, err := h.recordRepo.GetByID(r.Context(), id)
-	res := ResponseError{}
+	res := RecordResponse{}
 	if err != nil {
 		if err == ErrRecordNotFound {
-			res.Code = http.StatusNotFound
-			res.Message = http.StatusText(res.Code)
-			res.Description = "record not found"
+			res.Data = []Record{}
+			res.Meta.Errors.Code = http.StatusNotFound
+			res.Meta.Errors.Message = http.StatusText(res.Meta.Errors.Code)
+			res.Meta.Errors.Description = "record not found"
 		} else {
-			res.Code = http.StatusInternalServerError
-			res.Message = http.StatusText(res.Code)
-			res.Description = "database error"
+			res.Data = []Record{}
+			res.Meta.Errors.Code = http.StatusInternalServerError
+			res.Meta.Errors.Message = http.StatusText(res.Meta.Errors.Code)
+			res.Meta.Errors.Description = "database error"
 			errorLogger.Printf("%s: failed to get record %q: %v", recordHandlerErr, id, err)
 		}
-		writeJson(w, res.Code, res)
+		writeJson(w, res.Meta.Errors.Code, res)
 		return
 	}
-	writeJson(w, http.StatusOK, record)
+	res.Data = []Record{*record}
+	writeJson(w, http.StatusOK, res)
 }
 
 // GetRecordMetadata handles metadata.json file download

@@ -10,62 +10,30 @@ servers:
 
 components:
   schemas:
-    RecordsResponse:
+    RecordResponse:
       type: object
       required:
-        - records
-        - pagination
+        - data
+        - meta
       properties:
-        records:
+        data:
           type: array
           items:
-            $ref '#/components/schemas/RecordListItem'
+            $ref: '#/components/schemas/Record'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    Meta:
+      type: object
+      required:
+        - pagination
+        - errors
+      properties:
         pagination:
           $ref: '#/components/schemas/Pagination'
+        errors:
+          $ref: '#/components/schemas/Error'
 
-    RecordListItem:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        metadata:
-          type: object
-        description:
-          type: object
-          required:
-            - String
-            - Valid
-          properties:
-            String:
-              type: string
-            Valid:
-              type: boolean
-        uploaderName:
-          type: string
-        uploaderOrcid:
-          type: string
-        categories:
-          type: array
-          items:
-            $ref: '#/components/schemas/Category'
-          nullable: true
-        rorIds:
-          type: array
-          items:
-            type: string
-          nullable: true
-        organizations:
-          type: array
-          items:
-            $ref: '#/components/schemas/Organization'
-        downloadCount:
-          type: integer
-        createdAt:
-          type: integer
-          format: int64
 
     Pagination:
       type: object
@@ -88,16 +56,16 @@ components:
       type: object
       required:
         - id
-        - metadata
-        - created_at
-        - modified_at
         - name
         - description
-        - sha256
         - uploader_name
         - uploader_orcid
         - download_count
         - moderation_status
+        - created_at
+        - modified_at
+        - metadata
+        - sha256
         - license
       properties:
         id:
@@ -197,7 +165,10 @@ components:
 
     Error:
       type: object
-      required: [code, message, description]
+      required:
+        - code
+        - message
+        - description
       properties:
         code:
           type: integer
@@ -213,32 +184,43 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RecordResponse'
           example:
-            code: 400
-            message: "Bad Request"
-            description: ""
+            data: []
+            meta:
+              pagination: {}
+              errors:
+                code: 400
+                message: "Bad Request"
+                description: "Syntax error"
     NotFound:
       description: Resource not found
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RecordResponse'
           example:
-            code: 404
-            message: "Not Found"
-            description: ""
+            data: []
+            meta:
+              pagination: {}
+              errors:
+                code: 404
+                message: "Not Found"
+                description: "record not found"
     InternalServerError:
       description: The server was unable to complete your request. PLease try again later.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RecordResponse'
           example:
-            code: 500
-            message: "Internal Server Error"
-            description: ""
-
+            data: []
+            meta:
+              pagination: {}
+              errors:
+                code: 500
+                message: "Internal Server Error"
+                description: "database error"
 paths:
   /records:
     get:
@@ -250,7 +232,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecordsResponse'
+                $ref: '#/components/schemas/RecordResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -274,9 +256,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Record'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: '#/components/schemas/RecordResponse'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':

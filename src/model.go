@@ -7,24 +7,25 @@ import (
 )
 
 type Record struct {
-	CreatedAt time.Time       `json:"created_at"`
-	Id        string          `json:"id"`
-	Metadata  json.RawMessage `json:"metadata"`
-	// This will be ignored by json.Marshal
-	MetadataPretty   string           `json:"-"`
-	ModifiedAt       time.Time        `json:"modified_at"`
+	//CreatedAt time.Time       `json:"created_at"`
+	Id               string           `json:"id"`
 	Name             string           `json:"name"`
 	Description      sql.NullString   `json:"description"`
-	Sha256           string           `json:"sha256"`
 	UploaderName     string           `json:"uploader_name"`
 	UploaderOrcid    string           `json:"uploader_orcid"`
-	RorIds           []string         `json:"rors,omitempty"`
-	Categories       []Category       `json:"categories,omitempty"`
 	DownloadCount    int              `json:"download_count"`
 	ModerationStatus ModerationStatus `json:"moderation_status"`
-	License          string           `json:"license"`
-	ArchivedAt       *time.Time       `json:"archived_at,omitempty"`
-	ArchiveReason    string           `json:"archive_reason,omitempty"`
+	CreatedAt        time.Time        `json:"created_at"`
+	ModifiedAt       time.Time        `json:"modified_at"`
+	Metadata         json.RawMessage  `json:"metadata"`
+	// This will be ignored by json.Marshal
+	MetadataPretty string     `json:"-"`
+	Sha256         string     `json:"sha256"`
+	RorIds         []string   `json:"rors,omitempty"`
+	Categories     []Category `json:"categories,omitempty"`
+	License        string     `json:"license"`
+	ArchivedAt     *time.Time `json:"archived_at,omitempty"`
+	ArchiveReason  string     `json:"archive_reason,omitempty"`
 }
 
 // IsArchived returns true if the record has been archived
