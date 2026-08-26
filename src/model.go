@@ -33,6 +33,23 @@ func (r *Record) IsArchived() bool {
 	return r.ArchivedAt != nil
 }
 
+func (r Record) MarshalJSON() ([]byte, error) {
+	type Alias Record
+
+	var description *string
+	if r.Description.Valid {
+		description = &r.Description.String
+	}
+
+	return json.Marshal(struct {
+		Alias
+		Description *string `json:"description"`
+	}{
+		Alias:       Alias(r),
+		Description: description,
+	})
+}
+
 type RecordsRevisions struct {
 	HistoryId        int64            `json:"history_id"`
 	RecordId         string           `json:"record_id"`
