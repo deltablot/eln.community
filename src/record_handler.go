@@ -832,34 +832,6 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// RecordListItem is a lightweight record representation for the browse API
-type RecordListItem struct {
-	Id            string            `json:"id"`
-	Name          string            `json:"name"`
-	Metadata      json.RawMessage   `json:"metadata"`
-	Description   sql.NullString    `json:"description"`
-	UploaderName  string            `json:"uploaderName"`
-	UploaderOrcid string            `json:"uploaderOrcid"`
-	Categories    []Category        `json:"categories"`
-	RorIds        []string          `json:"rorIds"`
-	Organizations []RorOrganization `json:"organizations"` // Organization names from ROR cache
-	DownloadCount int               `json:"downloadCount"`
-	CreatedAt     int64             `json:"createdAt"`
-}
-
-// RecordsResponse is the JSON response for the browse API
-type RecordsResponse struct {
-	Records    []RecordListItem `json:"records"`
-	Pagination struct {
-		Page       int `json:"page"`
-		PageSize   int `json:"pageSize"`
-		TotalCount int `json:"totalCount"`
-		TotalPages int `json:"totalPages"`
-	} `json:"pagination"`
-}
-
-// GetRecords handles GET /browse?short=1 with Accept: application/json
-// Returns a lightweight JSON response for ag-grid to consume
 func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -1026,60 +998,18 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build lightweight response
-	shortRecords := make([]RecordListItem, 0, len(records))
-	for _, rec := range records {
-		// Get organization names from ROR cache
-		organizations := make([]RorOrganization, 0, len(rec.RorIds))
-		if h.rorNameCache != nil {
-			for _, rorId := range rec.RorIds {
-				if name, found := h.rorNameCache.Get(rorId); found {
-					organizations = append(organizations, RorOrganization{
-						ID:   rorId,
-						Name: name,
-					})
-				} else {
-					// Fallback: just use the ID if not in cache
-					organizations = append(organizations, RorOrganization{
-						ID:   rorId,
-						Name: rorId,
-					})
-				}
-			}
-		}
-
-		shortRecords = append(shortRecords, RecordListItem{
-			Id:            rec.Id,
-			Name:          rec.Name,
-			Metadata:      rec.Metadata,
-			Description:   rec.Description,
-			UploaderName:  rec.UploaderName,
-			UploaderOrcid: rec.UploaderOrcid,
-			Categories:    rec.Categories,
-			RorIds:        rec.RorIds,
-			Organizations: organizations,
-			DownloadCount: rec.DownloadCount,
-			CreatedAt:     rec.CreatedAt.Unix(),
-		})
-	}
-
 	totalPages := (totalCount + pageSize - 1) / pageSize
 	if totalPages < 1 {
 		totalPages = 1
 	}
-
-	response := RecordsResponse{
-		Records: shortRecords,
+	res := RecordResponse{
+		Data: records,
 	}
-	response.Pagination.Page = page
-	response.Pagination.PageSize = pageSize
-	response.Pagination.TotalCount = totalCount
-	response.Pagination.TotalPages = totalPages
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		errorLogger.Printf("failed to write browse API response: %v", err)
-	}
+	res.Meta.Pagination.Page = page
+	res.Meta.Pagination.PageSize = pageSize
+	res.Meta.Pagination.TotalCount = totalCount
+	res.Meta.Pagination.TotalPages = totalPages
+	writeJson(w, http.StatusOK, res)
 }
 
 // GetBrowsePage handles the browse page that lists all records with pagination

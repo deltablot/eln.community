@@ -43,11 +43,11 @@ components:
       properties:
         page:
           type: integer
-        pageSize:
+        page_size:
           type: integer
-        totalCount:
+        total_count:
           type: integer
-        totalPages:
+        total_pages:
           type: integer
 
     Record:
@@ -182,7 +182,9 @@ components:
           example:
             data: []
             meta:
-              pagination: {}
+              pagination:
+                total_count: 0
+                total_pages: 0
               errors:
                 code: 400
                 message: "Bad Request"
@@ -196,7 +198,9 @@ components:
           example:
             data: []
             meta:
-              pagination: {}
+              pagination:
+                total_count: 0
+                total_pages: 0
               errors:
                 code: 404
                 message: "Not Found"
@@ -210,7 +214,9 @@ components:
           example:
             data: []
             meta:
-              pagination: {}
+              pagination:
+                total_count: 0
+                total_pages: 0
               errors:
                 code: 500
                 message: "Internal Server Error"
@@ -227,8 +233,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RecordResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
 

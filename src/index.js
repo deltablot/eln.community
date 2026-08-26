@@ -1,3 +1,5 @@
+import { formatDateTime } from './record-extractor.js';
+
 // Intentionally high limit to support long user descriptions and multilingual content
 const DESCRIPTION_MAX_LENGTH = 10000;
 
@@ -184,9 +186,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initialize AG Grid for browse page
   initializeBrowseGrid();
-
-  // Format relative timestamps
-  formatRelativeTimes();
 
   updateCount('description', 'description-count', 'description-max', DESCRIPTION_MAX_LENGTH);
 });
@@ -1348,82 +1347,6 @@ async function fetchRorOrganizations(rorIds) {
   }
 }
 
-// Shared helper to format relative time with configurable options
-function formatRelative(timestamp, options = {}) {
-  const {
-    capitalize = false,
-    includeWeeks = true,
-    includeMonths = true,
-    includeYears = true,
-    fallbackToDate = false,
-    dateFallbackThreshold = 30
-  } = options;
-
-  const now = Date.now();
-  const date = new Date(timestamp * 1000);
-  const diff = now - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  const weeks = Math.floor(days / 7);
-  const months = Math.floor(days / 30);
-  const years = Math.floor(days / 365);
-
-  let relativeTime;
-
-  // Check if we should fall back to date string
-  if (fallbackToDate && days > dateFallbackThreshold) {
-    return date.toLocaleDateString();
-  }
-
-  // Determine the appropriate time unit
-  if (seconds < 60) {
-    relativeTime = capitalize ? 'Just now' : 'just now';
-  } else if (minutes < 60) {
-    relativeTime = minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
-  } else if (hours < 24) {
-    relativeTime = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
-  } else if (days < 7) {
-    relativeTime = days === 1 ? '1 day ago' : `${days} days ago`;
-  } else if (includeWeeks && weeks < 5) {
-    relativeTime = weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
-  } else if (includeMonths && months < 12) {
-    relativeTime = months === 1 ? '1 month ago' : `${months} months ago`;
-  } else if (includeYears) {
-    relativeTime = years === 1 ? '1 year ago' : `${years} years ago`;
-  } else {
-    // Fallback for when weeks/months/years are disabled
-    relativeTime = days === 1 ? '1 day ago' : `${days} days ago`;
-  }
-
-  return relativeTime;
-}
-
-// Format timestamps as relative time (e.g., "2 weeks ago")
-function formatRelativeTimes() {
-  const timeElements = document.querySelectorAll('.relative-time');
-
-  timeElements.forEach(element => {
-    const card = element.closest('.record-card-date');
-    if (!card) return;
-
-    const timestamp = parseInt(card.getAttribute('data-timestamp'));
-    if (!timestamp) return;
-
-    const date = new Date(timestamp * 1000);
-    const relativeTime = formatRelative(timestamp, {
-      capitalize: false,
-      includeWeeks: true,
-      includeMonths: true,
-      includeYears: true
-    });
-
-    element.textContent = relativeTime;
-    element.title = date.toLocaleString();
-  });
-}
-
 // Initialize pagination for browse page
 function initializePagination() {
   // Handle pagination clicks
@@ -1446,7 +1369,7 @@ function initializePagination() {
 
 // Navigate to browse page with parameters
 function navigateToBrowse(params = {}) {
-  const url = new URL('/browse', window.location.origin);
+  const url = new URL('/api/v1/records', window.location.origin);
 
   // Get current values from inputs
   const searchInput = document.getElementById('searchInput');
@@ -2164,18 +2087,6 @@ function initializeBrowseGrid() {
   const isAdmin = gridDiv.dataset.isAdmin === 'true';
   const styleNonce = gridDiv.dataset.styleNonce || undefined;
 
-  // Helper to format relative time (uses shared formatRelative)
-  function formatRelativeTime(timestamp) {
-    return formatRelative(timestamp, {
-      capitalize: true,
-      includeWeeks: false,
-      includeMonths: false,
-      includeYears: false,
-      fallbackToDate: true,
-      dateFallbackThreshold: 30
-    });
-  }
-
   // Custom cell renderer for Name column with link
   function nameCellRenderer(params) {
     if (!params.data) return '';
@@ -2240,7 +2151,7 @@ function initializeBrowseGrid() {
     div.className = 'record-card-date';
     const span = document.createElement('span');
     span.className = 'relative-time';
-    span.textContent = formatRelativeTime(params.value);
+    span.textContent = formatDateTime(params.value);
     div.appendChild(span);
     return div;
   }
@@ -2277,6 +2188,30 @@ function initializeBrowseGrid() {
 
     return container;
   }
+    /*
+    function formatDateTime(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+function formatDateTime(value) {
+    const date = new Date(value);
+    const hasTime = value?.includes('T');
+    let options = { year: 'numeric', month: 'long', day: 'numeric' };
+
+    if (hasTime) {
+      options.hour = '2-digit';
+      options.minute = '2-digit';
+    }
+
+    return date.toLocaleString('en-US', options);
+}
+*/
 
   // Column definitions
   const columnDefs = [
@@ -2287,7 +2222,7 @@ function initializeBrowseGrid() {
       filter: 'agTextColumnFilter'
     },
     {
-      field: 'uploaderName',
+      field: 'uploader_name',
       headerName: 'Author',
       filter: 'agTextColumnFilter'
     },
@@ -2312,17 +2247,16 @@ function initializeBrowseGrid() {
       filter: false
     },
     {
-      field: 'downloadCount',
+      field: 'download_count',
       headerName: 'Downloads',
       filter: 'agNumberColumnFilter',
       maxWidth: 120
     },
     {
-      field: 'createdAt',
+      field: 'created_at',
       headerName: 'Created',
-      cellRenderer: createdCellRenderer,
       valueFormatter: params => {
-        return formatRelativeTime(params.value);
+        return formatDateTime(params.value);
       },
       filter: false,
       maxWidth: 130
@@ -2422,9 +2356,14 @@ function initializeBrowseGrid() {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
 
+            /*
           const data = await response.json();
           const records = data.records || [];
           const totalCount = data.pagination?.totalCount || 0;
+          */
+            const payload = await response.json();
+            const records = payload.data || [];
+            const totalCount = payload.meta?.pagination?.total_count || 0;
 
           params.successCallback(records, totalCount);
         } catch (error) {
