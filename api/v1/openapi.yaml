@@ -38,8 +38,6 @@ components:
     Pagination:
       type: object
       required:
-        - page
-        - pageSize
         - totalCount
         - totalPages
       properties:
@@ -165,10 +163,6 @@ components:
 
     Error:
       type: object
-      required:
-        - code
-        - message
-        - description
       properties:
         code:
           type: integer
