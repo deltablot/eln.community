@@ -1369,7 +1369,7 @@ function initializePagination() {
 
 // Navigate to browse page with parameters
 function navigateToBrowse(params = {}) {
-  const url = new URL('/api/v1/records', window.location.origin);
+  const url = new URL('/browse', window.location.origin);
 
   // Get current values from inputs
   const searchInput = document.getElementById('searchInput');
@@ -2177,7 +2177,7 @@ function initializeBrowseGrid() {
     container.appendChild(downloadBtn);
 
     // Edit button (only for owner or admin)
-    const canEdit = isAdmin || (user && user.orcid === params.data.uploaderOrcid);
+    const canEdit = isAdmin || (user && user.orcid === params.data.uploader_orcid);
     if (canEdit) {
       const editBtn = document.createElement('a');
       editBtn.className = 'btn btn-sm btn-outline-primary';
@@ -2188,30 +2188,6 @@ function initializeBrowseGrid() {
 
     return container;
   }
-    /*
-    function formatDateTime(value) {
-  if (!value) return '';
-
-  const date = new Date(value);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-function formatDateTime(value) {
-    const date = new Date(value);
-    const hasTime = value?.includes('T');
-    let options = { year: 'numeric', month: 'long', day: 'numeric' };
-
-    if (hasTime) {
-      options.hour = '2-digit';
-      options.minute = '2-digit';
-    }
-
-    return date.toLocaleString('en-US', options);
-}
-*/
 
   // Column definitions
   const columnDefs = [
@@ -2314,7 +2290,7 @@ function formatDateTime(value) {
 
         // Add filter parameters if present
         if (params.filterModel) {
-          // Handle text filters (name, uploaderName)
+          // Handle text filters (name, uploader_name)
           if (params.filterModel.name) {
             const nameFilter = params.filterModel.name;
             if (nameFilter.filter) {
@@ -2323,17 +2299,17 @@ function formatDateTime(value) {
             }
           }
 
-          if (params.filterModel.uploaderName) {
-            const authorFilter = params.filterModel.uploaderName;
+          if (params.filterModel.uploader_name) {
+            const authorFilter = params.filterModel.uploader_name;
             if (authorFilter.filter) {
               urlParams.set('filterAuthor', authorFilter.filter);
               urlParams.set('filterAuthorType', authorFilter.type || 'contains');
             }
           }
 
-          // Handle number filter (downloadCount)
-          if (params.filterModel.downloadCount) {
-            const downloadFilter = params.filterModel.downloadCount;
+          // Handle number filter (download_count)
+          if (params.filterModel.download_count) {
+            const downloadFilter = params.filterModel.download_count;
             if (downloadFilter.filter !== undefined) {
               urlParams.set('filterDownloads', downloadFilter.filter);
               urlParams.set('filterDownloadsType', downloadFilter.type || 'equals');
