@@ -18,7 +18,7 @@ type ResponseMeta struct {
 	Error      ResponseError `json:"errors"`
 }
 
-// Data can be: []Record, []Category
+// Data can be: []Record, []Category, []Comment
 type APIResponse[T any] struct {
 	Data []T          `json:"data"`
 	Meta ResponseMeta `json:"meta"`
