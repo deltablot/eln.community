@@ -980,32 +980,8 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			totalPages = 1
 		}
 	}
-	organizations := make([]RorOrganization, 0)
-	seenRorIDs := make(map[string]struct{})
-
-	for _, record := range records {
-		for _, rorID := range record.RorIds {
-			if _, seen := seenRorIDs[rorID]; seen {
-				continue
-			}
-			seenRorIDs[rorID] = struct{}{}
-
-			name := rorID
-			if h.rorNameCache != nil {
-				if cachedName, found := h.rorNameCache.Get(rorID); found {
-					name = cachedName
-				}
-			}
-
-			organizations = append(organizations, RorOrganization{
-				ID:   rorID,
-				Name: name,
-			})
-		}
-	}
 	res := RecordResponse{
-		Data:          records,
-		Organizations: organizations,
+		Data: records,
 	}
 	res.Meta.Pagination.Page = page
 	res.Meta.Pagination.Limit = limit

@@ -19,7 +19,6 @@ type ResponseMeta struct {
 }
 
 type RecordResponse struct {
-	Data          []Record          `json:"data"`
-	Organizations []RorOrganization `json:"organizations"`
-	Meta          ResponseMeta      `json:"meta"`
+	Data []Record     `json:"data"`
+	Meta ResponseMeta `json:"meta"`
 }

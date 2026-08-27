@@ -42,12 +42,63 @@ components:
       name: ror
       in: query
       schema:
-        type: integer
-        format: int64
+        type: string
       description: Add a filter on the Ror.
       examples:
-        summary: Only display results with ROR 01kwczx50
-        value: 01kwczx50
+        first:
+          summary: Only display results with ROR "01kwczx50"
+          value: "01kwczx50"
+
+    Order:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: ["name", "uploader_name", "download_count", "created_at"]
+        default: "created_at"
+      description:
+        Change the ordering of the results.
+      examples:
+        first:
+          summary: Order by name
+          value: name
+        second:
+          summary: Order by uploader_name
+          value: uploader_name
+
+    Sort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: ["asc", "desc"]
+        default: "desc"
+      description: |
+        Change the sorting of results: ascending or descending.
+
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 10
+      description: Limit the number of results.
+      examples:
+        first:
+          summary: Limit number of results to 3
+          value: 3
+
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+      description: Limit the number of pages
+      examples:
+        first:
+          summary: Limit number of pages to 3
+          value: 3
 
   schemas:
     RecordResponse:
@@ -78,8 +129,8 @@ components:
       type: object
       required:
         - limit
-        - totalCount
-        - totalPages
+        - total_count
+        - total_pages
       properties:
         page:
           type: integer
@@ -120,15 +171,7 @@ components:
         name:
           type: string
         description:
-          type: object
-          required:
-            - String
-            - Valid
-          properties:
-            String:
-              type: string
-            Valid:
-              type: boolean
+          type: string
         sha256:
           type: string
         uploader_name:
@@ -266,6 +309,10 @@ x-parameterGroups:
     - $ref: "#/components/parameters/SearchQ"
     - $ref: "#/components/parameters/Category"
     - $ref: "#/components/parameters/Ror"
+    - $ref: "#/components/parameters/Order"
+    - $ref: "#/components/parameters/Sort"
+    - $ref: "#/components/parameters/Limit"
+    - $ref: "#/components/parameters/Page"
 
 paths:
   /records:
