@@ -25,18 +25,15 @@ components:
       name: category
       in: query
       schema:
-        type: array
-        items:
-          type: integer
-          format: int64
-      description: Add a filter on the Category. Supports comma separated list of numbers.
+        type: string
+      description: Add a filter on the Category. Supports comma separated list of numbers, including "null".
       examples:
         first:
           summary: Only display results with category ID 950
-          value: [950]
+          value: "950"
         second:
-          summary: Display results with categories IDs 950 and 1583
-          value: [950, 1583]
+          summary: Display results with categories IDs 950 and 1583 or not set (null)
+          value: "950,1583,null"
 
     Ror:
       name: ror
