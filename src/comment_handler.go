@@ -92,6 +92,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
+	res := APIResponse[Comment]{}
 	ctx := r.Context()
 	recordId, err := parsePath(w, r, commentsPath)
 	if err != nil {
@@ -112,14 +113,18 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 		comments, err = h.commentRepo.GetApprovedByRecordID(ctx, recordId)
 	}
 	if err != nil {
+		res.Data = []Comment{}
+		res.Meta.Error.Code = http.StatusInternalServerError
+		res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+		res.Meta.Error.Description = "database error"
 		errorLogger.Printf("%s failed to get comments for record %q: %v", commentHandlerErr, recordId, err)
-		http.Error(w, "failed to get comments", http.StatusInternalServerError)
 		return
 	}
 	if comments == nil {
 		comments = []Comment{}
 	}
-	writeJson(w, http.StatusOK, comments)
+	res.Data = comments
+	writeJson(w, http.StatusOK, res)
 }
 
 func (h *CommentHandler) getPendingComments(w http.ResponseWriter, r *http.Request) {

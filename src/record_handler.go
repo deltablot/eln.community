@@ -296,7 +296,7 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 
 func (h *RecordHandler) GetRecord(w http.ResponseWriter, r *http.Request, id string) {
 	record, err := h.recordRepo.GetByID(r.Context(), id)
-	res := RecordResponse{}
+	res := APIResponse[Record]{}
 	if err != nil {
 		if err == ErrRecordNotFound {
 			res.Data = []Record{}
@@ -980,7 +980,7 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			totalPages = 1
 		}
 	}
-	res := RecordResponse{
+	res := APIResponse[Record]{
 		Data: records,
 	}
 	res.Meta.Pagination.Page = page

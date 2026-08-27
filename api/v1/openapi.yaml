@@ -20,6 +20,12 @@ components:
         first:
           summary: Search for all results with the word "test".
           value: test
+        second:
+          summary: Search for all results uploaded by "john".
+          value: john
+        third:
+          summary: Search for all results containing the word "plasmid" in their metadata.
+          value: plasmid
 
     Category:
       name: category
@@ -100,30 +106,6 @@ components:
           value: 3
 
   schemas:
-    RecordResponse:
-      type: object
-      required:
-        - data
-        - meta
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/Record'
-        meta:
-          $ref: '#/components/schemas/Meta'
-
-    Meta:
-      type: object
-      required:
-        - pagination
-        - errors
-      properties:
-        pagination:
-          $ref: '#/components/schemas/Pagination'
-        errors:
-          $ref: '#/components/schemas/Error'
-
     Pagination:
       type: object
       required:
@@ -139,6 +121,65 @@ components:
           type: integer
         total_pages:
           type: integer
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        description:
+          type: string
+
+    Meta:
+      type: object
+      required:
+        - pagination
+        - errors
+      properties:
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        errors:
+          $ref: '#/components/schemas/Error'
+
+    APIResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    RecordResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Record'
+
+    CategoryResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Category'
+
+    CommentResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+#        - properties:
+#            data:
+#              type: array
+#              items:
+#                $ref: '#/components/schemas/Comment'
 
     Record:
       type: object
@@ -232,16 +273,6 @@ components:
           items:
             $ref: '#/components/schemas/Category'
 
-    Error:
-      type: object
-      properties:
-        code:
-          type: integer
-        message:
-          type: string
-        description:
-          type: string
-
   # RESPONSES
   responses:
     BadRequest:
@@ -295,6 +326,7 @@ components:
                 code: 500
                 message: "Internal Server Error"
                 description: "database error"
+
 
 x-parameterGroups:
   searchParams: &searchParams

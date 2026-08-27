@@ -18,7 +18,8 @@ type ResponseMeta struct {
 	Error      ResponseError `json:"errors"`
 }
 
-type RecordResponse struct {
-	Data []Record     `json:"data"`
+// Data can be: []Record, []Category
+type APIResponse[T any] struct {
+	Data []T          `json:"data"`
 	Meta ResponseMeta `json:"meta"`
 }
