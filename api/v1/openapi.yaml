@@ -5,7 +5,7 @@ info:
     This document describes all available endpoints and methods for eln.community's API version 1.
   version: 1.0.0
 servers:
-  - url: https://eln-dev.community:8081/api/v1
+  - url: https://eln.community.localhost:8081/api/v1
     description: Local dev server
 
 components:
@@ -234,17 +234,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Category'
-
-    Organization:
-      type: object
-      required:
-        - id
-        - name
-      properties:
-        id:
-          type: string
-        name:
-          type: string
 
     Error:
       type: object
