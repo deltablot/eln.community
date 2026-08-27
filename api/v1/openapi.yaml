@@ -9,6 +9,46 @@ servers:
     description: Local dev server
 
 components:
+  parameters:
+    SearchQ:
+      name: q
+      in: query
+      schema:
+        type: string
+      description: Search across record names, metadata content, uploaders, ORCIDs, categories and ROR organizations.
+      examples:
+        first:
+          summary: Search for all results with the word "test".
+          value: test
+
+    Category:
+      name: category
+      in: query
+      schema:
+        type: array
+        items:
+          type: integer
+          format: int64
+      description: Add a filter on the Category. Supports comma separated list of numbers.
+      examples:
+        first:
+          summary: Only display results with category ID 950
+          value: [950]
+        second:
+          summary: Display results with categories IDs 950 and 1583
+          value: [950, 1583]
+
+    Ror:
+      name: ror
+      in: query
+      schema:
+        type: integer
+        format: int64
+      description: Add a filter on the Ror.
+      examples:
+        summary: Only display results with ROR 01kwczx50
+        value: 01kwczx50
+
   schemas:
     RecordResponse:
       type: object
@@ -34,16 +74,16 @@ components:
         errors:
           $ref: '#/components/schemas/Error'
 
-
     Pagination:
       type: object
       required:
+        - limit
         - totalCount
         - totalPages
       properties:
         page:
           type: integer
-        page_size:
+        limit:
           type: integer
         total_count:
           type: integer
@@ -160,7 +200,6 @@ components:
         name:
           type: string
 
-
     Error:
       type: object
       properties:
@@ -221,11 +260,19 @@ components:
                 code: 500
                 message: "Internal Server Error"
                 description: "database error"
+
+x-parameterGroups:
+  searchParams: &searchParams
+    - $ref: "#/components/parameters/SearchQ"
+    - $ref: "#/components/parameters/Category"
+    - $ref: "#/components/parameters/Ror"
+
 paths:
   /records:
     get:
       summary: List records
       description: Retrieve approved, non-archived records with search, filtering, sorting and pagination.
+      parameters: *searchParams
       responses:
         '200':
           description: A paginated list of records

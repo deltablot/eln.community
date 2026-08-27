@@ -15,10 +15,11 @@ type Pagination struct {
 
 type ResponseMeta struct {
 	Pagination Pagination    `json:"pagination"`
-	Errors     ResponseError `json:"errors"`
+	Error      ResponseError `json:"errors"`
 }
 
 type RecordResponse struct {
-	Data []Record     `json:"data"`
-	Meta ResponseMeta `json:"meta"`
+	Data          []Record          `json:"data"`
+	Organizations []RorOrganization `json:"organizations"`
+	Meta          ResponseMeta      `json:"meta"`
 }

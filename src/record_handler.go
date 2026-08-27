@@ -300,17 +300,17 @@ func (h *RecordHandler) GetRecord(w http.ResponseWriter, r *http.Request, id str
 	if err != nil {
 		if err == ErrRecordNotFound {
 			res.Data = []Record{}
-			res.Meta.Errors.Code = http.StatusNotFound
-			res.Meta.Errors.Message = http.StatusText(res.Meta.Errors.Code)
-			res.Meta.Errors.Description = "record not found"
+			res.Meta.Error.Code = http.StatusNotFound
+			res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+			res.Meta.Error.Description = "record not found"
 		} else {
 			res.Data = []Record{}
-			res.Meta.Errors.Code = http.StatusInternalServerError
-			res.Meta.Errors.Message = http.StatusText(res.Meta.Errors.Code)
-			res.Meta.Errors.Description = "database error"
+			res.Meta.Error.Code = http.StatusInternalServerError
+			res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+			res.Meta.Error.Description = "database error"
 			errorLogger.Printf("%s: failed to get record %q: %v", recordHandlerErr, id, err)
 		}
-		writeJson(w, res.Meta.Errors.Code, res)
+		writeJson(w, res.Meta.Error.Code, res)
 		return
 	}
 	res.Data = []Record{*record}
@@ -980,8 +980,32 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			totalPages = 1
 		}
 	}
+	organizations := make([]RorOrganization, 0)
+	seenRorIDs := make(map[string]struct{})
+
+	for _, record := range records {
+		for _, rorID := range record.RorIds {
+			if _, seen := seenRorIDs[rorID]; seen {
+				continue
+			}
+			seenRorIDs[rorID] = struct{}{}
+
+			name := rorID
+			if h.rorNameCache != nil {
+				if cachedName, found := h.rorNameCache.Get(rorID); found {
+					name = cachedName
+				}
+			}
+
+			organizations = append(organizations, RorOrganization{
+				ID:   rorID,
+				Name: name,
+			})
+		}
+	}
 	res := RecordResponse{
-		Data: records,
+		Data:          records,
+		Organizations: organizations,
 	}
 	res.Meta.Pagination.Page = page
 	res.Meta.Pagination.Limit = limit
