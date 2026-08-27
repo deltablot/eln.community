@@ -8,7 +8,7 @@ type ResponseError struct {
 
 type Pagination struct {
 	Page       int `json:"page,omitempty"`
-	PageSize   int `json:"page_size,omitempty"`
+	Limit      int `json:"limit"`
 	TotalCount int `json:"total_count"`
 	TotalPages int `json:"total_pages"`
 }

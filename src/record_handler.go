@@ -842,31 +842,22 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 
 	// Parse pagination parameters
 	pageStr := r.URL.Query().Get("page")
-	pageSizeStr := r.URL.Query().Get("pageSize")
+	limitStr := r.URL.Query().Get("limit")
 
 	// Parse sort parameters
-	sortBy := r.URL.Query().Get("sortBy")
-	sortOrder := r.URL.Query().Get("sortOrder")
-
-	// Parse filter parameters
-	filterName := strings.TrimSpace(r.URL.Query().Get("filterName"))
-	filterNameType := r.URL.Query().Get("filterNameType")
-	filterAuthor := strings.TrimSpace(r.URL.Query().Get("filterAuthor"))
-	filterAuthorType := r.URL.Query().Get("filterAuthorType")
-	filterDownloads := r.URL.Query().Get("filterDownloads")
-	filterDownloadsType := r.URL.Query().Get("filterDownloadsType")
-	filterDownloadsTo := r.URL.Query().Get("filterDownloadsTo")
+	order := r.URL.Query().Get("order")
+	sort := r.URL.Query().Get("sort")
 
 	// Validate and map sort field to database column
 	var orderByClause string
-	switch sortBy {
+	switch order {
 	case "name":
 		orderByClause = "name"
-	case "uploaderName":
+	case "uploader_name":
 		orderByClause = "uploader_name"
-	case "downloadCount":
+	case "download_count":
 		orderByClause = "download_count"
-	case "createdAt":
+	case "created_at":
 		orderByClause = "created_at"
 	default:
 		// Default sort by created_at
@@ -874,8 +865,8 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate sort order
-	if sortOrder != "asc" && sortOrder != "desc" {
-		sortOrder = "desc" // Default to descending
+	if sort != "asc" && sort != "desc" {
+		sort = "desc" // Default to descending
 	}
 
 	page := 1
@@ -885,14 +876,20 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pageSize := 10 // default
-	if pageSizeStr != "" {
-		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
-			pageSize = ps
+	limit := 10 // default
+	offset := 0
+	if limitStr != "" {
+		if ps, err := strconv.Atoi(limitStr); err == nil && ps >= 0 {
+			limit = ps
 		}
 	}
 
-	offset := (page - 1) * pageSize
+	// A zero limit disables pagination, so all records belong to one logical page.
+	if limit == 0 {
+		page = 1
+	} else {
+		offset = (page - 1) * limit
+	}
 
 	var selectedCategoryID int64
 	var selectedCategoryIDs []int64
@@ -943,28 +940,6 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build filters map
-	filters := make(map[string]interface{})
-	if filterName != "" {
-		filters["name"] = filterName
-		filters["nameType"] = filterNameType
-	}
-	if filterAuthor != "" {
-		filters["author"] = filterAuthor
-		filters["authorType"] = filterAuthorType
-	}
-	if filterDownloads != "" {
-		if downloads, err := strconv.Atoi(filterDownloads); err == nil {
-			filters["downloads"] = downloads
-			filters["downloadsType"] = filterDownloadsType
-			if filterDownloadsTo != "" {
-				if downloadsTo, err := strconv.Atoi(filterDownloadsTo); err == nil {
-					filters["downloadsTo"] = downloadsTo
-				}
-			}
-		}
-	}
-
 	// Execute query based on filters
 	if noRorMatch {
 		records = []Record{}
@@ -983,13 +958,13 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(ctx, searchQuery, selectedCategoryID, searchRorIDs, pageSize, offset, orderByClause, sortOrder, filters)
+		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(ctx, searchQuery, selectedCategoryID, searchRorIDs, limit, offset, orderByClause, sort, nil)
 	} else if len(rorIDs) > 0 {
-		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, pageSize, offset, orderByClause, sortOrder, filters)
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, limit, offset, orderByClause, sort, nil)
 	} else if len(selectedCategoryIDs) > 0 {
-		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, pageSize, offset, orderByClause, sortOrder, filters)
+		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, limit, offset, orderByClause, sort, nil)
 	} else {
-		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, pageSize, offset, orderByClause, sortOrder, filters)
+		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, limit, offset, orderByClause, sort, nil)
 	}
 
 	if err != nil {
@@ -998,15 +973,18 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalPages := (totalCount + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
+	totalPages := 1
+	if limit > 0 {
+		totalPages = (totalCount + limit - 1) / limit
+		if totalPages < 1 {
+			totalPages = 1
+		}
 	}
 	res := RecordResponse{
 		Data: records,
 	}
 	res.Meta.Pagination.Page = page
-	res.Meta.Pagination.PageSize = pageSize
+	res.Meta.Pagination.Limit = limit
 	res.Meta.Pagination.TotalCount = totalCount
 	res.Meta.Pagination.TotalPages = totalPages
 	writeJson(w, http.StatusOK, res)

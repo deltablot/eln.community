@@ -162,16 +162,24 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 	// Build ORDER BY clause with SQL injection protection
 	orderByClause := fmt.Sprintf("ORDER BY %s %s", orderBy, strings.ToUpper(sortOrder))
 
-	// Build query with filters
+	// A zero limit means "return all records", so omit LIMIT and OFFSET from the query.
+	paginationClause := ""
+	queryArgs := filterArgs
+	if limit > 0 {
+		paginationClause = fmt.Sprintf(
+			`LIMIT $%d OFFSET $%d`,
+			len(filterArgs)+1,
+			len(filterArgs)+2,
+		)
+		queryArgs = append(queryArgs, limit, offset)
+	}
 	query := fmt.Sprintf(`
 		SELECT id, sha256, name, description, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, license
 		FROM records r
 		WHERE moderation_status = %d AND r.archived_at IS NULL%s
-		%s
-		LIMIT $%d OFFSET $%d
-	`, StatusApproved, filterClause, orderByClause, len(filterArgs)+1, len(filterArgs)+2)
+		%s %s
+	`, StatusApproved, filterClause, orderByClause, paginationClause)
 
-	queryArgs := append(filterArgs, limit, offset)
 	rows, err := r.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, 0, err
