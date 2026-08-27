@@ -82,6 +82,7 @@ components:
       schema:
         type: integer
         default: 10
+        minimum: 0
       description: Limit the number of results.
       examples:
         first:
@@ -94,10 +95,11 @@ components:
       schema:
         type: integer
         default: 1
-      description: Limit the number of pages
+        minimum: 1
+      description: Return the selected page.
       examples:
         first:
-          summary: Limit number of pages to 3
+          summary: Return the third page
           value: 3
 
   schemas:
@@ -172,6 +174,7 @@ components:
           type: string
         description:
           type: string
+          nullable: true
         sha256:
           type: string
         uploader_name:
@@ -265,6 +268,7 @@ components:
             data: []
             meta:
               pagination:
+                limit: 0
                 total_count: 0
                 total_pages: 0
               errors:
@@ -281,6 +285,7 @@ components:
             data: []
             meta:
               pagination:
+                limit: 0
                 total_count: 0
                 total_pages: 0
               errors:
@@ -297,6 +302,7 @@ components:
             data: []
             meta:
               pagination:
+                limit: 0
                 total_count: 0
                 total_pages: 0
               errors:
