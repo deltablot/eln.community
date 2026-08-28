@@ -40,10 +40,12 @@ func (h *HistoryHandler) Router(w http.ResponseWriter, r *http.Request) {
 
 	res.Data = []VersionSummary{}
 	if r.Method != "GET" {
-		res.Meta.Error.Code = http.StatusMethodNotAllowed
-		res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+		status := http.StatusMethodNotAllowed
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
 		res.Meta.Error.Description = "the requested HTTP method is not supported for this endpoint"
 		errorLogger.Printf("%s: failed to get record version", historyHandlerErr)
+		writeJson(w, status, res)
 		return
 	}
 
@@ -62,7 +64,6 @@ func (h *HistoryHandler) Router(w http.ResponseWriter, r *http.Request) {
 	res.Meta.Error.Description = "record version not found"
 	errorLogger.Printf("%s: record version not found", historyHandlerErr)
 	writeJson(w, status, res)
-
 }
 
 // GetVersionsList handles GET /api/v1/records/{id}/versions
@@ -106,10 +107,12 @@ func (h *HistoryHandler) GetVersionsList(w http.ResponseWriter, r *http.Request,
 	// Get history
 	history, err := h.historyRepo.GetHistory(ctx, id)
 	if err != nil {
-		res.Meta.Error.Code = http.StatusInternalServerError
-		res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+		status := http.StatusInternalServerError
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
 		res.Meta.Error.Description = "database error"
 		errorLogger.Printf("%s: failed to get record version: %v", recordHandlerErr, err)
+		writeJson(w, status, res)
 		return
 	}
 

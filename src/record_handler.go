@@ -896,6 +896,7 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 	var totalCount int
 	var err error
 
+	res := APIResponse[Record]{}
 	// Parse category ID(s) if provided
 	if categoryIDStr != "" {
 		categoryIDStrs := strings.Split(categoryIDStr, ",")
@@ -906,7 +907,13 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			}
 			categoryID, err := strconv.ParseInt(idStr, 10, 64)
 			if err != nil {
-				http.Error(w, "Invalid category ID", http.StatusBadRequest)
+				res.Data = []Record{}
+				status := http.StatusBadRequest
+				res.Meta.Error.Code = status
+				res.Meta.Error.Message = http.StatusText(status)
+				res.Meta.Error.Description = "invalid category ID format"
+				errorLogger.Printf("%s failed to get category id %d: %v", recordHandlerErr, categoryID, err)
+				writeJson(w, status, res)
 				return
 			}
 			selectedCategoryIDs = append(selectedCategoryIDs, categoryID)
@@ -934,7 +941,13 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 				noRorMatch = true
 			}
 		} else {
-			http.Error(w, "Invalid ROR ID format and name search not available", http.StatusBadRequest)
+			res.Data = []Record{}
+			status := http.StatusBadRequest
+			res.Meta.Error.Code = status
+			res.Meta.Error.Message = http.StatusText(status)
+			res.Meta.Error.Description = "invalid ROR ID format"
+			errorLogger.Printf("%s failed to get ROR id: %v", recordHandlerErr, err)
+			writeJson(w, status, res)
 			return
 		}
 	}
@@ -966,13 +979,14 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, limit, offset, orderByClause, sort, nil)
 	}
 
-	res := APIResponse[Record]{}
 	if err != nil {
 		res.Data = []Record{}
-		res.Meta.Error.Code = http.StatusInternalServerError
-		res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+		status := http.StatusInternalServerError
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
 		res.Meta.Error.Description = "database error"
 		errorLogger.Printf("%s failed to get records: %v", recordHandlerErr, err)
+		writeJson(w, status, res)
 		return
 	}
 

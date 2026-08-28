@@ -174,7 +174,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 		queryArgs = append(queryArgs, limit, offset)
 	}
 	query := fmt.Sprintf(`
-		SELECT id, sha256, name, description, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, license
+		SELECT id, sha256, name, description, metadata, created_at, modified_at, uploader_name, uploader_orcid, download_count, license, moderation_status
 		FROM records r
 		WHERE moderation_status = %d AND r.archived_at IS NULL%s
 		%s %s
@@ -201,6 +201,7 @@ func (r *PostgresRecordRepository) GetAllPaginated(ctx context.Context, limit, o
 			&record.UploaderOrcid,
 			&record.DownloadCount,
 			&record.License,
+			&record.ModerationStatus,
 		); err != nil {
 			return nil, 0, err
 		}

@@ -114,10 +114,12 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		res.Data = []Comment{}
-		res.Meta.Error.Code = http.StatusInternalServerError
-		res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+		status := http.StatusInternalServerError
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
 		res.Meta.Error.Description = "database error"
 		errorLogger.Printf("%s failed to get comments for record %q: %v", commentHandlerErr, recordId, err)
+		writeJson(w, status, res)
 		return
 	}
 	if comments == nil {
