@@ -1949,8 +1949,8 @@ function initializeVersionHistory() {
       if (!response.ok) throw new Error('Failed to fetch');
       return response.json();
     })
-    .then(data => {
-      const versions = data.versions || [];
+    .then(payload => {
+      const versions = payload.data || [];
       // Count only the archived versions (don't add +1 for current)
       const totalVersions = versions.length;
 
@@ -2030,8 +2030,8 @@ function initializeVersionHistory() {
         // The current version is the latest archived version + 1, or 1 if no versions exist
         fetch(`/api/v1/records/${recordId}/versions`)
           .then(response => response.json())
-          .then(data => {
-            const versions = data.versions || [];
+          .then(payload => {
+            const versions = payload.data || [];
             const currentVersionNumber = versions.length > 0 ? Math.max(...versions.map(v => v.version)) + 1 : 1;
             permalinkUrl = `${window.location.origin}/record/${recordId}?version=${currentVersionNumber}`;
             copyPermalinkToClipboard(permalinkUrl);
