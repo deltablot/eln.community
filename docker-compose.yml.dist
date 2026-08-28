@@ -103,8 +103,8 @@ services:
     ports:
       - "8083:8080"
     volumes:
-      - ./api/v1/openapi.yaml:/app/openapi.yaml:ro
+      - ./api/v1:/usr/share/nginx/html/swagger:ro
     environment:
-      - SWAGGER_JSON=/app/openapi.yaml
+      - API_URL=swagger/openapi.yaml
     networks:
       - eln

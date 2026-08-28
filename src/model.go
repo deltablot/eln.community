@@ -73,10 +73,10 @@ type RecordsRevisions struct {
 type Category struct {
 	Id            int64      `json:"id"`
 	Name          string     `json:"name"`
-	ParentId      *int64     `json:"parent_id,omitempty"`
+	ParentId      *int64     `json:"parent_id"`
 	CreatedAt     time.Time  `json:"created_at"`
 	ModifiedAt    time.Time  `json:"modified_at"`
-	Subcategories []Category `json:"subcategories,omitempty"`
+	Subcategories []Category `json:"subcategories"`
 }
 
 type User struct {
