@@ -56,7 +56,9 @@ async function fetchComments() {
   const res = await fetch(`/api/v1/records/${state.recordId}/comments`);
   if (!res.ok)
     throw new Error('failed to fetch comments');
-  return res.json();
+
+  const payload = await res.json();
+  return payload.data;
 }
 
 async function createComment(content) {

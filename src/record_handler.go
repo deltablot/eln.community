@@ -294,37 +294,26 @@ func (h *RecordHandler) CreateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetRecord handles GET /api/v1/record/{id} - Get a specific record
 func (h *RecordHandler) GetRecord(w http.ResponseWriter, r *http.Request, id string) {
 	record, err := h.recordRepo.GetByID(r.Context(), id)
+	res := APIResponse[Record]{}
 	if err != nil {
+		res.Data = []Record{}
 		if err == ErrRecordNotFound {
-			http.NotFound(w, r)
+			res.Meta.Error.Code = http.StatusNotFound
+			res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+			res.Meta.Error.Description = "record not found"
 		} else {
-			http.Error(w, "Database error", http.StatusInternalServerError)
+			res.Meta.Error.Code = http.StatusInternalServerError
+			res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+			res.Meta.Error.Description = "database error"
 		}
+		errorLogger.Printf("%s: failed to get record %q: %v", recordHandlerErr, id, err)
+		writeJson(w, res.Meta.Error.Code, res)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(record); err != nil {
-		errorLogger.Printf("failed to write response: %v", err)
-	}
-}
-
-// GetRecordHTML handles HTML response for records
-func (h *RecordHandler) GetRecordHTML(w http.ResponseWriter, r *http.Request, id string) {
-	record, err := h.recordRepo.GetByID(r.Context(), id)
-	if err != nil {
-		if err == ErrRecordNotFound {
-			http.NotFound(w, r)
-		} else {
-			errorLogger.Printf("Database error: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-		}
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, "<pre>%#v</pre>", record)
+	res.Data = []Record{*record}
+	writeJson(w, http.StatusOK, res)
 }
 
 // GetRecordMetadata handles metadata.json file download
@@ -459,8 +448,6 @@ func (h *RecordHandler) Router(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	switch {
-	case path == "/api/v1/records" && r.Method == "POST":
-		h.CreateRecord(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && strings.HasSuffix(path, "/download") && r.Method == "POST":
 		h.handleIncrementDownload(w, r)
 	case strings.HasPrefix(path, "/api/v1/record/") && strings.HasSuffix(path, "/unarchive") && r.Method == "POST":
@@ -533,21 +520,6 @@ func (h *RecordHandler) handleGetRecord(w http.ResponseWriter, r *http.Request) 
 	if ext == ".json" {
 		h.GetRecordMetadata(w, r, id)
 		return
-	}
-
-	// Handle content negotiation
-	accept := r.Header.Get("Accept")
-	parts := strings.Split(accept, ",")
-	for _, part := range parts {
-		mt := strings.TrimSpace(strings.SplitN(part, ";", 2)[0])
-		switch mt {
-		case "application/json", "application/ld+json":
-			h.GetRecord(w, r, id)
-			return
-		case "text/html":
-			h.GetRecordHTML(w, r, id)
-			return
-		}
 	}
 
 	// Default to JSON
@@ -859,34 +831,7 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// BrowseRecordShort is a lightweight record representation for the browse API
-type BrowseRecordShort struct {
-	Id            string            `json:"id"`
-	Name          string            `json:"name"`
-	Description   sql.NullString    `json:"description"`
-	UploaderName  string            `json:"uploaderName"`
-	UploaderOrcid string            `json:"uploaderOrcid"`
-	Categories    []Category        `json:"categories"`
-	RorIds        []string          `json:"rorIds"`
-	Organizations []RorOrganization `json:"organizations"` // Organization names from ROR cache
-	DownloadCount int               `json:"downloadCount"`
-	CreatedAt     int64             `json:"createdAt"`
-}
-
-// BrowseAPIResponse is the JSON response for the browse API
-type BrowseAPIResponse struct {
-	Records    []BrowseRecordShort `json:"records"`
-	Pagination struct {
-		Page       int `json:"page"`
-		PageSize   int `json:"pageSize"`
-		TotalCount int `json:"totalCount"`
-		TotalPages int `json:"totalPages"`
-	} `json:"pagination"`
-}
-
-// GetBrowseAPI handles GET /browse?short=1 with Accept: application/json
-// Returns a lightweight JSON response for ag-grid to consume
-func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
+func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Parse query parameters
@@ -896,31 +841,22 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Parse pagination parameters
 	pageStr := r.URL.Query().Get("page")
-	pageSizeStr := r.URL.Query().Get("pageSize")
+	limitStr := r.URL.Query().Get("limit")
 
 	// Parse sort parameters
-	sortBy := r.URL.Query().Get("sortBy")
-	sortOrder := r.URL.Query().Get("sortOrder")
-
-	// Parse filter parameters
-	filterName := strings.TrimSpace(r.URL.Query().Get("filterName"))
-	filterNameType := r.URL.Query().Get("filterNameType")
-	filterAuthor := strings.TrimSpace(r.URL.Query().Get("filterAuthor"))
-	filterAuthorType := r.URL.Query().Get("filterAuthorType")
-	filterDownloads := r.URL.Query().Get("filterDownloads")
-	filterDownloadsType := r.URL.Query().Get("filterDownloadsType")
-	filterDownloadsTo := r.URL.Query().Get("filterDownloadsTo")
+	order := r.URL.Query().Get("order")
+	sort := r.URL.Query().Get("sort")
 
 	// Validate and map sort field to database column
 	var orderByClause string
-	switch sortBy {
+	switch order {
 	case "name":
 		orderByClause = "name"
-	case "uploaderName":
+	case "uploader_name":
 		orderByClause = "uploader_name"
-	case "downloadCount":
+	case "download_count":
 		orderByClause = "download_count"
-	case "createdAt":
+	case "created_at":
 		orderByClause = "created_at"
 	default:
 		// Default sort by created_at
@@ -928,8 +864,8 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate sort order
-	if sortOrder != "asc" && sortOrder != "desc" {
-		sortOrder = "desc" // Default to descending
+	if sort != "asc" && sort != "desc" {
+		sort = "desc" // Default to descending
 	}
 
 	page := 1
@@ -939,14 +875,20 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pageSize := 10 // default
-	if pageSizeStr != "" {
-		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
-			pageSize = ps
+	limit := 10 // default
+	offset := 0
+	if limitStr != "" {
+		if ps, err := strconv.Atoi(limitStr); err == nil && ps >= 0 {
+			limit = ps
 		}
 	}
 
-	offset := (page - 1) * pageSize
+	// A zero limit disables pagination, so all records belong to one logical page.
+	if limit == 0 {
+		page = 1
+	} else {
+		offset = (page - 1) * limit
+	}
 
 	var selectedCategoryID int64
 	var selectedCategoryIDs []int64
@@ -954,6 +896,7 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 	var totalCount int
 	var err error
 
+	res := APIResponse[Record]{}
 	// Parse category ID(s) if provided
 	if categoryIDStr != "" {
 		categoryIDStrs := strings.Split(categoryIDStr, ",")
@@ -964,7 +907,13 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 			}
 			categoryID, err := strconv.ParseInt(idStr, 10, 64)
 			if err != nil {
-				http.Error(w, "Invalid category ID", http.StatusBadRequest)
+				res.Data = []Record{}
+				status := http.StatusBadRequest
+				res.Meta.Error.Code = status
+				res.Meta.Error.Message = http.StatusText(status)
+				res.Meta.Error.Description = "invalid category ID format"
+				errorLogger.Printf("%s failed to get category id %d: %v", recordHandlerErr, categoryID, err)
+				writeJson(w, status, res)
 				return
 			}
 			selectedCategoryIDs = append(selectedCategoryIDs, categoryID)
@@ -992,30 +941,14 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 				noRorMatch = true
 			}
 		} else {
-			http.Error(w, "Invalid ROR ID format and name search not available", http.StatusBadRequest)
+			res.Data = []Record{}
+			status := http.StatusBadRequest
+			res.Meta.Error.Code = status
+			res.Meta.Error.Message = http.StatusText(status)
+			res.Meta.Error.Description = "invalid ROR ID format"
+			errorLogger.Printf("%s failed to get ROR id: %v", recordHandlerErr, err)
+			writeJson(w, status, res)
 			return
-		}
-	}
-
-	// Build filters map
-	filters := make(map[string]interface{})
-	if filterName != "" {
-		filters["name"] = filterName
-		filters["nameType"] = filterNameType
-	}
-	if filterAuthor != "" {
-		filters["author"] = filterAuthor
-		filters["authorType"] = filterAuthorType
-	}
-	if filterDownloads != "" {
-		if downloads, err := strconv.Atoi(filterDownloads); err == nil {
-			filters["downloads"] = downloads
-			filters["downloadsType"] = filterDownloadsType
-			if filterDownloadsTo != "" {
-				if downloadsTo, err := strconv.Atoi(filterDownloadsTo); err == nil {
-					filters["downloadsTo"] = downloadsTo
-				}
-			}
 		}
 	}
 
@@ -1037,74 +970,39 @@ func (h *RecordHandler) GetBrowseAPI(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(ctx, searchQuery, selectedCategoryID, searchRorIDs, pageSize, offset, orderByClause, sortOrder, filters)
+		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(ctx, searchQuery, selectedCategoryID, searchRorIDs, limit, offset, orderByClause, sort, nil)
 	} else if len(rorIDs) > 0 {
-		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, pageSize, offset, orderByClause, sortOrder, filters)
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, limit, offset, orderByClause, sort, nil)
 	} else if len(selectedCategoryIDs) > 0 {
-		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, pageSize, offset, orderByClause, sortOrder, filters)
+		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, limit, offset, orderByClause, sort, nil)
 	} else {
-		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, pageSize, offset, orderByClause, sortOrder, filters)
+		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, limit, offset, orderByClause, sort, nil)
 	}
 
 	if err != nil {
-		log.Printf("Error in GetBrowseAPI: %v", err)
-		http.Error(w, "Error fetching records", http.StatusInternalServerError)
+		res.Data = []Record{}
+		status := http.StatusInternalServerError
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
+		res.Meta.Error.Description = "database error"
+		errorLogger.Printf("%s failed to get records: %v", recordHandlerErr, err)
+		writeJson(w, status, res)
 		return
 	}
 
-	// Build lightweight response
-	shortRecords := make([]BrowseRecordShort, 0, len(records))
-	for _, rec := range records {
-		// Get organization names from ROR cache
-		organizations := make([]RorOrganization, 0, len(rec.RorIds))
-		if h.rorNameCache != nil {
-			for _, rorId := range rec.RorIds {
-				if name, found := h.rorNameCache.Get(rorId); found {
-					organizations = append(organizations, RorOrganization{
-						ID:   rorId,
-						Name: name,
-					})
-				} else {
-					// Fallback: just use the ID if not in cache
-					organizations = append(organizations, RorOrganization{
-						ID:   rorId,
-						Name: rorId,
-					})
-				}
-			}
+	totalPages := 1
+	if limit > 0 {
+		totalPages = (totalCount + limit - 1) / limit
+		if totalPages < 1 {
+			totalPages = 1
 		}
-
-		shortRecords = append(shortRecords, BrowseRecordShort{
-			Id:            rec.Id,
-			Name:          rec.Name,
-			Description:   rec.Description,
-			UploaderName:  rec.UploaderName,
-			UploaderOrcid: rec.UploaderOrcid,
-			Categories:    rec.Categories,
-			RorIds:        rec.RorIds,
-			Organizations: organizations,
-			DownloadCount: rec.DownloadCount,
-			CreatedAt:     rec.CreatedAt.Unix(),
-		})
 	}
-
-	totalPages := (totalCount + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
-	}
-
-	response := BrowseAPIResponse{
-		Records: shortRecords,
-	}
-	response.Pagination.Page = page
-	response.Pagination.PageSize = pageSize
-	response.Pagination.TotalCount = totalCount
-	response.Pagination.TotalPages = totalPages
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		errorLogger.Printf("failed to write browse API response: %v", err)
-	}
+	res.Data = records
+	res.Meta.Pagination.Page = page
+	res.Meta.Pagination.Limit = limit
+	res.Meta.Pagination.TotalCount = totalCount
+	res.Meta.Pagination.TotalPages = totalPages
+	writeJson(w, http.StatusOK, res)
 }
 
 // GetBrowsePage handles the browse page that lists all records with pagination
@@ -1113,7 +1011,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("short") == "1" {
 		accept := r.Header.Get("Accept")
 		if strings.Contains(accept, "application/json") {
-			h.GetBrowseAPI(w, r)
+			h.GetRecords(w, r)
 			return
 		}
 	}
