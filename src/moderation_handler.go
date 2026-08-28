@@ -236,6 +236,17 @@ func (h *ModerationHandler) Router(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/api/v1/moderation/") && r.Method == "POST":
 		h.ModerateRecord(w, r)
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		status := http.StatusForbidden
+		res := APIResponse[Record]{
+			Data: []Record{},
+			Meta: ResponseMeta{
+				Error: ResponseError{
+					Code:        status,
+					Message:     http.StatusText(status),
+					Description: "you are not allowed to perform this action",
+				},
+			},
+		}
+		writeJson(w, res.Meta.Error.Code, res)
 	}
 }
