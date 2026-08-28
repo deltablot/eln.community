@@ -408,6 +408,7 @@ paths:
   /records:
     get:
       summary: List records
+      tags: ['Records']
       description: Retrieve approved, non-archived records with search, filtering, sorting and pagination.
       parameters: *searchParams
       responses:
@@ -429,6 +430,7 @@ paths:
         schema:
           type: string
     get:
+      tags: ['Records']
       summary: Read a record
       description: Retrieve one record by its ID
       responses:
@@ -452,6 +454,7 @@ paths:
         schema:
           type: string
     get:
+      tags: ['Records']
       summary: List the versions of a record
       description: Retrieve the available versions of a record.
       responses:
@@ -477,6 +480,7 @@ paths:
         schema:
           type: string
     get:
+      tags: ['Records']
       summary: List the comments of a record
       description: Retrieve the available comments of a record.
       responses:
@@ -497,6 +501,7 @@ paths:
   # CATEGORIES
   /categories:
     get:
+      tags: ['Categories']
       summary: List categories
       description: Retrieve all categories
       responses:
@@ -518,6 +523,7 @@ paths:
         schema:
           type: string
     get:
+      tags: ['Categories']
       summary: Read a category
       description: Retrieve one category by its ID
       responses:
