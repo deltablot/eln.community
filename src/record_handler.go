@@ -298,18 +298,17 @@ func (h *RecordHandler) GetRecord(w http.ResponseWriter, r *http.Request, id str
 	record, err := h.recordRepo.GetByID(r.Context(), id)
 	res := APIResponse[Record]{}
 	if err != nil {
+		res.Data = []Record{}
 		if err == ErrRecordNotFound {
-			res.Data = []Record{}
 			res.Meta.Error.Code = http.StatusNotFound
 			res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
 			res.Meta.Error.Description = "record not found"
 		} else {
-			res.Data = []Record{}
 			res.Meta.Error.Code = http.StatusInternalServerError
 			res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
 			res.Meta.Error.Description = "database error"
-			errorLogger.Printf("%s: failed to get record %q: %v", recordHandlerErr, id, err)
 		}
+		errorLogger.Printf("%s: failed to get record %q: %v", recordHandlerErr, id, err)
 		writeJson(w, res.Meta.Error.Code, res)
 		return
 	}
@@ -967,9 +966,13 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, limit, offset, orderByClause, sort, nil)
 	}
 
+	res := APIResponse[Record]{}
 	if err != nil {
-		log.Printf("Error in GetRecords: %v", err)
-		http.Error(w, "Error fetching records", http.StatusInternalServerError)
+		res.Data = []Record{}
+		res.Meta.Error.Code = http.StatusInternalServerError
+		res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
+		res.Meta.Error.Description = "database error"
+		errorLogger.Printf("%s failed to get records: %v", recordHandlerErr, err)
 		return
 	}
 
@@ -980,9 +983,7 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			totalPages = 1
 		}
 	}
-	res := APIResponse[Record]{
-		Data: records,
-	}
+	res.Data = records
 	res.Meta.Pagination.Page = page
 	res.Meta.Pagination.Limit = limit
 	res.Meta.Pagination.TotalCount = totalCount

@@ -53,6 +53,7 @@ func (h *CategoryHandler) GetCategories(w http.ResponseWriter, r *http.Request) 
 		res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
 		res.Meta.Error.Description = "database error"
 		errorLogger.Printf("%s: failed to get categories: %v", categoryHandlerErr, err)
+		writeJson(w, res.Meta.Error.Code, res)
 		return
 	}
 
@@ -69,10 +70,14 @@ func (h *CategoryHandler) GetCategory(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		res.Data = []Category{}
-		res.Meta.Error.Code = http.StatusBadRequest
-		res.Meta.Error.Message = http.StatusText(res.Meta.Error.Code)
-		res.Meta.Error.Description = "invalid category ID"
-		errorLogger.Printf("%s: syntax error: invalid category %d: %v", categoryHandlerErr, id, err)
+		status := http.StatusBadRequest
+		res.Meta.Error = ResponseError{
+			Code:        status,
+			Message:     http.StatusText(status),
+			Description: "invalid category ID",
+		}
+		errorLogger.Printf("%s syntax error: invalid category %d: %v", categoryHandlerErr, id, err)
+		writeJson(w, status, res)
 		return
 	}
 
