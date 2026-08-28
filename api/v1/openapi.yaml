@@ -32,14 +32,14 @@ components:
       in: query
       schema:
         type: string
-      description: Add a filter on the Category. Supports comma separated list of numbers, including "null".
+      description: Add a filter on the Category. Supports comma separated list of numbers, not including "null".
       examples:
         first:
           summary: Only display results with category ID 950
           value: "950"
         second:
-          summary: Display results with categories IDs 950 and 1583 or not set (null)
-          value: "950,1583,null"
+          summary: Display results with categories IDs 950 and 1583
+          value: "950,1583"
 
     Ror:
       name: ror
