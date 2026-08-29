@@ -50,7 +50,8 @@ function renderStructuredRecordView(roCrateData) {
   const extractedData = extractRecordData(roCrateData);
 
   // Render Main Text Block
-  const mainTextContainer = document.getElementById('main-text-container');
+  //const mainTextContainer = document.getElementById('main-text-container');
+  const mainTextContainer = document.getElementById('formatted-content');
   mainTextContainer.innerHTML = renderData(extractedData);
 }
 
@@ -195,28 +196,28 @@ document.addEventListener('DOMContentLoaded', function () {
 let roCrateData = null;
 
 function showFormattedView() {
-  const formattedView = document.getElementById('formatted-view');
-  const rawView = document.getElementById('raw-view');
-  const formattedBtn = document.getElementById('view-formatted');
-  const rawBtn = document.getElementById('view-raw');
+  const formattedContent = document.getElementById('formatted-content');
+  const jsonContent = document.getElementById('json-content');
+  const formattedBtn = document.getElementById('formatted-btn');
+  const rawBtn = document.getElementById('json-btn');
 
-  if (formattedView && rawView && formattedBtn && rawBtn) {
-    formattedView.classList.remove('hidden');
-    rawView.classList.add('hidden');
+  if (formattedContent && jsonContent && formattedBtn && rawBtn) {
+    formattedContent.classList.remove('hidden');
+    jsonContent.classList.add('hidden');
     formattedBtn.className = 'btn btn-primary btn-sm';
     rawBtn.className = 'btn btn-outline-secondary btn-sm';
   }
 }
 
 function showRawView() {
-  const formattedView = document.getElementById('formatted-view');
-  const rawView = document.getElementById('raw-view');
-  const formattedBtn = document.getElementById('view-formatted');
-  const rawBtn = document.getElementById('view-raw');
+  const formattedContent = document.getElementById('formatted-content');
+  const jsonContent = document.getElementById('json-content');
+  const formattedBtn = document.getElementById('formatted-btn');
+  const rawBtn = document.getElementById('json-btn');
 
-  if (formattedView && rawView && formattedBtn && rawBtn) {
-    formattedView.classList.add('hidden');
-    rawView.classList.remove('hidden');
+  if (formattedContent && jsonContent && formattedBtn && rawBtn) {
+    formattedContent.classList.add('hidden');
+    jsonContent.classList.remove('hidden');
     formattedBtn.className = 'btn btn-outline-secondary btn-sm';
     rawBtn.className = 'btn btn-primary btn-sm';
   }
@@ -506,7 +507,7 @@ function renderRoCrate(data) {
 
   // Render Organizations
   if (organizations.length > 0) {
-    html += '<h5 class="mt-4 mb-3">Organizations</h5>';
+   // html += '<h5 class="mt-4 mb-3">Organizations</h5>';
     organizations.forEach(org => {
       html += renderOrganizationCard(org);
     });
@@ -606,8 +607,8 @@ function initializeRoCrateViewer() {
   }
 
   // Add event listeners for view toggle buttons
-  const formattedBtn = document.getElementById('view-formatted');
-  const rawBtn = document.getElementById('view-raw');
+  const formattedBtn = document.getElementById('formatted-btn');
+  const rawBtn = document.getElementById('json-btn');
 
   if (formattedBtn) {
     formattedBtn.addEventListener('click', showFormattedView);
