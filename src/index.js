@@ -507,7 +507,6 @@ function renderRoCrate(data) {
 
   // Render Organizations
   if (organizations.length > 0) {
-   // html += '<h5 class="mt-4 mb-3">Organizations</h5>';
     organizations.forEach(org => {
       html += renderOrganizationCard(org);
     });
