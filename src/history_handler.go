@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // HistoryHandler handles version history endpoints
@@ -22,21 +22,30 @@ func NewHistoryHandler(historyRepo HistoryRepository, recordRepo RecordRepositor
 	}
 }
 
+const historyHandlerErr = "history handler:"
+
 // VersionSummary is a lightweight version info for dropdown
 type VersionSummary struct {
 	Version          int              `json:"version"`
 	Name             string           `json:"name"`
-	ArchivedAt       string           `json:"archived_at"`
+	ArchivedAt       time.Time        `json:"archived_at"`
 	ModerationStatus ModerationStatus `json:"moderation_status"`
 }
 
 // Router handles routing for history endpoints
 // GET /api/v1/records/{id}/versions - Get list of versions (lightweight)
 func (h *HistoryHandler) Router(w http.ResponseWriter, r *http.Request) {
+	res := APIResponse[VersionSummary]{}
 	const prefix = "/api/v1/records/"
 
+	res.Data = []VersionSummary{}
 	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		status := http.StatusMethodNotAllowed
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
+		res.Meta.Error.Description = "the requested HTTP method is not supported for this endpoint"
+		errorLogger.Printf("%s: failed to get record version", historyHandlerErr)
+		writeJson(w, status, res)
 		return
 	}
 
@@ -49,8 +58,12 @@ func (h *HistoryHandler) Router(w http.ResponseWriter, r *http.Request) {
 		h.GetVersionsList(w, r, parts[0])
 		return
 	}
-
-	http.NotFound(w, r)
+	status := http.StatusNotFound
+	res.Meta.Error.Code = status
+	res.Meta.Error.Message = http.StatusText(status)
+	res.Meta.Error.Description = "record version not found"
+	errorLogger.Printf("%s: record version not found", historyHandlerErr)
+	writeJson(w, status, res)
 }
 
 // GetVersionsList handles GET /api/v1/records/{id}/versions
@@ -58,16 +71,28 @@ func (h *HistoryHandler) Router(w http.ResponseWriter, r *http.Request) {
 // Only shows approved versions to regular users
 func (h *HistoryHandler) GetVersionsList(w http.ResponseWriter, r *http.Request, id string) {
 	ctx := r.Context()
+	res := APIResponse[VersionSummary]{}
 
+	res.Data = []VersionSummary{}
 	if !uuidv7Regex.MatchString(id) {
-		http.Error(w, "Invalid id format", http.StatusBadRequest)
+		status := http.StatusBadRequest
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
+		res.Meta.Error.Description = "invalid record version ID format"
+		errorLogger.Printf("%s: invalid record version ID format", historyHandlerErr)
+		writeJson(w, status, res)
 		return
 	}
 
 	// Get the record to check ownership
 	record, err := h.recordRepo.GetByID(ctx, id)
 	if err != nil {
-		http.Error(w, "Record not found", http.StatusNotFound)
+		status := http.StatusNotFound
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
+		res.Meta.Error.Description = "record version not found"
+		errorLogger.Printf("%s: record version not found", historyHandlerErr)
+		writeJson(w, status, res)
 		return
 	}
 
@@ -82,7 +107,12 @@ func (h *HistoryHandler) GetVersionsList(w http.ResponseWriter, r *http.Request,
 	// Get history
 	history, err := h.historyRepo.GetHistory(ctx, id)
 	if err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
+		res.Meta.Error.Description = "database error"
+		errorLogger.Printf("%s: failed to get record version: %v", recordHandlerErr, err)
+		writeJson(w, status, res)
 		return
 	}
 
@@ -101,14 +131,11 @@ func (h *HistoryHandler) GetVersionsList(w http.ResponseWriter, r *http.Request,
 		versions[i] = VersionSummary{
 			Version:          h.Version,
 			Name:             h.Name,
-			ArchivedAt:       h.ArchivedAt.Format("2006-01-02 15:04:05"),
+			ArchivedAt:       h.ArchivedAt.UTC(),
 			ModerationStatus: h.ModerationStatus,
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"versions": versions,
-		"total":    len(versions),
-	})
+	res.Data = versions
+	writeJson(w, http.StatusOK, res)
 }

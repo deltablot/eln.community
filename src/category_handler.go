@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const categoryHandlerErr = "Error: category handler:"
+
 type CategoryHandler struct {
 	categoryRepo CategoryRepository
 	adminRepo    AdminRepository
@@ -32,6 +34,7 @@ func (h *CategoryHandler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 // GetCategories handles GET /api/v1/categories - List all categories
 func (h *CategoryHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
+	res := APIResponse[Category]{}
 	// Check if hierarchical view is requested
 	hierarchical := r.URL.Query().Get("hierarchical") == "true"
 
@@ -45,41 +48,62 @@ func (h *CategoryHandler) GetCategories(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err != nil {
-		http.Error(w, "Error fetching categories", http.StatusInternalServerError)
+		res.Data = []Category{}
+		status := http.StatusInternalServerError
+		res.Meta.Error.Code = status
+		res.Meta.Error.Message = http.StatusText(status)
+		res.Meta.Error.Description = "database error"
+		errorLogger.Printf("%s: failed to get categories: %v", categoryHandlerErr, err)
+		writeJson(w, status, res)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(categories); err != nil {
-		errorLogger.Printf("failed to write response: %v", err)
-	}
+	res.Data = categories
+	writeJson(w, http.StatusOK, res)
 }
 
 // GetCategory handles GET /api/v1/categories/{id} - Get a specific category
 func (h *CategoryHandler) GetCategory(w http.ResponseWriter, r *http.Request) {
+	res := APIResponse[Category]{}
 	const prefix = "/api/v1/categories/"
 	idStr := strings.TrimPrefix(r.URL.Path, prefix)
 
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid category ID", http.StatusBadRequest)
+		res.Data = []Category{}
+		status := http.StatusBadRequest
+		res.Meta.Error = ResponseError{
+			Code:        status,
+			Message:     http.StatusText(status),
+			Description: "invalid category ID",
+		}
+		errorLogger.Printf("%s syntax error: invalid category %d: %v", categoryHandlerErr, id, err)
+		writeJson(w, status, res)
 		return
 	}
 
 	category, err := h.categoryRepo.GetByID(r.Context(), id)
 	if err != nil {
+		status := http.StatusInternalServerError
+		description := "database error"
 		if errors.Is(err, ErrCategoryNotFound) {
-			http.Error(w, "Category not found", http.StatusNotFound)
-			return
+			status = http.StatusNotFound
+			description = "category not found"
+		} else {
+			errorLogger.Printf("%s: failed to fetch category %d: %v", categoryHandlerErr, id, err)
 		}
-		http.Error(w, "Error fetching category", http.StatusInternalServerError)
+		res.Data = []Category{}
+		res.Meta.Error = ResponseError{
+			Code:        status,
+			Message:     http.StatusText(status),
+			Description: description,
+		}
+		writeJson(w, status, res)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(category); err != nil {
-		errorLogger.Printf("failed to write response: %v", err)
-	}
+	res.Data = []Category{*category}
+	writeJson(w, http.StatusOK, res)
 }
 
 // CreateCategory handles POST /api/v1/categories - Create a new category

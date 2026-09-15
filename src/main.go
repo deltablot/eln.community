@@ -495,6 +495,7 @@ func main() {
 
 	// API
 	mux.HandleFunc("POST /api/v1/records", recordHandler.CreateRecord)
+	mux.HandleFunc("GET /api/v1/records", recordHandler.GetRecords)
 	mux.HandleFunc("GET /api/v1/record/", recordHandler.Router)
 	mux.HandleFunc("POST /api/v1/record/", recordHandler.Router)
 	mux.HandleFunc("PUT /api/v1/record/", recordHandler.Router)
@@ -546,6 +547,16 @@ func main() {
 	mux.HandleFunc("GET /main.css", serveAsset)
 	infoLogger.Printf("service running at: %s", siteUrl)
 
+	// apidoc
+	mux.HandleFunc("GET /api/v1/openapi.yaml", openAPISpec)
+	mux.Handle(
+		"GET /api/v1/docs/",
+		http.StripPrefix(
+			"/api/v1/docs/",
+			http.FileServer(http.Dir("/swagger-ui")),
+		),
+	)
+
 	// Wrap all handlers so they get a request-scoped session context
 	handler := sessionManager.LoadAndSave(mux)
 
@@ -558,6 +569,11 @@ func main() {
 	<-shutdown.Done()
 	wg.Wait()
 	infoLogger.Printf("service shutdown")
+}
+
+func openAPISpec(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+	http.ServeFile(w, r, "/api/v1/openapi.yaml")
 }
 
 func getMigrationPath() string {

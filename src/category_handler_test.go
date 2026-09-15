@@ -158,13 +158,13 @@ func TestCategoryHandler_GetCategories(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	var categories []Category
+	categories := APIResponse[Category]{}
 	if err := json.NewDecoder(w.Body).Decode(&categories); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if len(categories) != 2 {
-		t.Errorf("Expected 2 categories, got %d", len(categories))
+	if len(categories.Data) != 2 {
+		t.Errorf("Expected 2 categories, got %d", len(categories.Data))
 	}
 }
 
@@ -189,13 +189,16 @@ func TestCategoryHandler_GetCategory(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	var result Category
+	//	var result Category
+	result := APIResponse[Category]{}
 	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
-
-	if result.Name != "Chemistry" {
-		t.Errorf("Expected category name 'Chemistry', got '%s'", result.Name)
+	if len(result.Data) != 1 {
+		t.Fatalf("Expected 1 category, got %d", len(result.Data))
+	}
+	if result.Data[0].Name != "Chemistry" {
+		t.Errorf("Expected category name 'Chemistry', got '%s'", result.Data[0].Name)
 	}
 }
 

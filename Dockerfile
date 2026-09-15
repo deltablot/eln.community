@@ -22,6 +22,15 @@ WORKDIR /home/node/src
 RUN yarn install
 RUN bash build.sh
 
+# Swagger UI static assets
+# v5.32.14
+FROM docker.io/swaggerapi/swagger-ui@sha256:3d93169968848d371a6a56ca1ab18b47a8906ba461b8eba0688866354f5431d5 AS swaggerui
+
+# Point Swagger UI at the specification served by eln-community itself
+RUN sed -i \
+    's|https://petstore.swagger.io/v2/swagger.json|/api/v1/openapi.yaml|g' \
+    /usr/share/nginx/html/swagger-initializer.js
+
 # STEP 2
 # Go builder
 FROM golang:1.26.4-alpine3.23@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS gobuilder
@@ -48,6 +57,9 @@ FROM gcr.io/distroless/static:${GO_IMG_TAG}
 COPY --from=gobuilder /eln.community /usr/local/bin/eln.community
 COPY --from=gobuilder /cli /usr/local/bin/cli
 COPY --from=gobuilder /app/src/sql /sql
+# API documentation
+COPY --from=swaggerui /usr/share/nginx/html /swagger-ui
+COPY api/v1/openapi.yaml /api/v1/openapi.yaml
 USER nobody:nobody
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/eln.community"]

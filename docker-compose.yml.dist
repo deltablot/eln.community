@@ -95,3 +95,16 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
     networks:
       - eln
+
+  swagger:
+    image: docker.swagger.io/swaggerapi/swagger-ui:v5.32.11
+    restart: always
+    container_name: swagger-eln
+    ports:
+      - "8083:8080"
+    volumes:
+      - ./api/v1:/usr/share/nginx/html/swagger:ro
+    environment:
+      - API_URL=swagger/openapi.yaml
+    networks:
+      - eln

@@ -21,9 +21,9 @@ If you don't have one, go to [orcid.org](https://orcid.org) and create an accoun
 Login to your orcid account, go into developer tools from the top right user menu. Take note of client id/secret for integration in your env later. Use these settings:
 
 - Application name: eln.community dev
-- Application url: eln.community.local
+- Application url: eln.community.localhost
 - Application description: local eln.community dev
-- Redirect URIs: https://eln.community.local:8081/auth/callback
+- Redirect URIs: https://eln.community.localhost:8081/auth/callback
 
 ### Local alias
 
@@ -31,7 +31,7 @@ Login to your orcid account, go into developer tools from the top right user men
 Create a local alias in your `/etc/hosts` file, for example:
 
 ```text
-127.0.0.1 eln.community.local
+127.0.0.1 eln.community.localhost
 ```
 
 
@@ -46,9 +46,9 @@ Generate the certs with `mkcert`: https://github.com/filosottile/mkcert
 cd nginx
 mkdir certs
 cd certs
-mkcert eln.community.local
-mv eln.community.local.pem server.crt
-mv eln.community.local-key.pem server.key
+mkcert eln.community.localhost
+mv eln.community.localhost.pem server.crt
+mv eln.community.localhost-key.pem server.key
 ~~~
 
 ## start nginx + postgres
@@ -71,7 +71,7 @@ For local development, create a `.env` file:
 
 ~~~bash
 # .env file example for local development
-SITE_URL=https://eln.community.local:8081
+SITE_URL=https://eln.community.localhost:8081
 DEV_MODE=1
 DATABASE_URL=postgres://eln:eln@localhost:5432/eln?sslmode=disable
 ORCID_CLIENT_ID=<your_dev_client_id>

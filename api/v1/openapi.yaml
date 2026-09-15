@@ -1,0 +1,554 @@
+openapi: 3.0.3
+info:
+  title: eln.community REST API v1 Documentation
+  description: |
+    This document describes all available endpoints and methods for eln.community's API version 1.
+  version: 1.0.0
+servers:
+  - url: https://eln.community.localhost:8081/api/v1
+    description: Local dev server
+
+components:
+  parameters:
+    SearchQ:
+      name: q
+      in: query
+      schema:
+        type: string
+      description: Search across record names, metadata content, uploaders, ORCIDs, categories and ROR organizations.
+      examples:
+        first:
+          summary: Search for all results with the word "test".
+          value: test
+        second:
+          summary: Search for all results uploaded by "john".
+          value: john
+        third:
+          summary: Search for all results containing the word "plasmid" in their metadata.
+          value: plasmid
+
+    Category:
+      name: category
+      in: query
+      schema:
+        type: string
+      description: Add a filter on the Category. Supports comma separated list of numbers, not including "null".
+      examples:
+        first:
+          summary: Only display results with category ID 950
+          value: "950"
+        second:
+          summary: Display results with categories IDs 950 and 1583
+          value: "950,1583"
+
+    Ror:
+      name: ror
+      in: query
+      schema:
+        type: string
+      description: Add a filter on the Ror.
+      examples:
+        first:
+          summary: Only display results with ROR "01kwczx50"
+          value: "01kwczx50"
+
+    Order:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: ["name", "uploader_name", "download_count", "created_at"]
+        default: "created_at"
+      description:
+        Change the ordering of the results.
+      examples:
+        first:
+          summary: Order by name
+          value: name
+        second:
+          summary: Order by uploader_name
+          value: uploader_name
+
+    Sort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: ["asc", "desc"]
+        default: "desc"
+      description: |
+        Change the sorting of results: ascending or descending.
+
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 10
+        minimum: 0
+      description: Limit the number of results.
+      examples:
+        first:
+          summary: Limit number of results to 3
+          value: 3
+
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+      description: Return the selected page.
+      examples:
+        first:
+          summary: Return the third page
+          value: 3
+
+  schemas:
+    Pagination:
+      type: object
+      required:
+        - limit
+        - total_count
+        - total_pages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total_count:
+          type: integer
+        total_pages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        description:
+          type: string
+
+    Meta:
+      type: object
+      required:
+        - pagination
+        - errors
+      properties:
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        errors:
+          $ref: '#/components/schemas/Error'
+
+    APIResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    RecordResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Record'
+
+    CategoryResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Category'
+
+    CommentResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Comment'
+
+    RecordVersionResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/RecordVersion'
+
+    Record:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - uploader_name
+        - uploader_orcid
+        - download_count
+        - moderation_status
+        - created_at
+        - modified_at
+        - metadata
+        - sha256
+        - license
+      properties:
+        id:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        modified_at:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sha256:
+          type: string
+        uploader_name:
+          type: string
+        uploader_orcid:
+          type: string
+        rors:
+          type: array
+          items:
+            type: string
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        download_count:
+          type: integer
+        moderation_status:
+          type: integer
+          enum: [0, 1, 2, 3, 4]
+          description: |
+            0 = pending
+            1 = approved
+            2 = rejected
+            3 = deleted
+            4 = flagged
+        license:
+          type: string
+        archived_at:
+          type: string
+          format: date-time
+        archive_reason:
+          type: string
+
+    Category:
+      type: object
+      required:
+        - id
+        - name
+        - parent_id
+        - created_at
+        - modified_at
+        - subcategories
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        parent_id:
+          type: integer
+          format: int64
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        modified_at:
+          type: string
+          format: date-time
+        subcategories:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Category'
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        record_id:
+          type: string
+        commenter_name:
+          type: string
+        commenter_orcid:
+          type: string
+        content:
+          type: string
+        moderation_status:
+          type: integer
+          enum: [0, 1, 2, 3, 4]
+          description: |
+            0 = pending
+            1 = approved
+            2 = rejected
+            3 = deleted
+            4 = flagged
+        created_at:
+          type: string
+          format: date-time
+        modified_at:
+          type: string
+          format: date-time
+
+    RecordVersion:
+      type: object
+      required:
+        - version
+        - name
+        - archived_at
+        - moderation_status
+      properties:
+        version:
+          type: integer
+          format: int64
+        name:
+          type: string
+        archived_at:
+          type: string
+          format: date-time
+        moderation_status:
+          type: integer
+          enum: [0, 1, 2, 3, 4]
+          description: |
+            0 = pending
+            1 = approved
+            2 = rejected
+            3 = deleted
+            4 = flagged
+
+  # RESPONSES
+  responses:
+    BadRequest:
+      description: Bad request (syntax error, invalid request or missing field)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RecordResponse'
+          example:
+            data: []
+            meta:
+              pagination:
+                limit: 0
+                total_count: 0
+                total_pages: 0
+              errors:
+                code: 400
+                message: "Bad Request"
+                description: "Syntax error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RecordResponse'
+          example:
+            data: []
+            meta:
+              pagination:
+                limit: 0
+                total_count: 0
+                total_pages: 0
+              errors:
+                code: 404
+                message: "Not Found"
+                description: "record not found"
+    InternalServerError:
+      description: The server was unable to complete your request. PLease try again later.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RecordResponse'
+          example:
+            data: []
+            meta:
+              pagination:
+                limit: 0
+                total_count: 0
+                total_pages: 0
+              errors:
+                code: 500
+                message: "Internal Server Error"
+                description: "database error"
+
+
+x-parameterGroups:
+  searchParams: &searchParams
+    - $ref: "#/components/parameters/SearchQ"
+    - $ref: "#/components/parameters/Category"
+    - $ref: "#/components/parameters/Ror"
+    - $ref: "#/components/parameters/Order"
+    - $ref: "#/components/parameters/Sort"
+    - $ref: "#/components/parameters/Limit"
+    - $ref: "#/components/parameters/Page"
+
+paths:
+  # RECORDS
+  /records:
+    get:
+      summary: List records
+      tags: ['Records']
+      description: Retrieve approved, non-archived records with search, filtering, sorting and pagination.
+      parameters: *searchParams
+      responses:
+        '200':
+          description: A paginated list of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /record/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: ID of the record
+        required: true
+        schema:
+          type: string
+    get:
+      tags: ['Records']
+      summary: Read a record
+      description: Retrieve one record by its ID
+      responses:
+        '200':
+          description: A single record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /records/{id}/versions:
+    parameters:
+      - name: id
+        in: path
+        description: ID of the record
+        required: true
+        schema:
+          type: string
+    get:
+      tags: ['Records']
+      summary: List the versions of a record
+      description: Retrieve the available versions of a record.
+      responses:
+        '200':
+          description: A list of record versions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordVersionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /records/{id}/comments:
+    parameters:
+      - name: id
+        in: path
+        description: ID of the record
+        required: true
+        schema:
+          type: string
+    get:
+      tags: ['Records']
+      summary: List the comments of a record
+      description: Retrieve the available comments of a record.
+      responses:
+        '200':
+          description: A list of record comments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+
+  # CATEGORIES
+  /categories:
+    get:
+      tags: ['Categories']
+      summary: List categories
+      description: Retrieve all categories
+      parameters:
+        - name: hierarchical
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: |
+            When true, returns all the subcategories
+      responses:
+        '200':
+          description: A list of categories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /categories/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: ID of the category
+        required: true
+        schema:
+          type: string
+    get:
+      tags: ['Categories']
+      summary: Read a category
+      description: Retrieve one category by its ID
+      responses:
+        '200':
+          description: A single category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+

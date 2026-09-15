@@ -1,3 +1,5 @@
+import { formatDateTime } from './record-extractor.js';
+
 // Intentionally high limit to support long user descriptions and multilingual content
 const DESCRIPTION_MAX_LENGTH = 10000;
 
@@ -184,9 +186,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initialize AG Grid for browse page
   initializeBrowseGrid();
-
-  // Format relative timestamps
-  formatRelativeTimes();
 
   updateCount('description', 'description-count', 'description-max', DESCRIPTION_MAX_LENGTH);
 });
@@ -1348,82 +1347,6 @@ async function fetchRorOrganizations(rorIds) {
   }
 }
 
-// Shared helper to format relative time with configurable options
-function formatRelative(timestamp, options = {}) {
-  const {
-    capitalize = false,
-    includeWeeks = true,
-    includeMonths = true,
-    includeYears = true,
-    fallbackToDate = false,
-    dateFallbackThreshold = 30
-  } = options;
-
-  const now = Date.now();
-  const date = new Date(timestamp * 1000);
-  const diff = now - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  const weeks = Math.floor(days / 7);
-  const months = Math.floor(days / 30);
-  const years = Math.floor(days / 365);
-
-  let relativeTime;
-
-  // Check if we should fall back to date string
-  if (fallbackToDate && days > dateFallbackThreshold) {
-    return date.toLocaleDateString();
-  }
-
-  // Determine the appropriate time unit
-  if (seconds < 60) {
-    relativeTime = capitalize ? 'Just now' : 'just now';
-  } else if (minutes < 60) {
-    relativeTime = minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
-  } else if (hours < 24) {
-    relativeTime = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
-  } else if (days < 7) {
-    relativeTime = days === 1 ? '1 day ago' : `${days} days ago`;
-  } else if (includeWeeks && weeks < 5) {
-    relativeTime = weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
-  } else if (includeMonths && months < 12) {
-    relativeTime = months === 1 ? '1 month ago' : `${months} months ago`;
-  } else if (includeYears) {
-    relativeTime = years === 1 ? '1 year ago' : `${years} years ago`;
-  } else {
-    // Fallback for when weeks/months/years are disabled
-    relativeTime = days === 1 ? '1 day ago' : `${days} days ago`;
-  }
-
-  return relativeTime;
-}
-
-// Format timestamps as relative time (e.g., "2 weeks ago")
-function formatRelativeTimes() {
-  const timeElements = document.querySelectorAll('.relative-time');
-
-  timeElements.forEach(element => {
-    const card = element.closest('.record-card-date');
-    if (!card) return;
-
-    const timestamp = parseInt(card.getAttribute('data-timestamp'));
-    if (!timestamp) return;
-
-    const date = new Date(timestamp * 1000);
-    const relativeTime = formatRelative(timestamp, {
-      capitalize: false,
-      includeWeeks: true,
-      includeMonths: true,
-      includeYears: true
-    });
-
-    element.textContent = relativeTime;
-    element.title = date.toLocaleString();
-  });
-}
-
 // Initialize pagination for browse page
 function initializePagination() {
   // Handle pagination clicks
@@ -2026,8 +1949,8 @@ function initializeVersionHistory() {
       if (!response.ok) throw new Error('Failed to fetch');
       return response.json();
     })
-    .then(data => {
-      const versions = data.versions || [];
+    .then(payload => {
+      const versions = payload.data || [];
       // Count only the archived versions (don't add +1 for current)
       const totalVersions = versions.length;
 
@@ -2107,8 +2030,8 @@ function initializeVersionHistory() {
         // The current version is the latest archived version + 1, or 1 if no versions exist
         fetch(`/api/v1/records/${recordId}/versions`)
           .then(response => response.json())
-          .then(data => {
-            const versions = data.versions || [];
+          .then(payload => {
+            const versions = payload.data || [];
             const currentVersionNumber = versions.length > 0 ? Math.max(...versions.map(v => v.version)) + 1 : 1;
             permalinkUrl = `${window.location.origin}/record/${recordId}?version=${currentVersionNumber}`;
             copyPermalinkToClipboard(permalinkUrl);
@@ -2163,18 +2086,6 @@ function initializeBrowseGrid() {
   const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
   const isAdmin = gridDiv.dataset.isAdmin === 'true';
   const styleNonce = gridDiv.dataset.styleNonce || undefined;
-
-  // Helper to format relative time (uses shared formatRelative)
-  function formatRelativeTime(timestamp) {
-    return formatRelative(timestamp, {
-      capitalize: true,
-      includeWeeks: false,
-      includeMonths: false,
-      includeYears: false,
-      fallbackToDate: true,
-      dateFallbackThreshold: 30
-    });
-  }
 
   // Custom cell renderer for Name column with link
   function nameCellRenderer(params) {
@@ -2240,7 +2151,7 @@ function initializeBrowseGrid() {
     div.className = 'record-card-date';
     const span = document.createElement('span');
     span.className = 'relative-time';
-    span.textContent = formatRelativeTime(params.value);
+    span.textContent = formatDateTime(params.value);
     div.appendChild(span);
     return div;
   }
@@ -2266,7 +2177,7 @@ function initializeBrowseGrid() {
     container.appendChild(downloadBtn);
 
     // Edit button (only for owner or admin)
-    const canEdit = isAdmin || (user && user.orcid === params.data.uploaderOrcid);
+    const canEdit = isAdmin || (user && user.orcid === params.data.uploader_orcid);
     if (canEdit) {
       const editBtn = document.createElement('a');
       editBtn.className = 'btn btn-sm btn-outline-primary';
@@ -2287,7 +2198,7 @@ function initializeBrowseGrid() {
       filter: 'agTextColumnFilter'
     },
     {
-      field: 'uploaderName',
+      field: 'uploader_name',
       headerName: 'Author',
       filter: 'agTextColumnFilter'
     },
@@ -2312,17 +2223,16 @@ function initializeBrowseGrid() {
       filter: false
     },
     {
-      field: 'downloadCount',
+      field: 'download_count',
       headerName: 'Downloads',
       filter: 'agNumberColumnFilter',
       maxWidth: 120
     },
     {
-      field: 'createdAt',
+      field: 'created_at',
       headerName: 'Created',
-      cellRenderer: createdCellRenderer,
       valueFormatter: params => {
-        return formatRelativeTime(params.value);
+        return formatDateTime(params.value);
       },
       filter: false,
       maxWidth: 130
@@ -2380,7 +2290,7 @@ function initializeBrowseGrid() {
 
         // Add filter parameters if present
         if (params.filterModel) {
-          // Handle text filters (name, uploaderName)
+          // Handle text filters (name, uploader_name)
           if (params.filterModel.name) {
             const nameFilter = params.filterModel.name;
             if (nameFilter.filter) {
@@ -2389,17 +2299,17 @@ function initializeBrowseGrid() {
             }
           }
 
-          if (params.filterModel.uploaderName) {
-            const authorFilter = params.filterModel.uploaderName;
+          if (params.filterModel.uploader_name) {
+            const authorFilter = params.filterModel.uploader_name;
             if (authorFilter.filter) {
               urlParams.set('filterAuthor', authorFilter.filter);
               urlParams.set('filterAuthorType', authorFilter.type || 'contains');
             }
           }
 
-          // Handle number filter (downloadCount)
-          if (params.filterModel.downloadCount) {
-            const downloadFilter = params.filterModel.downloadCount;
+          // Handle number filter (download_count)
+          if (params.filterModel.download_count) {
+            const downloadFilter = params.filterModel.download_count;
             if (downloadFilter.filter !== undefined) {
               urlParams.set('filterDownloads', downloadFilter.filter);
               urlParams.set('filterDownloadsType', downloadFilter.type || 'equals');
@@ -2422,9 +2332,14 @@ function initializeBrowseGrid() {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
 
+            /*
           const data = await response.json();
           const records = data.records || [];
           const totalCount = data.pagination?.totalCount || 0;
+          */
+            const payload = await response.json();
+            const records = payload.data || [];
+            const totalCount = payload.meta?.pagination?.total_count || 0;
 
           params.successCallback(records, totalCount);
         } catch (error) {
