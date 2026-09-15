@@ -58,16 +58,16 @@
 </div>
 
 <!-- Common Info Block Container -->
-<div id="common-info-container" class="mb-4">
+<div id="common-info-container" class="mb-3">
   <!-- Will be populated by JavaScript with owner, team, tags, date -->
   <div>
     <div class="mb-2">
-      <i class="bi bi-calendar3 me-2 text-secondary"></i>
+      <i class="bi bi-calendar3 text-secondary"></i>
       <span class="text-muted">Created at</span>
       <span class="fw-medium">{{ .Record.CreatedAt }}</span>
     </div>
     <div class="d-flex align-items-center flex-wrap mb-2">
-      <i class="bi bi-person me-2 text-secondary"></i>
+      <i class="bi bi-person text-secondary"></i>
       <span class="text-muted me-2">Uploaded by</span>
       <span>
         <a href="https://orcid.org/{{ .Record.UploaderOrcid }}" target="_blank" rel="noopener noreferrer">{{ .Record.UploaderName }}</a>
@@ -75,7 +75,7 @@
     </div>
     {{- if .Record.RorIds }}
     <div class="d-flex align-items-center flex-wrap mb-2">
-      <i class="bi bi-people me-2 text-secondary"></i>
+      <i class="bi bi-people text-secondary"></i>
       <span class="text-muted me-2">Organizations</span>
       <span>
         <span id="ror-organizations-loading">Loading...</span>
@@ -85,7 +85,7 @@
     {{- end }}
     {{- if .Record.Categories }}
     <div class="d-flex align-items-center flex-wrap mb-2">
-      <i class="bi bi-tags me-2 text-secondary"></i>
+      <i class="bi bi-tags text-secondary"></i>
       <span class="text-muted me-2">Categories</span>
       <div class="d-inline-flex flex-wrap gap-1">
         {{- range .Record.Categories }}
@@ -97,15 +97,7 @@
   </div>
 </div>
 
-<hr class="section-divider">
-
-<!-- Main Text Block (Collapsible Accordion) -->
-<div id="main-text-container" class="mb-4">
-  <!-- Will be populated by JavaScript with Introduction, Experimental Design, Results -->
-</div>
-
-<hr class="section-divider">
-
+<hr class="section-divider mt-4">
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0">RO-Crate Metadata</h4>
   <div class="d-flex align-items-center gap-3">
@@ -119,12 +111,25 @@
 <div id="ro-crate-viewer">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-      <button class="btn btn-primary btn-sm me-2" id="view-formatted">Formatted View</button>
-      <button class="btn btn-outline-secondary btn-sm" id="view-raw">Raw JSON</button>
+      <button class="btn btn-primary btn-sm me-2" id="formatted-btn">Formatted View</button>
+      <button class="btn btn-outline-secondary btn-sm" id="json-btn">Raw JSON</button>
     </div>
   </div>
 
-  <div id="formatted-view">
+  <!-- Main Text Block (Collapsible Accordion) -->
+  <div id="formatted-content" class="mt-4">
+    <!-- Will be populated by JavaScript with Introduction, Experimental Design, Results -->
+  </div>
+  <div id="json-content" class="hidden mt-4">
+    <pre class="bg-light p-3 rounded"><code>{{ .Record.MetadataPretty }}</code></pre>
+  </div>
+</div>
+
+<hr class="section-divider mt-4">
+  <h5 class="mb-3">
+    <i class="bi bi-chat-left-text me-2"></i>Organizations
+  </h5>
+  <div id="organizations">
     <div id="ro-crate-content">
       <div class="text-center p-4">
         <div class="spinner-border" role="status">
@@ -135,14 +140,12 @@
     </div>
   </div>
 
-  <div id="raw-view" class="hidden">
-    <pre class="bg-light p-3 rounded"><code>{{ .Record.MetadataPretty }}</code></pre>
-  </div>
-</div>
-
-<hr class="section-divider mt-4">
 
 <!-- License Information -->
+<hr class="section-divider mt-4">
+  <h5 class="mb-3">
+    <i class="bi bi-chat-left-text me-2"></i>License
+  </h5>
 <div class="card bg-light mt-4">
   <div class="card-body">
     <h5 class="card-title">License</h5>
@@ -169,10 +172,10 @@
 <!-- Comments Section -->
 <hr class="section-divider mt-4">
 <section class="mt-4" id="comments-section" data-record-id="{{ .Record.Id }}" data-current-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}" data-current-user-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}">
-  <h4 class="mb-3">
+  <h5 class="mb-3">
     <i class="bi bi-chat-left-text me-2"></i>Comments
     <span class="badge bg-secondary" id="comment-count"></span>
-  </h4>
+  </h5>
 
   <div id="comments-list">
     <div class="text-center p-4" id="comments-loading">
@@ -233,7 +236,7 @@
   </template>
 
   {{ if .User }}
-  <div class="card mb-4">
+  <div class="card mb-4 mt-4">
     <div class="card-body">
       <h5 class="card-title mb-3">Add a Comment</h5>
       <form id="comment-form">
