@@ -834,6 +834,9 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *RecordHandler) getOrganizations(rorIDs []string) []RorOrganization {
 	organizations := make([]RorOrganization, 0, len(rorIDs))
+	if h.rorNameCache == nil {
+		return organizations
+	}
 	for _, rorID := range rorIDs {
 		name, found := h.rorNameCache.Get(rorID)
 		if !found {
