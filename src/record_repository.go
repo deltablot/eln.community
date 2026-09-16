@@ -509,7 +509,6 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 					c.name ILIKE $2
 				)
 				%s
-				LIMIT $3 OFFSET $4
 			`, orderByClause)
 	}
 
