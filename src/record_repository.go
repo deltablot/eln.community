@@ -525,7 +525,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 	}
 
 	sqlQuery = fmt.Sprintf(
-		"%s\n%s\n%s",
+		"%s\n%s",
 		sqlQuery,
 		paginationClause,
 	)
@@ -772,7 +772,7 @@ func (r *PostgresRecordRepository) SearchPaginatedWithRorIDs(ctx context.Context
 		return nil, 0, err
 	}
 
-	rows, err := r.db.QueryContext(ctx, sqlQuery)
+	rows, err := r.db.QueryContext(ctx, sqlQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
