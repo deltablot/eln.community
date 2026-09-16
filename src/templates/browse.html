@@ -198,11 +198,13 @@
 </div>
 
 <!-- Records AG Grid -->
-<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@35.0.0/dist/ag-grid-community.min.js"
-        integrity="sha384-AhAzzsDZKp6p+3EfYkf2ZbsyABVhqa/nCxhCkFC2shZhXVUfgVKdUKROFgI87uCu"
-        crossorigin="anonymous"></script>
-<div id="browseGrid" class="ag-theme-alpine"
-     data-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}"
-     data-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}"
-     data-style-nonce="{{ .StyleNonce }}"></div>
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@35.0.0/dist/ag-grid-community.min.noStyle.js"
+   integrity="sha384-pjnkgIlLuM0f0a9uukLUcjUd6bZvDmA0xUMgubelAL+VJfpZmR2tKduPiI+7Pme6"
+   crossorigin="anonymous">
+</script>
+<div id="browseGrid"
+   data-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}"
+   data-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}"
+   data-style-nonce="{{ .StyleNonce }}">
+</div>
 {{ end }}

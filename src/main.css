@@ -1166,7 +1166,8 @@ footer {
   color: #000;
 }
 
-/* new css */
+
+/* NEW CSS */
 main a:not(.btn) {
   color: var(--blue-dark);
   text-decoration: none;

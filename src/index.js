@@ -2074,8 +2074,64 @@ document.addEventListener('DOMContentLoaded', function () {
   initializeVersionHistory();
 });
 
-// AG Grid initialization for browse page
+// Enable extended validations only for dev mode
+//agGrid.enableDevValidations();
+
+let gridApi;
+
+function nameCellRenderer(params)  {
+    const link = document.createElement('a');
+    link.href = `/record/${params.data.id}`;
+    link.textContent = params.value;
+    return link;
+}
+
+const columnDefs = [
+  { field: "name", filter: true, cellRenderer: nameCellRenderer,},
+  { field: "uploader_name", headerName: 'Author', filter: true },
+  { field: "download_count", headerName: 'Downloads', filter: true },
+  { field: "created_at", headerName: 'Created', filter: true },
+];
+
+const gridOptions = {
+    rowData: [],
+    columnDefs: columnDefs,
+    defaultColDef: {
+      flex: 1,
+    },
+    domLayout: 'autoHeight',
+};
+
 function initializeBrowseGrid() {
+  const gridDiv = document.getElementById('browseGrid');
+  if (!gridDiv) {
+    return;
+  }
+
+  const options = {
+    ...gridOptions,
+    styleNonce: gridDiv.dataset.styleNonce || undefined,
+  };
+
+  gridApi = agGrid.createGrid(gridDiv, options);
+
+  fetch('/api/v1/records')
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+      return response.json()
+  })
+  .then(payload => {
+      gridApi.setGridOption('rowData', payload.data)
+  })
+  .catch(error => {
+    console.error('Unable to load records:', error);
+  });
+}
+
+// AG Grid initialization for browse page
+function initializeBrowseGrid_first() {
   const gridDiv = document.getElementById('browseGrid');
 
   if (!gridDiv) {
@@ -2093,10 +2149,13 @@ function initializeBrowseGrid() {
   // Custom cell renderer for Name column with link
   function nameCellRenderer(params) {
     if (!params.data) return '';
-      console.log(params);
+    console.log(params);
     const link = document.createElement('a');
+    console.log(link);
     link.href = `/record/${params.data.id}`;
+    console.log(link);
     link.textContent = params.value;
+    console.log(link);
     return link;
   }
 
