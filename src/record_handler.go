@@ -923,7 +923,7 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 	var totalCount int
 	var err error
 
-	res := APIResponse[BrowseRecord]{}
+	res := APIResponse[Record]{}
 	// Parse category ID(s) if provided
 	if categoryIDStr != "" {
 		categoryIDStrs := strings.Split(categoryIDStr, ",")
@@ -934,7 +934,7 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			}
 			categoryID, err := strconv.ParseInt(idStr, 10, 64)
 			if err != nil {
-				res.Data = []BrowseRecord{}
+				res.Data = []Record{}
 				status := http.StatusBadRequest
 				res.Meta.Error.Code = status
 				res.Meta.Error.Message = http.StatusText(status)
@@ -968,7 +968,7 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 				noRorMatch = true
 			}
 		} else {
-			res.Data = []BrowseRecord{}
+			res.Data = []Record{}
 			status := http.StatusBadRequest
 			res.Meta.Error.Code = status
 			res.Meta.Error.Message = http.StatusText(status)
@@ -1007,7 +1007,7 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		res.Data = []BrowseRecord{}
+		res.Data = []Record{}
 		status := http.StatusInternalServerError
 		res.Meta.Error.Code = status
 		res.Meta.Error.Message = http.StatusText(status)
@@ -1024,27 +1024,36 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			totalPages = 1
 		}
 	}
-	browseRecords := make([]BrowseRecord, 0, len(records))
-	for _, record := range records {
-		organizations := h.getOrganizations(record.RorIds)
-		browseRecord := BrowseRecord{
-			ID:            record.Id,
-			Name:          record.Name,
-			UploaderName:  record.UploaderName,
-			UploaderOrcid: record.UploaderOrcid,
-			Categories:    record.Categories,
-			Organizations: organizations,
-			DownloadCount: record.DownloadCount,
-			CreatedAt:     record.CreatedAt,
-		}
-		browseRecords = append(browseRecords, browseRecord)
-	}
-
-	res.Data = browseRecords
 	res.Meta.Pagination.Page = page
 	res.Meta.Pagination.Limit = limit
 	res.Meta.Pagination.TotalCount = totalCount
 	res.Meta.Pagination.TotalPages = totalPages
+
+	//TODO: find a way to make it easier. Maybe always include Organization for /records and /record/{id}
+	if r.URL.Query().Get("short") == "1" {
+		browseRecords := make([]BrowseRecord, 0, len(records))
+
+		for _, record := range records {
+			browseRecords = append(browseRecords, BrowseRecord{
+				ID:            record.Id,
+				Name:          record.Name,
+				UploaderName:  record.UploaderName,
+				UploaderOrcid: record.UploaderOrcid,
+				Categories:    record.Categories,
+				Organizations: h.getOrganizations(record.RorIds),
+				DownloadCount: record.DownloadCount,
+				CreatedAt:     record.CreatedAt,
+			})
+		}
+		browseRes := APIResponse[BrowseRecord]{
+			Data: browseRecords,
+			Meta: res.Meta,
+		}
+		writeJson(w, http.StatusOK, browseRes)
+		return
+	}
+
+	res.Data = records
 	writeJson(w, http.StatusOK, res)
 }
 

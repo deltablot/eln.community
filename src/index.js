@@ -2084,12 +2084,16 @@ function initializeBrowseGrid() {
 
   // Get user/admin info from data attributes on the grid div
   const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
+    console.log(user);
   const isAdmin = gridDiv.dataset.isAdmin === 'true';
+    console.log(isAdmin);
   const styleNonce = gridDiv.dataset.styleNonce || undefined;
+    console.log(styleNonce);
 
   // Custom cell renderer for Name column with link
   function nameCellRenderer(params) {
     if (!params.data) return '';
+      console.log(params);
     const link = document.createElement('a');
     link.href = `/record/${params.data.id}`;
     link.textContent = params.value;

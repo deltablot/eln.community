@@ -433,7 +433,6 @@ func (r *PostgresRecordRepository) GetAllByRorIDsPaginated(ctx context.Context, 
 func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query string, categoryID int64, limit, offset int, orderBy, sortOrder string) ([]Record, int, error) {
 	var countQuery string
 	var sqlQuery string
-	var args []interface{}
 	var countArgs []interface{}
 
 	// Build ORDER BY clause with SQL injection protection
@@ -474,9 +473,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 				c.name ILIKE $3
 			)
 			%s
-			LIMIT $4 OFFSET $5
 		`, orderByClause)
-		args = []interface{}{StatusApproved, categoryID, "%" + query + "%", limit, offset}
 	} else {
 		// Count query for all records
 		countQuery = `
@@ -498,25 +495,42 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 
 		// Search across all records
 		sqlQuery = fmt.Sprintf(`
-			SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
-			FROM records r
-			LEFT JOIN records_ror rr ON r.id = rr.record_id
-			LEFT JOIN records_categories rc ON r.id = rc.record_id
-			LEFT JOIN categories c ON rc.category_id = c.id
-			WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND (
-				r.name ILIKE $2 OR
-				r.metadata::text ILIKE $2 OR
-				r.uploader_name ILIKE $2 OR
-				r.uploader_orcid ILIKE $2 OR
-				rr.ror ILIKE $2 OR
-				c.name ILIKE $2
-			)
-			%s
-			LIMIT $3 OFFSET $4
-		`, orderByClause)
-		args = []interface{}{StatusApproved, "%" + query + "%", limit, offset}
+				SELECT DISTINCT r.id, r.sha256, r.name, r.description, r.metadata, r.created_at, r.modified_at, r.uploader_name, r.uploader_orcid, r.download_count
+				FROM records r
+				LEFT JOIN records_ror rr ON r.id = rr.record_id
+				LEFT JOIN records_categories rc ON r.id = rc.record_id
+				LEFT JOIN categories c ON rc.category_id = c.id
+				WHERE r.moderation_status = $1 AND r.archived_at IS NULL AND (
+					r.name ILIKE $2 OR
+					r.metadata::text ILIKE $2 OR
+					r.uploader_name ILIKE $2 OR
+					r.uploader_orcid ILIKE $2 OR
+					rr.ror ILIKE $2 OR
+					c.name ILIKE $2
+				)
+				%s
+				LIMIT $3 OFFSET $4
+			`, orderByClause)
 	}
 
+	paginationClause := ""
+	queryArgs := append([]any{}, countArgs...)
+
+	if limit > 0 {
+		paginationClause = fmt.Sprintf(
+			"LIMIT $%d OFFSET $%d",
+			len(queryArgs)+1,
+			len(queryArgs)+2,
+		)
+		queryArgs = append(queryArgs, limit, offset)
+	}
+
+	sqlQuery = fmt.Sprintf(
+		"%s\n%s\n%s",
+		sqlQuery,
+		orderByClause,
+		paginationClause,
+	)
 	// Get total count
 	var totalCount int
 	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
@@ -524,7 +538,7 @@ func (r *PostgresRecordRepository) SearchPaginated(ctx context.Context, query st
 		return nil, 0, err
 	}
 
-	rows, err := r.db.QueryContext(ctx, sqlQuery, args...)
+	rows, err := r.db.QueryContext(ctx, sqlQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
