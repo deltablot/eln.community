@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function () {
   loadRorNames();
 
   // Load ROR names for browse page
-  loadRorNamesForBrowse();
+  // loadRorNamesForBrowse();
 
   // Handle category select change for browse page
   const categorySelect = document.getElementById('category');
@@ -1228,12 +1228,16 @@ async function loadRorNames() {
   }
 }
 
+/*
 async function loadRorNamesForBrowse() {
+    console.log("je suis dans loadRorNamesForBrowse");
   const rorElements = document.querySelectorAll('.ror-organizations[data-ror-ids]');
+    console.log(rorElements);
   if (rorElements.length === 0) {
     return; // Not on browse page or no ROR IDs
   }
 
+    console.log("je ne m'affiche pas");
   // Collect all unique ROR IDs from all records
   const allRorIds = new Set();
   rorElements.forEach(element => {
@@ -1247,8 +1251,11 @@ async function loadRorNamesForBrowse() {
 
   try {
     // Fetch all organizations in one batch
+
+      console.log("je suis avant fetchRorOrganizations");
     const organizations = await fetchRorOrganizations(Array.from(allRorIds));
 
+      console.log("je suis après fetchRorOrganizations");
     // Create a map for quick lookup
     const orgMap = new Map();
     organizations.forEach(org => {
@@ -1301,6 +1308,7 @@ async function loadRorNamesForBrowse() {
   }
 }
 
+*/
 // Fetch ROR organizations with caching
 async function fetchRorOrganizations(rorIds) {
   if (!Array.isArray(rorIds) || rorIds.length === 0) {
@@ -2080,27 +2088,105 @@ document.addEventListener('DOMContentLoaded', function () {
 let gridApi;
 
 function nameCellRenderer(params)  {
+  const link = document.createElement('a');
+  link.href = `/record/${params.data.id}`;
+  link.textContent = params.value;
+  return link;
+}
+
+function dateCellRenderer(params) {
+  if (!params.data) return '';
+  const div = document.createElement('div');
+  div.className = 'record-card-date';
+  const span = document.createElement('span');
+  span.className = 'relative-time';
+  span.textContent = formatDateTime(params.value);
+  div.appendChild(span);
+  return div;
+}
+
+function createEmptyValue() {
+  const span = document.createElement('span');
+  span.className = 'text-muted';
+  span.textContent = '-';
+  return span;
+}
+
+function createContainer(params, query) {
+  const container = document.createElement('span');
+  params.forEach((param, index) => {
+    if (index > 0) {
+      container.appendChild(document.createTextNode(', '));
+    }
     const link = document.createElement('a');
-    link.href = `/record/${params.data.id}`;
-    link.textContent = params.value;
-    return link;
+    link.href = `/browse?${query}=${param.id}`;
+    link.textContent = param.name;
+    container.appendChild(link);
+  });
+  return container;
+}
+
+function categoriesCellRenderer(params) {
+  if (!params.data) return '';
+  const categories = params.value || [];
+  if (categories.length === 0) {
+      return createEmptyValue();
+  }
+  return createContainer(categories, 'category');
+}
+
+function organizationsCellRenderer(params) {
+  if (!params.data) return '';
+  const organizations = params.value || [];
+  if (organizations.length === 0) {
+    return createEmptyValue();
+  }
+  return createContainer(organizations, 'ror');
 }
 
 const columnDefs = [
-  { field: "name", filter: true, cellRenderer: nameCellRenderer,},
+  { field: "name", filter: true, cellRenderer: nameCellRenderer },
   { field: "uploader_name", headerName: 'Author', filter: true },
-  { field: "download_count", headerName: 'Downloads', filter: true },
-  { field: "created_at", headerName: 'Created', filter: true },
+  { field: "categories", headerName: 'Categories', filter: true, cellRenderer: categoriesCellRenderer },
+  { field: "organizations", headerName: 'Organizations', filter: true, cellRenderer: organizationsCellRenderer },
+  { field: "download_count", headerName: 'Downloads', filter: false },
+  { field: "created_at", headerName: 'Created', filter: false, cellRenderer: dateCellRenderer },
 ];
 
 const gridOptions = {
-    rowData: [],
-    columnDefs: columnDefs,
-    defaultColDef: {
-      flex: 1,
-    },
-    domLayout: 'autoHeight',
+  rowData: [],
+  columnDefs: columnDefs,
+  defaultColDef: {
+    flex: 1,
+    sortingOrder: ['asc', 'desc'],
+    floatingFilter: true,
+  },
+  domLayout: 'autoHeight',
 };
+
+function getRecordsOrganizationsIds(records) {
+    const rorIds = [];
+    records.forEach((record) => {
+        rorIds.push(...(record.rors || []));
+    });
+    const uniqueRorIds = [...new Set(rorIds)];
+    return uniqueRorIds;
+}
+
+async function getEnrichedRecords(records) {
+    const uniqueRorIds = getRecordsOrganizationsIds(records)
+    const allOrganizations = await fetchRorOrganizations(uniqueRorIds);
+    const enrichedRecords = records.map((record) => {
+      const hasOrg = allOrganizations.filter((org) => {
+        return record.rors?.includes(org.id);
+      });
+      return {
+        ...record,
+        organizations: hasOrg,
+      }
+    })
+    return enrichedRecords;
+}
 
 function initializeBrowseGrid() {
   const gridDiv = document.getElementById('browseGrid');
@@ -2122,8 +2208,9 @@ function initializeBrowseGrid() {
     }
       return response.json()
   })
-  .then(payload => {
-      gridApi.setGridOption('rowData', payload.data)
+  .then(async payload => {
+      const records = await getEnrichedRecords(payload.data);
+      gridApi.setGridOption('rowData', records);
   })
   .catch(error => {
     console.error('Unable to load records:', error);
