@@ -165,10 +165,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initializeRorAutocomplete('ror-search-input-upload', 'ror-search-results-upload', 'selected-rors-upload', 'rors-hidden-input-upload');
 
   // Load ROR names for record page
-  loadRorNames();
-
-  // Load ROR names for browse page
-  // loadRorNamesForBrowse();
+ // loadRorNames();
 
   // Handle category select change for browse page
   const categorySelect = document.getElementById('category');
@@ -178,9 +175,6 @@ document.addEventListener('DOMContentLoaded', function () {
       searchForm.submit();
     });
   }
-
-  // Initialize pagination for browse page
-  initializePagination();
 
   // Initialize browse page search and filter
   initializeBrowseSearch();
@@ -424,51 +418,6 @@ function openHtmlInNewTab(base64Content, entityId) {
   }
 }
 
-function renderEntity(entity) {
-  let html = '<div class="ro-crate-entity">';
-
-  // Header with ID and type
-  html += '<div class="ro-crate-entity-header">';
-  html += `<strong>ID:</strong> <span class="ro-crate-id">${escapeHtml(entity['@id'] || 'Unknown')}</span>`;
-
-  if (entity['@type']) {
-    html += ' ';
-    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
-    types.forEach(type => {
-      html += `<span class="ro-crate-type-badge">${escapeHtml(type)}</span>`;
-    });
-  }
-  html += '</div>';
-
-  // Body with properties
-  html += '<div class="ro-crate-entity-body">';
-
-  // Sort properties, putting common ones first
-  const commonProps = ['name', 'description', 'author', 'dateCreated', 'dateModified', 'license', 'url'];
-  const sortedKeys = Object.keys(entity).sort((a, b) => {
-    if (a === '@id' || a === '@type') return -1;
-    if (b === '@id' || b === '@type') return 1;
-
-    const aIndex = commonProps.indexOf(a);
-    const bIndex = commonProps.indexOf(b);
-
-    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-    if (aIndex !== -1) return -1;
-    if (bIndex !== -1) return 1;
-
-    return a.localeCompare(b);
-  });
-
-  sortedKeys.forEach(key => {
-    if (key !== '@id' && key !== '@type') {
-      html += renderProperty(key, entity[key], entity);
-    }
-  });
-
-  html += '</div></div>';
-  return html;
-}
-
 function renderRoCrate(data) {
   if (!data || typeof data !== 'object') {
     return '<div class="alert alert-warning">Invalid RO-Crate format: data is not an object</div>';
@@ -496,14 +445,6 @@ function renderRoCrate(data) {
 
   let html = '';
 
-  // Render Comments
-  if (comments.length > 0) {
-    html += '<h5 class="mt-4 mb-3">Comments</h5>';
-    comments.forEach(comment => {
-      html += renderCommentCard(comment, resolveAuthorName);
-    });
-  }
-
   // Render Organizations
   if (organizations.length > 0) {
     organizations.forEach(org => {
@@ -518,37 +459,6 @@ function renderRoCrate(data) {
   return html;
 }
 
-/**
- * Render a Dataset entity as a card
- */
-
-/**
- * Render a Comment entity as a card
- */
-function renderCommentCard(comment, resolveAuthorName) {
-  const author = resolveAuthorName(comment.author);
-  const text = comment.text || '';
-  const dateCreated = comment.dateCreated ? formatDisplayDate(comment.dateCreated) : null;
-
-  let html = '<div class="card mb-2 border-start border-primary border-3">';
-  html += '<div class="card-body py-2">';
-
-  // Comment text
-  html += `<p class="mb-2">${escapeHtml(text)}</p>`;
-
-  // Author and date
-  html += '<div class="small text-muted">';
-  if (author) {
-    html += `<i class="bi bi-person me-1"></i>${escapeHtml(author.name)}`;
-  }
-  if (dateCreated) {
-    html += ` <i class="bi bi-clock ms-2 me-1"></i>${escapeHtml(dateCreated)}`;
-  }
-  html += '</div>';
-
-  html += '</div></div>';
-  return html;
-}
 
 /**
  * Render an Organization entity as a card
@@ -654,71 +564,6 @@ function initializeRoCrateViewer() {
     contentDiv.innerHTML =
       '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(errorMessage) +
       '<br><small>Check browser console for more details</small></div>';
-  }
-}
-
-/**
- * Get fallback data from the Record model (server-rendered data)
- * Used when RO-Crate metadata doesn't contain certain fields
- *
- * @returns {Object} - Fallback data object
- */
-function getFallbackRecordData() {
-  const fallbackElement = document.getElementById('record-fallback-data');
-  if (!fallbackElement) {
-    return {
-      uploaderName: null,
-      uploaderOrcid: null,
-      createdAt: null,
-      categories: []
-    };
-  }
-
-  try {
-    return JSON.parse(fallbackElement.textContent);
-  } catch (e) {
-    console.warn('Failed to parse fallback record data:', e);
-    return {
-      uploaderName: null,
-      uploaderOrcid: null,
-      createdAt: null,
-      categories: []
-    };
-  }
-}
-
-/**
- * Apply fallback data to extracted data when RO-Crate fields are missing
- *
- * @param {Object} extractedData - The extracted data from RO-Crate
- * @param {Object} fallbackData - The fallback data from Record model
- */
-function applyFallbackData(extractedData, fallbackData) {
-  if (!extractedData || !fallbackData) return;
-
-  // Fallback for owner: use uploader_name when no author in RO-Crate
-  if (!extractedData.commonInfo.owner && fallbackData.uploaderName) {
-    extractedData.commonInfo.owner = {
-      name: fallbackData.uploaderName,
-      orcid: fallbackData.uploaderOrcid || undefined
-    };
-  }
-
-  // Fallback for tags: use categories when no keywords in RO-Crate
-  if (extractedData.commonInfo.tags.length === 0 && fallbackData.categories && fallbackData.categories.length > 0) {
-    extractedData.commonInfo.tags = fallbackData.categories.map(cat => cat.Name || cat.name);
-  }
-
-  // Fallback for start date: use created_at when no dateCreated in RO-Crate
-  if (!extractedData.commonInfo.startDate && fallbackData.createdAt) {
-    // Convert Go time format to ISO string if needed
-    const createdAt = fallbackData.createdAt;
-    if (typeof createdAt === 'string') {
-      extractedData.commonInfo.startDate = createdAt;
-    } else if (createdAt && createdAt.Time) {
-      // Handle Go time.Time JSON format
-      extractedData.commonInfo.startDate = createdAt.Time;
-    }
   }
 }
 
@@ -1228,87 +1073,6 @@ async function loadRorNames() {
   }
 }
 
-/*
-async function loadRorNamesForBrowse() {
-    console.log("je suis dans loadRorNamesForBrowse");
-  const rorElements = document.querySelectorAll('.ror-organizations[data-ror-ids]');
-    console.log(rorElements);
-  if (rorElements.length === 0) {
-    return; // Not on browse page or no ROR IDs
-  }
-
-    console.log("je ne m'affiche pas");
-  // Collect all unique ROR IDs from all records
-  const allRorIds = new Set();
-  rorElements.forEach(element => {
-    const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
-    rorIds.forEach(id => allRorIds.add(id.trim()));
-  });
-
-  if (allRorIds.size === 0) {
-    return;
-  }
-
-  try {
-    // Fetch all organizations in one batch
-
-      console.log("je suis avant fetchRorOrganizations");
-    const organizations = await fetchRorOrganizations(Array.from(allRorIds));
-
-      console.log("je suis après fetchRorOrganizations");
-    // Create a map for quick lookup
-    const orgMap = new Map();
-    organizations.forEach(org => {
-      orgMap.set(org.id, org);
-    });
-
-    // Update each record's ROR display
-    rorElements.forEach(element => {
-      const recordId = element.getAttribute('data-record-id');
-      const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
-      const loadingElement = document.querySelector(`.ror-organizations-loading[data-record-id="${recordId}"]`);
-
-      if (rorIds.length === 0) {
-        if (loadingElement) loadingElement.classList.add('ror-hidden');
-        return;
-      }
-
-      // Build display HTML with filter links
-      let html = '';
-      rorIds.forEach((rorId, index) => {
-        const org = orgMap.get(rorId.trim());
-        if (org) {
-          if (index > 0) html += ', ';
-
-          let countryText = '';
-          if (org.country && org.country.country_name) {
-            countryText = ` <span class="text-muted small">(${escapeHtml(org.country.country_name)})</span>`;
-          }
-
-          html += `<span class="ror-item"><a href='/browse?ror=${encodeURIComponent(org.id)}' class='ror-filter-link' title='Filter by ${escapeHtml(org.name)}'>${escapeHtml(org.name)}</a>${countryText}</span>`;
-        }
-      });
-
-      if (html) {
-        element.innerHTML = html;
-        element.classList.remove('ror-hidden');
-        element.classList.add('ror-inline');
-      }
-
-      if (loadingElement) {
-        loadingElement.classList.add('ror-hidden');
-      }
-    });
-  } catch (error) {
-    console.error('Error loading ROR names for browse:', error);
-    // Hide loading indicators on error
-    document.querySelectorAll('.ror-organizations-loading').forEach(el => {
-      el.textContent = 'Error loading';
-    });
-  }
-}
-
-*/
 // Fetch ROR organizations with caching
 async function fetchRorOrganizations(rorIds) {
   if (!Array.isArray(rorIds) || rorIds.length === 0) {
@@ -1352,26 +1116,6 @@ async function fetchRorOrganizations(rorIds) {
     console.error('Error fetching ROR organizations:', error);
     // Return cached ones even if fetch fails
     return cachedOrgs;
-  }
-}
-
-// Initialize pagination for browse page
-function initializePagination() {
-  // Handle pagination clicks
-  document.querySelectorAll('.pagination .page-link[data-page]').forEach(link => {
-    link.addEventListener('click', function (e) {
-      e.preventDefault();
-      const page = this.getAttribute('data-page');
-      navigateToBrowse({ page: page });
-    });
-  });
-
-  // Handle page size change
-  const pageSizeSelect = document.getElementById('pageSizeSelect');
-  if (pageSizeSelect) {
-    pageSizeSelect.addEventListener('change', function () {
-      navigateToBrowse({ pageSize: this.value, page: '1' });
-    });
   }
 }
 
@@ -2160,8 +1904,12 @@ const gridOptions = {
     flex: 1,
     sortingOrder: ['asc', 'desc'],
     floatingFilter: true,
+    cellDataType: 'text',
   },
   domLayout: 'autoHeight',
+  pagination: true,
+  paginationPageSize: 10,
+  paginationPageSizeSelector: [10, 20, 30, 50],
 };
 
 function getRecordsOrganizationsIds(records) {
@@ -2177,12 +1925,12 @@ async function getEnrichedRecords(records) {
     const uniqueRorIds = getRecordsOrganizationsIds(records)
     const allOrganizations = await fetchRorOrganizations(uniqueRorIds);
     const enrichedRecords = records.map((record) => {
-      const hasOrg = allOrganizations.filter((org) => {
+      const matchingOrg = allOrganizations.filter((org) => {
         return record.rors?.includes(org.id);
       });
       return {
         ...record,
-        organizations: hasOrg,
+        organizations: matchingOrg,
       }
     })
     return enrichedRecords;
@@ -2218,6 +1966,7 @@ function initializeBrowseGrid() {
 }
 
 // AG Grid initialization for browse page
+/*
 function initializeBrowseGrid_first() {
   const gridDiv = document.getElementById('browseGrid');
 
@@ -2486,7 +2235,6 @@ function initializeBrowseGrid_first() {
           const data = await response.json();
           const records = data.records || [];
           const totalCount = data.pagination?.totalCount || 0;
-          */
             const payload = await response.json();
             const records = payload.data || [];
             const totalCount = payload.meta?.pagination?.total_count || 0;
@@ -2503,6 +2251,7 @@ function initializeBrowseGrid_first() {
   // Create the grid
   agGrid.createGrid(gridDiv, gridOptions);
 }
+*/
 
 
 // Moderation functionality
