@@ -164,8 +164,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initialize ROR autocomplete for upload page
   initializeRorAutocomplete('ror-search-input-upload', 'ror-search-results-upload', 'selected-rors-upload', 'rors-hidden-input-upload');
 
-  // Load ROR names for record page
- // loadRorNames();
+// Load ROR names for record page
+  loadRorNames();
 
   // Handle category select change for browse page
   const categorySelect = document.getElementById('category');
@@ -254,6 +254,7 @@ function renderProperty(key, value, entity) {
 
 function renderValue(value, entity, key) {
   if (value === null || value === undefined) return '<em>null</em>';
+        console.log("hello");
 
   if (typeof value === 'string') {
     // Check if it's a URL (with better validation for XSS protection)
@@ -267,7 +268,8 @@ function renderValue(value, entity, key) {
 
     // Check if this is HTML content based on encodingFormat
     if (entity && entity.encodingFormat === 'text/html' && (key === 'text' || key === 'description' || key === 'content')) {
-      return renderHtmlContent(value, entity['@id']);
+
+ //     return renderHtmlContent(value, entity['@id']);
     }
 
     return escapeHtml(value);
@@ -486,24 +488,6 @@ function renderOrganizationCard(org) {
 
   html += '</div></div>';
   return html;
-}
-
-/**
- * Format a date string for display
- */
-function formatDisplayDate(dateStr) {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch (e) {
-    return dateStr;
-  }
 }
 
 // Initialize RO-Crate viewer functionality
@@ -1826,10 +1810,8 @@ document.addEventListener('DOMContentLoaded', function () {
   initializeVersionHistory();
 });
 
-// Enable extended validations only for dev mode
-//agGrid.enableDevValidations();
-
 let gridApi;
+const COLUMN_STATE_STORAGE_KEY = 'persistent_entities_table_column_state_v1';
 
 function nameCellRenderer(params)  {
   const link = document.createElement('a');
@@ -1888,11 +1870,48 @@ function organizationsCellRenderer(params) {
   return createContainer(organizations, 'ror');
 }
 
+function getStoredColumnState() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(COLUMN_STATE_STORAGE_KEY) ?? 'null'
+    );
+  } catch {
+    return null;
+  }
+}
+
+function storeColumnState(api) {
+  try {
+    localStorage.setItem(
+      COLUMN_STATE_STORAGE_KEY,
+      JSON.stringify(api.getColumnState())
+    );
+  } catch {
+    // localStorage might be unavailable
+  }
+}
+
+function columnStateChanged(event) {
+  if (event.finished === false)
+    return;
+  storeColumnState(event.api);
+}
+
+function restoreColumnState(event) {
+  const state = getStoredColumnState();
+  if (!Array.isArray(state))
+    return;
+  event.api.applyColumnState({
+      state: state,
+      applyOrder: true,
+  });
+}
+
 const columnDefs = [
-  { field: "name", filter: true, cellRenderer: nameCellRenderer },
-  { field: "uploader_name", headerName: 'Author', filter: true },
-  { field: "categories", headerName: 'Categories', filter: true, cellRenderer: categoriesCellRenderer },
-  { field: "organizations", headerName: 'Organizations', filter: true, cellRenderer: organizationsCellRenderer },
+  { field: "name", filter: true, cellRenderer: nameCellRenderer, cellDataType: 'text' },
+  { field: "uploader_name", headerName: 'Author', filter: true, cellDataType: 'text' },
+  { field: "categories", headerName: 'Categories', filter: true, cellRenderer: categoriesCellRenderer, cellDataType: 'text' },
+  { field: "organizations", headerName: 'Organizations', filter: true, cellRenderer: organizationsCellRenderer, cellDataType: 'text' },
   { field: "download_count", headerName: 'Downloads', filter: false },
   { field: "created_at", headerName: 'Created', filter: false, cellRenderer: dateCellRenderer },
 ];
@@ -1904,12 +1923,13 @@ const gridOptions = {
     flex: 1,
     sortingOrder: ['asc', 'desc'],
     floatingFilter: true,
-    cellDataType: 'text',
   },
   domLayout: 'autoHeight',
   pagination: true,
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 20, 30, 50],
+  onColumnMoved: columnStateChanged,
+  onGridReady: restoreColumnState,
 };
 
 function getRecordsOrganizationsIds(records) {
@@ -1964,295 +1984,6 @@ function initializeBrowseGrid() {
     console.error('Unable to load records:', error);
   });
 }
-
-// AG Grid initialization for browse page
-/*
-function initializeBrowseGrid_first() {
-  const gridDiv = document.getElementById('browseGrid');
-
-  if (!gridDiv) {
-    return; // Not on browse page with AG Grid
-  }
-
-  // Get user/admin info from data attributes on the grid div
-  const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
-    console.log(user);
-  const isAdmin = gridDiv.dataset.isAdmin === 'true';
-    console.log(isAdmin);
-  const styleNonce = gridDiv.dataset.styleNonce || undefined;
-    console.log(styleNonce);
-
-  // Custom cell renderer for Name column with link
-  function nameCellRenderer(params) {
-    if (!params.data) return '';
-    console.log(params);
-    const link = document.createElement('a');
-    console.log(link);
-    link.href = `/record/${params.data.id}`;
-    console.log(link);
-    link.textContent = params.value;
-    console.log(link);
-    return link;
-  }
-
-  // Custom cell renderer for Categories column
-  function categoriesCellRenderer(params) {
-    if (!params.data) return '';
-    const categories = params.value || [];
-    if (categories.length === 0) {
-      const span = document.createElement('span');
-      span.className = 'text-muted';
-      span.textContent = '-';
-      return span;
-    }
-
-    const container = document.createElement('span');
-    categories.forEach((cat, index) => {
-      if (index > 0) {
-        container.appendChild(document.createTextNode(', '));
-      }
-      const link = document.createElement('a');
-      link.href = `/browse?category=${cat.id}`;
-      link.textContent = cat.name;
-      container.appendChild(link);
-    });
-    return container;
-  }
-
-  // Custom cell renderer for Organizations column
-  function organizationsCellRenderer(params) {
-    if (!params.data) return '';
-    const organizations = params.value || [];
-    if (organizations.length === 0) {
-      const span = document.createElement('span');
-      span.className = 'text-muted';
-      span.textContent = '-';
-      return span;
-    }
-
-    const container = document.createElement('span');
-    organizations.forEach((org, index) => {
-      if (index > 0) {
-        container.appendChild(document.createTextNode(', '));
-      }
-      const link = document.createElement('a');
-      link.href = `/browse?ror=${org.id}`;
-      link.textContent = org.name;
-      container.appendChild(link);
-    });
-    return container;
-  }
-
-  // Custom cell renderer for Created column
-  function createdCellRenderer(params) {
-    if (!params.data) return '';
-    const div = document.createElement('div');
-    div.className = 'record-card-date';
-    const span = document.createElement('span');
-    span.className = 'relative-time';
-    span.textContent = formatDateTime(params.value);
-    div.appendChild(span);
-    return div;
-  }
-
-  // Custom cell renderer for Actions column
-  function actionsCellRenderer(params) {
-    if (!params.data) return '';
-    const container = document.createElement('div');
-    container.className = 'text-end';
-
-    // View button
-    const viewBtn = document.createElement('a');
-    viewBtn.className = 'btn btn-sm btn-outline-primary me-1';
-    viewBtn.href = `/record/${params.data.id}`;
-    viewBtn.textContent = 'View';
-    container.appendChild(viewBtn);
-
-    // Download button
-    const downloadBtn = document.createElement('a');
-    downloadBtn.className = 'btn btn-sm btn-outline-secondary me-1';
-    downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
-    downloadBtn.textContent = 'Download';
-    container.appendChild(downloadBtn);
-
-    // Edit button (only for owner or admin)
-    const canEdit = isAdmin || (user && user.orcid === params.data.uploader_orcid);
-    if (canEdit) {
-      const editBtn = document.createElement('a');
-      editBtn.className = 'btn btn-sm btn-outline-primary';
-      editBtn.href = `/api/v1/record/${params.data.id}/edit`;
-      editBtn.textContent = 'Edit';
-      container.appendChild(editBtn);
-    }
-
-    return container;
-  }
-
-  // Column definitions
-  const columnDefs = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      cellRenderer: nameCellRenderer,
-      filter: 'agTextColumnFilter'
-    },
-    {
-      field: 'uploader_name',
-      headerName: 'Author',
-      filter: 'agTextColumnFilter'
-    },
-    {
-      field: 'categories',
-      headerName: 'Categories',
-      cellRenderer: categoriesCellRenderer,
-      valueFormatter: params => {
-        const categories = params.value || [];
-        return categories.map(cat => cat.name).join(', ') || '-';
-      },
-      filter: false
-    },
-    {
-      field: 'organizations',
-      headerName: 'Organizations',
-      cellRenderer: organizationsCellRenderer,
-      valueFormatter: params => {
-        const organizations = params.value || [];
-        return organizations.map(org => org.name).join(', ') || '-';
-      },
-      filter: false
-    },
-    {
-      field: 'download_count',
-      headerName: 'Downloads',
-      filter: 'agNumberColumnFilter',
-      maxWidth: 120
-    },
-    {
-      field: 'created_at',
-      headerName: 'Created',
-      valueFormatter: params => {
-        return formatDateTime(params.value);
-      },
-      filter: false,
-      maxWidth: 130
-    },
-    {
-      headerName: 'Actions',
-      cellRenderer: actionsCellRenderer,
-      filter: false,
-      sortable: false,
-      minWidth: 180
-    }
-  ];
-
-  // Grid options following AG Grid official pattern
-  // styleNonce is used to avoid 'unsafe-inline' in CSP for AG Grid styles
-  const gridOptions = {
-    columnDefs: columnDefs,
-    defaultColDef: {
-      flex: 1,
-      minWidth: 100,
-      filter: true,
-      sortable: true,
-      suppressHeaderMenuButton: true,
-      suppressHeaderContextMenu: true,
-      resizable: true,
-      floatingFilter: true
-    },
-    domLayout: 'autoHeight',
-    pagination: true,
-    paginationPageSize: 10,
-    paginationPageSizeSelector: [10, 20, 30, 50],
-    animateRows: true,
-    styleNonce: styleNonce,
-    // Server-side row model for API-based data fetching
-    rowModelType: 'infinite',
-    cacheBlockSize: 10,
-    maxBlocksInCache: 10,
-    datasource: {
-      getRows: async function (params) {
-        const page = Math.floor(params.startRow / 10) + 1;
-        const pageSize = params.endRow - params.startRow;
-
-        // Build query string from current URL params
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('short', '1');
-        urlParams.set('page', page.toString());
-        urlParams.set('pageSize', pageSize.toString());
-
-        // Add sort parameters if present
-        if (params.sortModel && params.sortModel.length > 0) {
-          const sortModel = params.sortModel[0];
-          urlParams.set('sortBy', sortModel.colId);
-          urlParams.set('sortOrder', sortModel.sort);
-        }
-
-        // Add filter parameters if present
-        if (params.filterModel) {
-          // Handle text filters (name, uploader_name)
-          if (params.filterModel.name) {
-            const nameFilter = params.filterModel.name;
-            if (nameFilter.filter) {
-              urlParams.set('filterName', nameFilter.filter);
-              urlParams.set('filterNameType', nameFilter.type || 'contains');
-            }
-          }
-
-          if (params.filterModel.uploader_name) {
-            const authorFilter = params.filterModel.uploader_name;
-            if (authorFilter.filter) {
-              urlParams.set('filterAuthor', authorFilter.filter);
-              urlParams.set('filterAuthorType', authorFilter.type || 'contains');
-            }
-          }
-
-          // Handle number filter (download_count)
-          if (params.filterModel.download_count) {
-            const downloadFilter = params.filterModel.download_count;
-            if (downloadFilter.filter !== undefined) {
-              urlParams.set('filterDownloads', downloadFilter.filter);
-              urlParams.set('filterDownloadsType', downloadFilter.type || 'equals');
-            }
-            // Handle range filters (from/to)
-            if (downloadFilter.filterTo !== undefined) {
-              urlParams.set('filterDownloadsTo', downloadFilter.filterTo);
-            }
-          }
-        }
-
-        try {
-          const response = await fetch(`/browse?${urlParams.toString()}`, {
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-            /*
-          const data = await response.json();
-          const records = data.records || [];
-          const totalCount = data.pagination?.totalCount || 0;
-            const payload = await response.json();
-            const records = payload.data || [];
-            const totalCount = payload.meta?.pagination?.total_count || 0;
-
-          params.successCallback(records, totalCount);
-        } catch (error) {
-          console.error('Error fetching browse data:', error);
-          params.failCallback();
-        }
-      }
-    }
-  };
-
-  // Create the grid
-  agGrid.createGrid(gridDiv, gridOptions);
-}
-*/
-
 
 // Moderation functionality
 function initializeModerationButtons() {
