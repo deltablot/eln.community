@@ -254,7 +254,6 @@ function renderProperty(key, value, entity) {
 
 function renderValue(value, entity, key) {
   if (value === null || value === undefined) return '<em>null</em>';
-        console.log("hello");
 
   if (typeof value === 'string') {
     // Check if it's a URL (with better validation for XSS protection)
@@ -1919,8 +1918,25 @@ function filterCategoriesGetter(params) {
 }
 
 function actionsCellRenderer(params) {
+  if (!params.data) return '';
+  const container = document.createElement('div');
+  container.className = 'text-end';
+
+  const downloadBtn = document.createElement('a');
+  downloadBtn.className = 'btn btn-sm me-2 btn-outline-success';
+  downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
+  downloadBtn.textContent = 'Download';
+  container.appendChild(downloadBtn);
+
   const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
-  console.log(user);
+  if (user && user.orcid === params.data.uploader_orcid) {
+    const editBtn = document.createElement('a');
+    editBtn.className = 'btn btn-sm btn-outline-primary';
+    editBtn.href = `/api/v1/record/${params.data.id}/edit`;
+    editBtn.textContent = 'Edit';
+    container.appendChild(editBtn);
+  }
+  return container;
 }
 
 const columnDefs = [
@@ -1930,7 +1946,7 @@ const columnDefs = [
   { field: "organizations", headerName: 'Organizations', filter: true, cellRenderer: organizationsCellRenderer, cellDataType: 'text', filterValueGetter: filterOrganizationsGetter },
   { field: "download_count", headerName: 'Downloads', filter: false },
   { field: "created_at", headerName: 'Created', filter: false, cellRenderer: dateCellRenderer },
-  { field: "actions", filter: false, cellRenderer: actionsCellRenderer },
+  { field: "actions", filter: false, sortable: false, cellRenderer: actionsCellRenderer },
 ];
 
 const gridOptions = {

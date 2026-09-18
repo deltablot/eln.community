@@ -1212,13 +1212,13 @@ main a:not(.btn):hover {
   border-color: var(--red-dark) !important;
 }
 
- .bg-info, .bg-secondary, .btn-primary:hover {
+ .bg-info, .bg-secondary, .btn-primary:hover, .btn-outline-primary {
   color: var(--blue-dark) !important;
   background-color: var(--blue-soft) !important;
   border-color: var(--blue-border) !important;
 }
 
-.btn-primary {
+.btn-primary, .btn-outline-primary:hover {
   color: var(--blue-soft) !important;
   background-color: var(--blue-dark) !important;
   border-color: var(--blue-dark) !important;
