@@ -1920,10 +1920,10 @@ function filterCategoriesGetter(params) {
 function actionsCellRenderer(params) {
   if (!params.data) return '';
   const container = document.createElement('div');
-  container.className = 'text-end';
+  container.className = 'd-flex justify-content-start mt-1 gap-2';
 
   const downloadBtn = document.createElement('a');
-  downloadBtn.className = 'btn btn-sm me-2 btn-outline-success';
+  downloadBtn.className = 'btn btn-sm btn-outline-success';
   downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
   downloadBtn.textContent = 'Download';
   container.appendChild(downloadBtn);
