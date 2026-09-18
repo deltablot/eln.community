@@ -222,178 +222,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function isValidUrl(string) {
-  try {
-    const url = new URL(string);
-    // Only allow http and https protocols for security
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch (_) {
-    return false;
-  }
-}
-
-function renderProperty(key, value, entity) {
-  if (value === null || value === undefined) return '';
-
-  let html = `<div class="ro-crate-property">
-    <span class="ro-crate-property-name">${escapeHtml(key)}:</span>`;
-
-  if (Array.isArray(value)) {
-    html += '<div class="ro-crate-array">';
-    value.forEach(item => {
-      html += `<div class="ro-crate-array-item">${renderValue(item, entity, key)}</div>`;
-    });
-    html += '</div>';
-  } else {
-    html += renderValue(value, entity, key);
-  }
-
-  html += '</div>';
-  return html;
-}
-
-function renderValue(value, entity, key) {
-  if (value === null || value === undefined) return '<em>null</em>';
-
-  if (typeof value === 'string') {
-    // Check if it's a URL (with better validation for XSS protection)
-    if (isValidUrl(value)) {
-      return `<a href="${escapeHtml(value)}" class="ro-crate-link" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`;
-    }
-    // Check if it's an ID reference
-    if (value.startsWith('./') || value.startsWith('#')) {
-      return `<span class="ro-crate-id">${escapeHtml(value)}</span>`;
-    }
-
-    // Check if this is HTML content based on encodingFormat
-    if (entity && entity.encodingFormat === 'text/html' && (key === 'text' || key === 'description' || key === 'content')) {
-
- //     return renderHtmlContent(value, entity['@id']);
-    }
-
-    return escapeHtml(value);
-  }
-
-  if (typeof value === 'object') {
-    if (value['@id']) {
-      let html = `<span class="ro-crate-id">${escapeHtml(value['@id'])}</span>`;
-      if (value['@type']) {
-        const types = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
-        types.forEach(type => {
-          html += ` <span class="ro-crate-type-badge">${escapeHtml(type)}</span>`;
-        });
-      }
-      return html;
-    }
-    return `<pre class="small">${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
-  }
-
-  return escapeHtml(String(value));
-}
-
-function renderHtmlContent(htmlContent, entityId) {
-  // Sanitize HTML content client-side before rendering in sandbox
-  const sanitizedHTML = sanitizeHTML(htmlContent);
-
-  // Create a complete HTML document with safe styling
-  const styledHTML = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #333;
-            padding: 16px;
-            margin: 0;
-        }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f5f5f5; }
-        img { max-width: 100%; height: auto; }
-        a { color: #0066cc; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        pre, code { background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
-        pre { padding: 12px; overflow-x: auto; }
-        blockquote { border-left: 3px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
-    </style>
-</head>
-<body>${sanitizedHTML}</body>
-</html>`;
-
-  // Escape for srcdoc attribute
-  const escapedHTML = styledHTML
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;');
-
-  const safeEntityId = escapeHtml(entityId || 'unknown');
-
-  // Render inline sandboxed iframe - no popup needed
-  return `
-    <div class="html-content-preview">
-      <div class="d-flex align-items-center gap-2 mb-2">
-        <span class="badge bg-info">HTML Content</span>
-        <small class="text-muted">${safeEntityId}</small>
-      </div>
-      <div class="user-content-container">
-        <iframe
-          sandbox=""
-          srcdoc="${escapedHTML}"
-          title="HTML content from ${safeEntityId}"
-          loading="lazy"
-          onload="this.style.height = this.contentWindow.document.body.scrollHeight + 32 + 'px'"
-        ></iframe>
-      </div>
-    </div>
-  `;
-}
-
-// Client-side HTML sanitization using DOMParser
-function sanitizeHTML(html) {
-  // Create a temporary DOM to parse the HTML
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-
-  // Remove dangerous elements
-  const dangerousElements = [
-    'script', 'style', 'link', 'meta', 'base',
-    'iframe', 'frame', 'frameset', 'object', 'embed', 'applet',
-    'form', 'input', 'button', 'select', 'textarea'
-  ];
-
-  dangerousElements.forEach(tag => {
-    const elements = doc.querySelectorAll(tag);
-    elements.forEach(el => el.remove());
-  });
-
-  // Remove dangerous attributes from all elements
-  const allElements = doc.querySelectorAll('*');
-  allElements.forEach(el => {
-    // Remove event handlers
-    const attrs = Array.from(el.attributes);
-    attrs.forEach(attr => {
-      const name = attr.name.toLowerCase();
-      // Remove event handlers (on*)
-      if (name.startsWith('on')) {
-        el.removeAttribute(attr.name);
-      }
-      // Remove style attribute
-      if (name === 'style') {
-        el.removeAttribute(attr.name);
-      }
-      // Remove javascript: URLs
-      if ((name === 'href' || name === 'src') && attr.value.toLowerCase().trim().startsWith('javascript:')) {
-        el.removeAttribute(attr.name);
-      }
-    });
-  });
-
-  return doc.body.innerHTML;
-}
-
 function openHtmlInNewTab(base64Content, entityId) {
   try {
     const htmlContent = decodeURIComponent(escape(atob(base64Content)));
@@ -429,13 +257,6 @@ function renderRoCrate(data) {
   }
 
   const graph = data['@graph'];
-
-  // Find Comment entities
-  const comments = graph.filter(entity => {
-    if (!entity || typeof entity !== 'object') return false;
-    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
-    return types.includes('Comment');
-  });
 
   // Find Organization entities
   const organizations = graph.filter(entity => {
@@ -2092,7 +1913,6 @@ async function moderateRecord(recordId, action, buttonElement) {
       const successToast = document.getElementById('successToast');
       const successToastBody = successToast?.querySelector('.toast-body');
       if (successToast && successToastBody) {
-        const actionText = action.charAt(0).toUpperCase() + action.slice(1);
         successToastBody.textContent = `Record ${action}ed successfully!`;
         const toast = new bootstrap.Toast(successToast, {
           delay: 2000,

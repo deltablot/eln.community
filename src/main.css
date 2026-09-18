@@ -1063,27 +1063,6 @@ footer {
     margin-bottom: 1rem;
 }
 
-/* AG Grid Overrides */
-.ag-theme-alpine {
-    --ag-font-family: Roboto, Arial, sans-serif;
-}
-
-.ag-menu {
-    overflow-y: unset;
-}
-
-.ag-filter-wrapper {
-    margin: 0;
-    padding: 0;
-    max-width: max-content;
-}
-
-.ag-layout-auto-height, .ag-layout-print {
-    .ag-center-cols-container, .ag-center-cols-viewport {
-        min-height: 0;
-    }
-}
-
 /* Record Screen - minimal custom styles (using Bootstrap utilities) */
 .section-divider {
     border: 0;
@@ -1228,6 +1207,23 @@ main a:not(.btn):hover {
 
 .ag-grid-table-wrapper {
   position: relative;
+  --ag-font-family: Roboto, Arial, sans-serif;
+  .ag-menu {
+      overflow-y: unset;
+  }
+
+  .ag-filter-wrapper {
+      margin: 0;
+      padding: 0;
+      max-width: max-content;
+  }
+
+  .ag-layout-auto-height, .ag-layout-print {
+      .ag-center-cols-container, .ag-center-cols-viewport {
+          min-height: 0;
+      }
+  }
+
 }
 
 .ag-grid-table-wrapper .ag-paging-panel {
