@@ -1811,6 +1811,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 let gridApi;
+const gridDiv = document.getElementById('browseGrid');
 const COLUMN_STATE_STORAGE_KEY = 'persistent_entities_table_column_state_v1';
 
 function nameCellRenderer(params)  {
@@ -1907,13 +1908,29 @@ function restoreColumnState(event) {
   });
 }
 
+function filterOrganizationsGetter(params) {
+    const organization = params.data.organizations || [];
+    return organization.map(org => org.name).join(', ');
+}
+
+function filterCategoriesGetter(params) {
+    const categorie = params.data.categories || [];
+    return categorie.map(cat => cat.name).join(', ');
+}
+
+function actionsCellRenderer(params) {
+  const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
+  console.log(user);
+}
+
 const columnDefs = [
   { field: "name", filter: true, cellRenderer: nameCellRenderer, cellDataType: 'text' },
   { field: "uploader_name", headerName: 'Author', filter: true, cellDataType: 'text' },
-  { field: "categories", headerName: 'Categories', filter: true, cellRenderer: categoriesCellRenderer, cellDataType: 'text' },
-  { field: "organizations", headerName: 'Organizations', filter: true, cellRenderer: organizationsCellRenderer, cellDataType: 'text' },
+  { field: "categories", headerName: 'Categories', filter: true, cellRenderer: categoriesCellRenderer, cellDataType: 'text', filterValueGetter: filterCategoriesGetter },
+  { field: "organizations", headerName: 'Organizations', filter: true, cellRenderer: organizationsCellRenderer, cellDataType: 'text', filterValueGetter: filterOrganizationsGetter },
   { field: "download_count", headerName: 'Downloads', filter: false },
   { field: "created_at", headerName: 'Created', filter: false, cellRenderer: dateCellRenderer },
+  { field: "actions", filter: false, cellRenderer: actionsCellRenderer },
 ];
 
 const gridOptions = {
@@ -1956,8 +1973,20 @@ async function getEnrichedRecords(records) {
     return enrichedRecords;
 }
 
-function initializeBrowseGrid() {
-  const gridDiv = document.getElementById('browseGrid');
+async function loadBrowseRecords(params) {
+    const query = new URLSearchParams(params);
+    query.set('limit', '0');
+    query.delete('page');
+    const response = await fetch(`api/v1/records?${query.toString()}`);
+    if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+    }
+    const payload = await response.json();
+    const records = await getEnrichedRecords(payload.data);
+    gridApi.setGridOption('rowData', records);
+}
+
+async function initializeBrowseGrid() {
   if (!gridDiv) {
     return;
   }
@@ -1969,20 +1998,11 @@ function initializeBrowseGrid() {
 
   gridApi = agGrid.createGrid(gridDiv, options);
 
-  fetch('/api/v1/records')
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-      return response.json()
-  })
-  .then(async payload => {
-      const records = await getEnrichedRecords(payload.data);
-      gridApi.setGridOption('rowData', records);
-  })
-  .catch(error => {
+  try {
+    await loadBrowseRecords(new URLSearchParams(window.location.search));
+  } catch (error) {
     console.error('Unable to load records:', error);
-  });
+  }
 }
 
 // Moderation functionality
