@@ -60,7 +60,7 @@
           <td>
             {{ if .Categories }}
             {{ range .Categories }}
-            <a href="/?category={{ .Id }}" class="badge bg-primary category-badge">{{ .Name }}</a>
+            <a href="/?category={{ .Id }}" class="badge bg-secondary mb-2">{{ .Name }}</a>
             {{ end }}
             {{ else }}
             <span class="text-muted">-</span>

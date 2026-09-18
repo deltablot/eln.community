@@ -1957,7 +1957,7 @@ const gridOptions = {
     sortingOrder: ['asc', 'desc'],
     floatingFilter: true,
   },
-  domLayout: 'autoHeight',
+  rowHeight: 44,
   pagination: true,
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 20, 30, 50],
