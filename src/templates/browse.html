@@ -202,9 +202,23 @@
    integrity="sha384-pjnkgIlLuM0f0a9uukLUcjUd6bZvDmA0xUMgubelAL+VJfpZmR2tKduPiI+7Pme6"
    crossorigin="anonymous">
 </script>
-<div id="browseGrid"
-   data-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}"
-   data-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}"
-   data-style-nonce="{{ .StyleNonce }}">
+<div class="ag-grid-table-wrapper">
+  <div id="browseGrid"
+     data-user-orcid="{{ if .User }}{{ .User.Orcid }}{{ end }}"
+     data-is-admin="{{ if .IsAdmin }}true{{ else }}false{{ end }}"
+     data-style-nonce="{{ .StyleNonce }}">
+  </div>
+  <div class="ag-grid-table-options dropup">
+      <button type="button" class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown" aria-label="Table options" title="Table options">
+      </button>
+
+      <div class="dropdown-menu">
+        <h6 class="dropdown-header">Table options</h6>
+        <button id="autoSizeColumns" type="button" class="dropdown-item">Auto-size columns</button>
+        <button id="fitColumns" type="button" class="dropdown-item">Fit columns to table</button>
+        <div class="dropdown-divider"></div>
+        <button id="restoreColumnLayout" type="button" class="dropdown-item">Restore default layout</button>
+      </div>
+    </div>
 </div>
 {{ end }}

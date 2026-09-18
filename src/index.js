@@ -1962,6 +1962,10 @@ const gridOptions = {
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 20, 30, 50],
   onColumnMoved: columnStateChanged,
+  onColumnResized: columnStateChanged,
+  onColumnVisible: columnStateChanged,
+  onColumnPinned: columnStateChanged,
+  onSortChanged: columnStateChanged,
   onGridReady: restoreColumnState,
 };
 
@@ -2002,6 +2006,25 @@ async function loadBrowseRecords(params) {
     gridApi.setGridOption('rowData', records);
 }
 
+function initializeTableOptions() {
+  document.getElementById('autoSizeColumns')?.addEventListener('click', () => {
+    gridApi.autoSizeAllColumns();
+  });
+
+  document.getElementById('fitColumns')?.addEventListener('click', () => {
+    gridApi.sizeColumnsToFit();
+  });
+
+  document.getElementById('restoreColumnLayout')?.addEventListener('click', () => {
+    gridApi.resetColumnState();
+    try {
+      localStorage.removeItem(COLUMN_STATE_STORAGE_KEY);
+    } catch {
+      // localStorage might be unavailable.
+    }
+  });
+}
+
 async function initializeBrowseGrid() {
   if (!gridDiv) {
     return;
@@ -2014,6 +2037,7 @@ async function initializeBrowseGrid() {
 
   gridApi = agGrid.createGrid(gridDiv, options);
 
+    initializeTableOptions();
   try {
     await loadBrowseRecords(new URLSearchParams(window.location.search));
   } catch (error) {
