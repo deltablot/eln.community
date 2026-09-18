@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -831,6 +832,25 @@ func (h *RecordHandler) GetRecordPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *RecordHandler) getOrganizations(rorIDs []string) []RorOrganization {
+	organizations := make([]RorOrganization, 0, len(rorIDs))
+	if h.rorNameCache == nil {
+		return organizations
+	}
+	for _, rorID := range rorIDs {
+		name, found := h.rorNameCache.Get(rorID)
+		if !found {
+			continue
+		}
+		organization := RorOrganization{
+			ID:   rorID,
+			Name: name,
+		}
+		organizations = append(organizations, organization)
+	}
+	return organizations
+}
+
 func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -890,6 +910,16 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 		offset = (page - 1) * limit
 	}
 
+	type BrowseRecord struct {
+		ID            string            `json:"id"`
+		Name          string            `json:"name"`
+		UploaderName  string            `json:"uploader_name"`
+		UploaderOrcid string            `json:"uploader_orcid"`
+		Categories    []Category        `json:"categories"`
+		Organizations []RorOrganization `json:"organizations"`
+		DownloadCount int               `json:"download_count"`
+		CreatedAt     time.Time         `json:"created_at"`
+	}
 	var selectedCategoryID int64
 	var selectedCategoryIDs []int64
 	var records []Record
@@ -970,13 +1000,13 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(ctx, searchQuery, selectedCategoryID, searchRorIDs, limit, offset, orderByClause, sort, nil)
+		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(ctx, searchQuery, selectedCategoryID, searchRorIDs, limit, offset, orderByClause, sort)
 	} else if len(rorIDs) > 0 {
-		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, limit, offset, orderByClause, sort, nil)
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(ctx, rorIDs, limit, offset, orderByClause, sort)
 	} else if len(selectedCategoryIDs) > 0 {
-		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, limit, offset, orderByClause, sort, nil)
+		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(ctx, selectedCategoryIDs, limit, offset, orderByClause, sort)
 	} else {
-		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, limit, offset, orderByClause, sort, nil)
+		records, totalCount, err = h.recordRepo.GetAllPaginated(ctx, limit, offset, orderByClause, sort)
 	}
 
 	if err != nil {
@@ -997,11 +1027,36 @@ func (h *RecordHandler) GetRecords(w http.ResponseWriter, r *http.Request) {
 			totalPages = 1
 		}
 	}
-	res.Data = records
 	res.Meta.Pagination.Page = page
 	res.Meta.Pagination.Limit = limit
 	res.Meta.Pagination.TotalCount = totalCount
 	res.Meta.Pagination.TotalPages = totalPages
+
+	//TODO: find a way to make it easier. Maybe always include Organization for /records and /record/{id}
+	if r.URL.Query().Get("short") == "1" {
+		browseRecords := make([]BrowseRecord, 0, len(records))
+
+		for _, record := range records {
+			browseRecords = append(browseRecords, BrowseRecord{
+				ID:            record.Id,
+				Name:          record.Name,
+				UploaderName:  record.UploaderName,
+				UploaderOrcid: record.UploaderOrcid,
+				Categories:    record.Categories,
+				Organizations: h.getOrganizations(record.RorIds),
+				DownloadCount: record.DownloadCount,
+				CreatedAt:     record.CreatedAt,
+			})
+		}
+		browseRes := APIResponse[BrowseRecord]{
+			Data: browseRecords,
+			Meta: res.Meta,
+		}
+		writeJson(w, http.StatusOK, browseRes)
+		return
+	}
+
+	res.Data = records
 	writeJson(w, http.StatusOK, res)
 }
 
@@ -1200,7 +1255,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Search with optional category filter and organization matches
-		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(r.Context(), searchQuery, selectedCategoryID, searchRorIDs, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
+		records, totalCount, err = h.recordRepo.SearchPaginatedWithRorIDs(r.Context(), searchQuery, selectedCategoryID, searchRorIDs, pageSize, offset, orderByClause, sortOrder)
 		if err != nil {
 			log.Printf("Error in GetBrowsePage searching for '%s': %v", searchQuery, err)
 			http.Error(w, "Error searching records", http.StatusInternalServerError)
@@ -1209,7 +1264,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 	} else if len(rorIDs) > 0 {
 		// Filter by ROR ID(s) (either directly provided or found via name search)
 		// Multiple ROR IDs - use the multi-ID query
-		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(r.Context(), rorIDs, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
+		records, totalCount, err = h.recordRepo.GetAllByRorIDsPaginated(r.Context(), rorIDs, pageSize, offset, orderByClause, sortOrder)
 		if err != nil {
 			log.Printf("Error in GetBrowsePage filtering by ROR IDs %v: %v", rorIDs, err)
 			http.Error(w, "Error fetching records for ROR organizations", http.StatusInternalServerError)
@@ -1227,7 +1282,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if len(selectedCategoryIDs) > 0 {
 		// Filter by categories (single or multiple)
-		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(r.Context(), selectedCategoryIDs, pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
+		records, totalCount, err = h.recordRepo.GetAllByCategoriesPaginated(r.Context(), selectedCategoryIDs, pageSize, offset, orderByClause, sortOrder)
 		if err != nil {
 			log.Printf("Error in GetBrowsePage filtering by categories %v: %v", selectedCategoryIDs, err)
 			http.Error(w, fmt.Sprintf("Error fetching records for categories"), http.StatusInternalServerError)
@@ -1235,7 +1290,7 @@ func (h *RecordHandler) GetBrowsePage(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Get all records
-		records, totalCount, err = h.recordRepo.GetAllPaginated(r.Context(), pageSize, offset, orderByClause, sortOrder, make(map[string]interface{}))
+		records, totalCount, err = h.recordRepo.GetAllPaginated(r.Context(), pageSize, offset, orderByClause, sortOrder)
 		if err != nil {
 			http.Error(w, "Error fetching records", http.StatusInternalServerError)
 			return

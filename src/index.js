@@ -164,11 +164,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initialize ROR autocomplete for upload page
   initializeRorAutocomplete('ror-search-input-upload', 'ror-search-results-upload', 'selected-rors-upload', 'rors-hidden-input-upload');
 
-  // Load ROR names for record page
+// Load ROR names for record page
   loadRorNames();
-
-  // Load ROR names for browse page
-  loadRorNamesForBrowse();
 
   // Handle category select change for browse page
   const categorySelect = document.getElementById('category');
@@ -178,9 +175,6 @@ document.addEventListener('DOMContentLoaded', function () {
       searchForm.submit();
     });
   }
-
-  // Initialize pagination for browse page
-  initializePagination();
 
   // Initialize browse page search and filter
   initializeBrowseSearch();
@@ -228,177 +222,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function isValidUrl(string) {
-  try {
-    const url = new URL(string);
-    // Only allow http and https protocols for security
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch (_) {
-    return false;
-  }
-}
-
-function renderProperty(key, value, entity) {
-  if (value === null || value === undefined) return '';
-
-  let html = `<div class="ro-crate-property">
-    <span class="ro-crate-property-name">${escapeHtml(key)}:</span>`;
-
-  if (Array.isArray(value)) {
-    html += '<div class="ro-crate-array">';
-    value.forEach(item => {
-      html += `<div class="ro-crate-array-item">${renderValue(item, entity, key)}</div>`;
-    });
-    html += '</div>';
-  } else {
-    html += renderValue(value, entity, key);
-  }
-
-  html += '</div>';
-  return html;
-}
-
-function renderValue(value, entity, key) {
-  if (value === null || value === undefined) return '<em>null</em>';
-
-  if (typeof value === 'string') {
-    // Check if it's a URL (with better validation for XSS protection)
-    if (isValidUrl(value)) {
-      return `<a href="${escapeHtml(value)}" class="ro-crate-link" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`;
-    }
-    // Check if it's an ID reference
-    if (value.startsWith('./') || value.startsWith('#')) {
-      return `<span class="ro-crate-id">${escapeHtml(value)}</span>`;
-    }
-
-    // Check if this is HTML content based on encodingFormat
-    if (entity && entity.encodingFormat === 'text/html' && (key === 'text' || key === 'description' || key === 'content')) {
-      return renderHtmlContent(value, entity['@id']);
-    }
-
-    return escapeHtml(value);
-  }
-
-  if (typeof value === 'object') {
-    if (value['@id']) {
-      let html = `<span class="ro-crate-id">${escapeHtml(value['@id'])}</span>`;
-      if (value['@type']) {
-        const types = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
-        types.forEach(type => {
-          html += ` <span class="ro-crate-type-badge">${escapeHtml(type)}</span>`;
-        });
-      }
-      return html;
-    }
-    return `<pre class="small">${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
-  }
-
-  return escapeHtml(String(value));
-}
-
-function renderHtmlContent(htmlContent, entityId) {
-  // Sanitize HTML content client-side before rendering in sandbox
-  const sanitizedHTML = sanitizeHTML(htmlContent);
-
-  // Create a complete HTML document with safe styling
-  const styledHTML = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #333;
-            padding: 16px;
-            margin: 0;
-        }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f5f5f5; }
-        img { max-width: 100%; height: auto; }
-        a { color: #0066cc; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        pre, code { background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
-        pre { padding: 12px; overflow-x: auto; }
-        blockquote { border-left: 3px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
-    </style>
-</head>
-<body>${sanitizedHTML}</body>
-</html>`;
-
-  // Escape for srcdoc attribute
-  const escapedHTML = styledHTML
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;');
-
-  const safeEntityId = escapeHtml(entityId || 'unknown');
-
-  // Render inline sandboxed iframe - no popup needed
-  return `
-    <div class="html-content-preview">
-      <div class="d-flex align-items-center gap-2 mb-2">
-        <span class="badge bg-info">HTML Content</span>
-        <small class="text-muted">${safeEntityId}</small>
-      </div>
-      <div class="user-content-container">
-        <iframe
-          sandbox=""
-          srcdoc="${escapedHTML}"
-          title="HTML content from ${safeEntityId}"
-          loading="lazy"
-          onload="this.style.height = this.contentWindow.document.body.scrollHeight + 32 + 'px'"
-        ></iframe>
-      </div>
-    </div>
-  `;
-}
-
-// Client-side HTML sanitization using DOMParser
-function sanitizeHTML(html) {
-  // Create a temporary DOM to parse the HTML
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-
-  // Remove dangerous elements
-  const dangerousElements = [
-    'script', 'style', 'link', 'meta', 'base',
-    'iframe', 'frame', 'frameset', 'object', 'embed', 'applet',
-    'form', 'input', 'button', 'select', 'textarea'
-  ];
-
-  dangerousElements.forEach(tag => {
-    const elements = doc.querySelectorAll(tag);
-    elements.forEach(el => el.remove());
-  });
-
-  // Remove dangerous attributes from all elements
-  const allElements = doc.querySelectorAll('*');
-  allElements.forEach(el => {
-    // Remove event handlers
-    const attrs = Array.from(el.attributes);
-    attrs.forEach(attr => {
-      const name = attr.name.toLowerCase();
-      // Remove event handlers (on*)
-      if (name.startsWith('on')) {
-        el.removeAttribute(attr.name);
-      }
-      // Remove style attribute
-      if (name === 'style') {
-        el.removeAttribute(attr.name);
-      }
-      // Remove javascript: URLs
-      if ((name === 'href' || name === 'src') && attr.value.toLowerCase().trim().startsWith('javascript:')) {
-        el.removeAttribute(attr.name);
-      }
-    });
-  });
-
-  return doc.body.innerHTML;
-}
-
 function openHtmlInNewTab(base64Content, entityId) {
   try {
     const htmlContent = decodeURIComponent(escape(atob(base64Content)));
@@ -424,51 +247,6 @@ function openHtmlInNewTab(base64Content, entityId) {
   }
 }
 
-function renderEntity(entity) {
-  let html = '<div class="ro-crate-entity">';
-
-  // Header with ID and type
-  html += '<div class="ro-crate-entity-header">';
-  html += `<strong>ID:</strong> <span class="ro-crate-id">${escapeHtml(entity['@id'] || 'Unknown')}</span>`;
-
-  if (entity['@type']) {
-    html += ' ';
-    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
-    types.forEach(type => {
-      html += `<span class="ro-crate-type-badge">${escapeHtml(type)}</span>`;
-    });
-  }
-  html += '</div>';
-
-  // Body with properties
-  html += '<div class="ro-crate-entity-body">';
-
-  // Sort properties, putting common ones first
-  const commonProps = ['name', 'description', 'author', 'dateCreated', 'dateModified', 'license', 'url'];
-  const sortedKeys = Object.keys(entity).sort((a, b) => {
-    if (a === '@id' || a === '@type') return -1;
-    if (b === '@id' || b === '@type') return 1;
-
-    const aIndex = commonProps.indexOf(a);
-    const bIndex = commonProps.indexOf(b);
-
-    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-    if (aIndex !== -1) return -1;
-    if (bIndex !== -1) return 1;
-
-    return a.localeCompare(b);
-  });
-
-  sortedKeys.forEach(key => {
-    if (key !== '@id' && key !== '@type') {
-      html += renderProperty(key, entity[key], entity);
-    }
-  });
-
-  html += '</div></div>';
-  return html;
-}
-
 function renderRoCrate(data) {
   if (!data || typeof data !== 'object') {
     return '<div class="alert alert-warning">Invalid RO-Crate format: data is not an object</div>';
@@ -480,13 +258,6 @@ function renderRoCrate(data) {
 
   const graph = data['@graph'];
 
-  // Find Comment entities
-  const comments = graph.filter(entity => {
-    if (!entity || typeof entity !== 'object') return false;
-    const types = Array.isArray(entity['@type']) ? entity['@type'] : [entity['@type']];
-    return types.includes('Comment');
-  });
-
   // Find Organization entities
   const organizations = graph.filter(entity => {
     if (!entity || typeof entity !== 'object') return false;
@@ -495,14 +266,6 @@ function renderRoCrate(data) {
   });
 
   let html = '';
-
-  // Render Comments
-  if (comments.length > 0) {
-    html += '<h5 class="mt-4 mb-3">Comments</h5>';
-    comments.forEach(comment => {
-      html += renderCommentCard(comment, resolveAuthorName);
-    });
-  }
 
   // Render Organizations
   if (organizations.length > 0) {
@@ -518,37 +281,6 @@ function renderRoCrate(data) {
   return html;
 }
 
-/**
- * Render a Dataset entity as a card
- */
-
-/**
- * Render a Comment entity as a card
- */
-function renderCommentCard(comment, resolveAuthorName) {
-  const author = resolveAuthorName(comment.author);
-  const text = comment.text || '';
-  const dateCreated = comment.dateCreated ? formatDisplayDate(comment.dateCreated) : null;
-
-  let html = '<div class="card mb-2 border-start border-primary border-3">';
-  html += '<div class="card-body py-2">';
-
-  // Comment text
-  html += `<p class="mb-2">${escapeHtml(text)}</p>`;
-
-  // Author and date
-  html += '<div class="small text-muted">';
-  if (author) {
-    html += `<i class="bi bi-person me-1"></i>${escapeHtml(author.name)}`;
-  }
-  if (dateCreated) {
-    html += ` <i class="bi bi-clock ms-2 me-1"></i>${escapeHtml(dateCreated)}`;
-  }
-  html += '</div>';
-
-  html += '</div></div>';
-  return html;
-}
 
 /**
  * Render an Organization entity as a card
@@ -576,24 +308,6 @@ function renderOrganizationCard(org) {
 
   html += '</div></div>';
   return html;
-}
-
-/**
- * Format a date string for display
- */
-function formatDisplayDate(dateStr) {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch (e) {
-    return dateStr;
-  }
 }
 
 // Initialize RO-Crate viewer functionality
@@ -654,71 +368,6 @@ function initializeRoCrateViewer() {
     contentDiv.innerHTML =
       '<div class="alert alert-danger">Error processing RO-Crate metadata: ' + escapeHtml(errorMessage) +
       '<br><small>Check browser console for more details</small></div>';
-  }
-}
-
-/**
- * Get fallback data from the Record model (server-rendered data)
- * Used when RO-Crate metadata doesn't contain certain fields
- *
- * @returns {Object} - Fallback data object
- */
-function getFallbackRecordData() {
-  const fallbackElement = document.getElementById('record-fallback-data');
-  if (!fallbackElement) {
-    return {
-      uploaderName: null,
-      uploaderOrcid: null,
-      createdAt: null,
-      categories: []
-    };
-  }
-
-  try {
-    return JSON.parse(fallbackElement.textContent);
-  } catch (e) {
-    console.warn('Failed to parse fallback record data:', e);
-    return {
-      uploaderName: null,
-      uploaderOrcid: null,
-      createdAt: null,
-      categories: []
-    };
-  }
-}
-
-/**
- * Apply fallback data to extracted data when RO-Crate fields are missing
- *
- * @param {Object} extractedData - The extracted data from RO-Crate
- * @param {Object} fallbackData - The fallback data from Record model
- */
-function applyFallbackData(extractedData, fallbackData) {
-  if (!extractedData || !fallbackData) return;
-
-  // Fallback for owner: use uploader_name when no author in RO-Crate
-  if (!extractedData.commonInfo.owner && fallbackData.uploaderName) {
-    extractedData.commonInfo.owner = {
-      name: fallbackData.uploaderName,
-      orcid: fallbackData.uploaderOrcid || undefined
-    };
-  }
-
-  // Fallback for tags: use categories when no keywords in RO-Crate
-  if (extractedData.commonInfo.tags.length === 0 && fallbackData.categories && fallbackData.categories.length > 0) {
-    extractedData.commonInfo.tags = fallbackData.categories.map(cat => cat.Name || cat.name);
-  }
-
-  // Fallback for start date: use created_at when no dateCreated in RO-Crate
-  if (!extractedData.commonInfo.startDate && fallbackData.createdAt) {
-    // Convert Go time format to ISO string if needed
-    const createdAt = fallbackData.createdAt;
-    if (typeof createdAt === 'string') {
-      extractedData.commonInfo.startDate = createdAt;
-    } else if (createdAt && createdAt.Time) {
-      // Handle Go time.Time JSON format
-      extractedData.commonInfo.startDate = createdAt.Time;
-    }
   }
 }
 
@@ -1228,79 +877,6 @@ async function loadRorNames() {
   }
 }
 
-async function loadRorNamesForBrowse() {
-  const rorElements = document.querySelectorAll('.ror-organizations[data-ror-ids]');
-  if (rorElements.length === 0) {
-    return; // Not on browse page or no ROR IDs
-  }
-
-  // Collect all unique ROR IDs from all records
-  const allRorIds = new Set();
-  rorElements.forEach(element => {
-    const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
-    rorIds.forEach(id => allRorIds.add(id.trim()));
-  });
-
-  if (allRorIds.size === 0) {
-    return;
-  }
-
-  try {
-    // Fetch all organizations in one batch
-    const organizations = await fetchRorOrganizations(Array.from(allRorIds));
-
-    // Create a map for quick lookup
-    const orgMap = new Map();
-    organizations.forEach(org => {
-      orgMap.set(org.id, org);
-    });
-
-    // Update each record's ROR display
-    rorElements.forEach(element => {
-      const recordId = element.getAttribute('data-record-id');
-      const rorIds = element.getAttribute('data-ror-ids').split(',').filter(id => id.trim());
-      const loadingElement = document.querySelector(`.ror-organizations-loading[data-record-id="${recordId}"]`);
-
-      if (rorIds.length === 0) {
-        if (loadingElement) loadingElement.classList.add('ror-hidden');
-        return;
-      }
-
-      // Build display HTML with filter links
-      let html = '';
-      rorIds.forEach((rorId, index) => {
-        const org = orgMap.get(rorId.trim());
-        if (org) {
-          if (index > 0) html += ', ';
-
-          let countryText = '';
-          if (org.country && org.country.country_name) {
-            countryText = ` <span class="text-muted small">(${escapeHtml(org.country.country_name)})</span>`;
-          }
-
-          html += `<span class="ror-item"><a href='/browse?ror=${encodeURIComponent(org.id)}' class='ror-filter-link' title='Filter by ${escapeHtml(org.name)}'>${escapeHtml(org.name)}</a>${countryText}</span>`;
-        }
-      });
-
-      if (html) {
-        element.innerHTML = html;
-        element.classList.remove('ror-hidden');
-        element.classList.add('ror-inline');
-      }
-
-      if (loadingElement) {
-        loadingElement.classList.add('ror-hidden');
-      }
-    });
-  } catch (error) {
-    console.error('Error loading ROR names for browse:', error);
-    // Hide loading indicators on error
-    document.querySelectorAll('.ror-organizations-loading').forEach(el => {
-      el.textContent = 'Error loading';
-    });
-  }
-}
-
 // Fetch ROR organizations with caching
 async function fetchRorOrganizations(rorIds) {
   if (!Array.isArray(rorIds) || rorIds.length === 0) {
@@ -1344,26 +920,6 @@ async function fetchRorOrganizations(rorIds) {
     console.error('Error fetching ROR organizations:', error);
     // Return cached ones even if fetch fails
     return cachedOrgs;
-  }
-}
-
-// Initialize pagination for browse page
-function initializePagination() {
-  // Handle pagination clicks
-  document.querySelectorAll('.pagination .page-link[data-page]').forEach(link => {
-    link.addEventListener('click', function (e) {
-      e.preventDefault();
-      const page = this.getAttribute('data-page');
-      navigateToBrowse({ page: page });
-    });
-  });
-
-  // Handle page size change
-  const pageSizeSelect = document.getElementById('pageSizeSelect');
-  if (pageSizeSelect) {
-    pageSizeSelect.addEventListener('change', function () {
-      navigateToBrowse({ pageSize: this.value, page: '1' });
-    });
   }
 }
 
@@ -2074,286 +1630,241 @@ document.addEventListener('DOMContentLoaded', function () {
   initializeVersionHistory();
 });
 
-// AG Grid initialization for browse page
-function initializeBrowseGrid() {
-  const gridDiv = document.getElementById('browseGrid');
+let gridApi;
+const gridDiv = document.getElementById('browseGrid');
+const COLUMN_STATE_STORAGE_KEY = 'persistent_entities_table_column_state_v1';
 
-  if (!gridDiv) {
-    return; // Not on browse page with AG Grid
-  }
-
-  // Get user/admin info from data attributes on the grid div
-  const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
-  const isAdmin = gridDiv.dataset.isAdmin === 'true';
-  const styleNonce = gridDiv.dataset.styleNonce || undefined;
-
-  // Custom cell renderer for Name column with link
-  function nameCellRenderer(params) {
-    if (!params.data) return '';
-    const link = document.createElement('a');
-    link.href = `/record/${params.data.id}`;
-    link.textContent = params.value;
-    return link;
-  }
-
-  // Custom cell renderer for Categories column
-  function categoriesCellRenderer(params) {
-    if (!params.data) return '';
-    const categories = params.value || [];
-    if (categories.length === 0) {
-      const span = document.createElement('span');
-      span.className = 'text-muted';
-      span.textContent = '-';
-      return span;
-    }
-
-    const container = document.createElement('span');
-    categories.forEach((cat, index) => {
-      if (index > 0) {
-        container.appendChild(document.createTextNode(', '));
-      }
-      const link = document.createElement('a');
-      link.href = `/browse?category=${cat.id}`;
-      link.textContent = cat.name;
-      container.appendChild(link);
-    });
-    return container;
-  }
-
-  // Custom cell renderer for Organizations column
-  function organizationsCellRenderer(params) {
-    if (!params.data) return '';
-    const organizations = params.value || [];
-    if (organizations.length === 0) {
-      const span = document.createElement('span');
-      span.className = 'text-muted';
-      span.textContent = '-';
-      return span;
-    }
-
-    const container = document.createElement('span');
-    organizations.forEach((org, index) => {
-      if (index > 0) {
-        container.appendChild(document.createTextNode(', '));
-      }
-      const link = document.createElement('a');
-      link.href = `/browse?ror=${org.id}`;
-      link.textContent = org.name;
-      container.appendChild(link);
-    });
-    return container;
-  }
-
-  // Custom cell renderer for Created column
-  function createdCellRenderer(params) {
-    if (!params.data) return '';
-    const div = document.createElement('div');
-    div.className = 'record-card-date';
-    const span = document.createElement('span');
-    span.className = 'relative-time';
-    span.textContent = formatDateTime(params.value);
-    div.appendChild(span);
-    return div;
-  }
-
-  // Custom cell renderer for Actions column
-  function actionsCellRenderer(params) {
-    if (!params.data) return '';
-    const container = document.createElement('div');
-    container.className = 'text-end';
-
-    // View button
-    const viewBtn = document.createElement('a');
-    viewBtn.className = 'btn btn-sm btn-outline-primary me-1';
-    viewBtn.href = `/record/${params.data.id}`;
-    viewBtn.textContent = 'View';
-    container.appendChild(viewBtn);
-
-    // Download button
-    const downloadBtn = document.createElement('a');
-    downloadBtn.className = 'btn btn-sm btn-outline-secondary me-1';
-    downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
-    downloadBtn.textContent = 'Download';
-    container.appendChild(downloadBtn);
-
-    // Edit button (only for owner or admin)
-    const canEdit = isAdmin || (user && user.orcid === params.data.uploader_orcid);
-    if (canEdit) {
-      const editBtn = document.createElement('a');
-      editBtn.className = 'btn btn-sm btn-outline-primary';
-      editBtn.href = `/api/v1/record/${params.data.id}/edit`;
-      editBtn.textContent = 'Edit';
-      container.appendChild(editBtn);
-    }
-
-    return container;
-  }
-
-  // Column definitions
-  const columnDefs = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      cellRenderer: nameCellRenderer,
-      filter: 'agTextColumnFilter'
-    },
-    {
-      field: 'uploader_name',
-      headerName: 'Author',
-      filter: 'agTextColumnFilter'
-    },
-    {
-      field: 'categories',
-      headerName: 'Categories',
-      cellRenderer: categoriesCellRenderer,
-      valueFormatter: params => {
-        const categories = params.value || [];
-        return categories.map(cat => cat.name).join(', ') || '-';
-      },
-      filter: false
-    },
-    {
-      field: 'organizations',
-      headerName: 'Organizations',
-      cellRenderer: organizationsCellRenderer,
-      valueFormatter: params => {
-        const organizations = params.value || [];
-        return organizations.map(org => org.name).join(', ') || '-';
-      },
-      filter: false
-    },
-    {
-      field: 'download_count',
-      headerName: 'Downloads',
-      filter: 'agNumberColumnFilter',
-      maxWidth: 120
-    },
-    {
-      field: 'created_at',
-      headerName: 'Created',
-      valueFormatter: params => {
-        return formatDateTime(params.value);
-      },
-      filter: false,
-      maxWidth: 130
-    },
-    {
-      headerName: 'Actions',
-      cellRenderer: actionsCellRenderer,
-      filter: false,
-      sortable: false,
-      minWidth: 180
-    }
-  ];
-
-  // Grid options following AG Grid official pattern
-  // styleNonce is used to avoid 'unsafe-inline' in CSP for AG Grid styles
-  const gridOptions = {
-    columnDefs: columnDefs,
-    defaultColDef: {
-      flex: 1,
-      minWidth: 100,
-      filter: true,
-      sortable: true,
-      suppressHeaderMenuButton: true,
-      suppressHeaderContextMenu: true,
-      resizable: true,
-      floatingFilter: true
-    },
-    domLayout: 'autoHeight',
-    pagination: true,
-    paginationPageSize: 10,
-    paginationPageSizeSelector: [10, 20, 30, 50],
-    animateRows: true,
-    styleNonce: styleNonce,
-    // Server-side row model for API-based data fetching
-    rowModelType: 'infinite',
-    cacheBlockSize: 10,
-    maxBlocksInCache: 10,
-    datasource: {
-      getRows: async function (params) {
-        const page = Math.floor(params.startRow / 10) + 1;
-        const pageSize = params.endRow - params.startRow;
-
-        // Build query string from current URL params
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('short', '1');
-        urlParams.set('page', page.toString());
-        urlParams.set('pageSize', pageSize.toString());
-
-        // Add sort parameters if present
-        if (params.sortModel && params.sortModel.length > 0) {
-          const sortModel = params.sortModel[0];
-          urlParams.set('sortBy', sortModel.colId);
-          urlParams.set('sortOrder', sortModel.sort);
-        }
-
-        // Add filter parameters if present
-        if (params.filterModel) {
-          // Handle text filters (name, uploader_name)
-          if (params.filterModel.name) {
-            const nameFilter = params.filterModel.name;
-            if (nameFilter.filter) {
-              urlParams.set('filterName', nameFilter.filter);
-              urlParams.set('filterNameType', nameFilter.type || 'contains');
-            }
-          }
-
-          if (params.filterModel.uploader_name) {
-            const authorFilter = params.filterModel.uploader_name;
-            if (authorFilter.filter) {
-              urlParams.set('filterAuthor', authorFilter.filter);
-              urlParams.set('filterAuthorType', authorFilter.type || 'contains');
-            }
-          }
-
-          // Handle number filter (download_count)
-          if (params.filterModel.download_count) {
-            const downloadFilter = params.filterModel.download_count;
-            if (downloadFilter.filter !== undefined) {
-              urlParams.set('filterDownloads', downloadFilter.filter);
-              urlParams.set('filterDownloadsType', downloadFilter.type || 'equals');
-            }
-            // Handle range filters (from/to)
-            if (downloadFilter.filterTo !== undefined) {
-              urlParams.set('filterDownloadsTo', downloadFilter.filterTo);
-            }
-          }
-        }
-
-        try {
-          const response = await fetch(`/browse?${urlParams.toString()}`, {
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-            /*
-          const data = await response.json();
-          const records = data.records || [];
-          const totalCount = data.pagination?.totalCount || 0;
-          */
-            const payload = await response.json();
-            const records = payload.data || [];
-            const totalCount = payload.meta?.pagination?.total_count || 0;
-
-          params.successCallback(records, totalCount);
-        } catch (error) {
-          console.error('Error fetching browse data:', error);
-          params.failCallback();
-        }
-      }
-    }
-  };
-
-  // Create the grid
-  agGrid.createGrid(gridDiv, gridOptions);
+function nameCellRenderer(params)  {
+  const link = document.createElement('a');
+  link.href = `/record/${params.data.id}`;
+  link.textContent = params.value;
+  return link;
 }
 
+function dateCellRenderer(params) {
+  if (!params.data) return '';
+  const div = document.createElement('div');
+  div.className = 'record-card-date';
+  const span = document.createElement('span');
+  span.className = 'relative-time';
+  span.textContent = formatDateTime(params.value);
+  div.appendChild(span);
+  return div;
+}
+
+function createEmptyValue() {
+  const span = document.createElement('span');
+  span.className = 'text-muted';
+  span.textContent = '-';
+  return span;
+}
+
+function createContainer(params, query) {
+  const container = document.createElement('span');
+  params.forEach((param, index) => {
+    if (index > 0) {
+      container.appendChild(document.createTextNode(', '));
+    }
+    const link = document.createElement('a');
+    link.href = `/browse?${query}=${param.id}`;
+    link.textContent = param.name;
+    container.appendChild(link);
+  });
+  return container;
+}
+
+function categoriesCellRenderer(params) {
+  if (!params.data) return '';
+  const categories = params.value || [];
+  if (categories.length === 0) {
+      return createEmptyValue();
+  }
+  return createContainer(categories, 'category');
+}
+
+function organizationsCellRenderer(params) {
+  if (!params.data) return '';
+  const organizations = params.value || [];
+  if (organizations.length === 0) {
+    return createEmptyValue();
+  }
+  return createContainer(organizations, 'ror');
+}
+
+function getStoredColumnState() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(COLUMN_STATE_STORAGE_KEY) ?? 'null'
+    );
+  } catch {
+    return null;
+  }
+}
+
+function storeColumnState(api) {
+  try {
+    localStorage.setItem(
+      COLUMN_STATE_STORAGE_KEY,
+      JSON.stringify(api.getColumnState())
+    );
+  } catch {
+    // localStorage might be unavailable
+  }
+}
+
+function columnStateChanged(event) {
+  if (event.finished === false)
+    return;
+  storeColumnState(event.api);
+}
+
+function restoreColumnState(event) {
+  const state = getStoredColumnState();
+  if (!Array.isArray(state))
+    return;
+  event.api.applyColumnState({
+      state: state,
+      applyOrder: true,
+  });
+}
+
+function filterOrganizationsGetter(params) {
+    const organization = params.data.organizations || [];
+    return organization.map(org => org.name).join(', ');
+}
+
+function filterCategoriesGetter(params) {
+    const categorie = params.data.categories || [];
+    return categorie.map(cat => cat.name).join(', ');
+}
+
+function actionsCellRenderer(params) {
+  if (!params.data) return '';
+  const container = document.createElement('div');
+  container.className = 'd-flex justify-content-start mt-1 gap-2';
+
+  const downloadBtn = document.createElement('a');
+  downloadBtn.className = 'btn btn-sm btn-outline-success';
+  downloadBtn.href = `/api/v1/record/${params.data.id}.eln`;
+  downloadBtn.textContent = 'Download';
+  container.appendChild(downloadBtn);
+
+  const user = gridDiv.dataset.userOrcid ? { orcid: gridDiv.dataset.userOrcid } : null;
+  if (user && user.orcid === params.data.uploader_orcid) {
+    const editBtn = document.createElement('a');
+    editBtn.className = 'btn btn-sm btn-outline-primary';
+    editBtn.href = `/api/v1/record/${params.data.id}/edit`;
+    editBtn.textContent = 'Edit';
+    container.appendChild(editBtn);
+  }
+  return container;
+}
+
+const columnDefs = [
+  { field: "name", filter: true, cellRenderer: nameCellRenderer, cellDataType: 'text' },
+  { field: "uploader_name", headerName: 'Author', filter: true, cellDataType: 'text' },
+  { field: "categories", headerName: 'Categories', filter: true, cellRenderer: categoriesCellRenderer, cellDataType: 'text', filterValueGetter: filterCategoriesGetter },
+  { field: "organizations", headerName: 'Organizations', filter: true, cellRenderer: organizationsCellRenderer, cellDataType: 'text', filterValueGetter: filterOrganizationsGetter },
+  { field: "download_count", headerName: 'Downloads', filter: false },
+  { field: "created_at", headerName: 'Created', filter: false, cellRenderer: dateCellRenderer },
+  { field: "actions", filter: false, sortable: false, cellRenderer: actionsCellRenderer },
+];
+
+const gridOptions = {
+  rowData: [],
+  columnDefs: columnDefs,
+  defaultColDef: {
+    flex: 1,
+    sortingOrder: ['asc', 'desc'],
+    floatingFilter: true,
+  },
+  rowHeight: 44,
+  pagination: true,
+  paginationPageSize: 10,
+  paginationPageSizeSelector: [10, 20, 30, 50],
+  onColumnMoved: columnStateChanged,
+  onColumnResized: columnStateChanged,
+  onColumnVisible: columnStateChanged,
+  onColumnPinned: columnStateChanged,
+  onSortChanged: columnStateChanged,
+  onGridReady: restoreColumnState,
+};
+
+function getRecordsOrganizationsIds(records) {
+    const rorIds = [];
+    records.forEach((record) => {
+        rorIds.push(...(record.rors || []));
+    });
+    const uniqueRorIds = [...new Set(rorIds)];
+    return uniqueRorIds;
+}
+
+async function getEnrichedRecords(records) {
+    const uniqueRorIds = getRecordsOrganizationsIds(records)
+    const allOrganizations = await fetchRorOrganizations(uniqueRorIds);
+    const enrichedRecords = records.map((record) => {
+      const matchingOrg = allOrganizations.filter((org) => {
+        return record.rors?.includes(org.id);
+      });
+      return {
+        ...record,
+        organizations: matchingOrg,
+      }
+    })
+    return enrichedRecords;
+}
+
+async function loadBrowseRecords(params) {
+    const query = new URLSearchParams(params);
+    query.set('limit', '0');
+    query.delete('page');
+    const response = await fetch(`api/v1/records?${query.toString()}`);
+    if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+    }
+    const payload = await response.json();
+    const records = await getEnrichedRecords(payload.data);
+    gridApi.setGridOption('rowData', records);
+}
+
+function initializeTableOptions() {
+  document.getElementById('autoSizeColumns')?.addEventListener('click', () => {
+    gridApi.autoSizeAllColumns();
+  });
+
+  document.getElementById('fitColumns')?.addEventListener('click', () => {
+    gridApi.sizeColumnsToFit();
+  });
+
+  document.getElementById('restoreColumnLayout')?.addEventListener('click', () => {
+    gridApi.resetColumnState();
+    try {
+      localStorage.removeItem(COLUMN_STATE_STORAGE_KEY);
+    } catch {
+      // localStorage might be unavailable.
+    }
+  });
+}
+
+async function initializeBrowseGrid() {
+  if (!gridDiv) {
+    return;
+  }
+
+  const options = {
+    ...gridOptions,
+    styleNonce: gridDiv.dataset.styleNonce || undefined,
+  };
+
+  gridApi = agGrid.createGrid(gridDiv, options);
+
+    initializeTableOptions();
+  try {
+    await loadBrowseRecords(new URLSearchParams(window.location.search));
+  } catch (error) {
+    console.error('Unable to load records:', error);
+  }
+}
 
 // Moderation functionality
 function initializeModerationButtons() {
@@ -2402,7 +1913,6 @@ async function moderateRecord(recordId, action, buttonElement) {
       const successToast = document.getElementById('successToast');
       const successToastBody = successToast?.querySelector('.toast-body');
       if (successToast && successToastBody) {
-        const actionText = action.charAt(0).toUpperCase() + action.slice(1);
         successToastBody.textContent = `Record ${action}ed successfully!`;
         const toast = new bootstrap.Toast(successToast, {
           delay: 2000,
