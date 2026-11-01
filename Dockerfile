@@ -33,7 +33,7 @@ RUN sed -i \
 
 # STEP 2
 # Go builder
-FROM golang:1.26.4-alpine3.23@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS gobuilder
+FROM golang:1.27.3-alpine3.24@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS gobuilder
 # this is set at build time
 ARG VERSION=docker
 WORKDIR /app
